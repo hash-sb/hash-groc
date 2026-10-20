@@ -19,6 +19,7 @@ import {
   Zap,
   Eye,
   EyeOff,
+  ArrowDownNarrowWide,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
@@ -68,6 +69,26 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   useEffect(() => {
     localStorage.setItem('hash_groc_hide_empty_stores', String(hideEmptyStores))
   }, [hideEmptyStores])
+
+  // Option: Hide checked items from the aisle categories
+  const [hideCheckedItems, setHideCheckedItems] = useState<boolean>(() => {
+    const saved = localStorage.getItem('hash_groc_shopping_hide_checked')
+    return saved !== null ? saved === 'true' : false
+  })
+
+  useEffect(() => {
+    localStorage.setItem('hash_groc_shopping_hide_checked', String(hideCheckedItems))
+  }, [hideCheckedItems])
+
+  // Option: Move checked items to bottom of each aisle category
+  const [moveCheckedToBottom, setMoveCheckedToBottom] = useState<boolean>(() => {
+    const saved = localStorage.getItem('hash_groc_shopping_checked_bottom')
+    return saved !== null ? saved === 'true' : true
+  })
+
+  useEffect(() => {
+    localStorage.setItem('hash_groc_shopping_checked_bottom', String(moveCheckedToBottom))
+  }, [moveCheckedToBottom])
 
   // All needed items on active shopping list
   const allNeededItems = items.filter((item) => item.isNeeded)
@@ -159,8 +180,36 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     return sum
   }, 0)
 
-  // Group pending items by location in THIS store
-  const locationGroups = groupItemsByShopLocation(pendingItems, currentShop)
+  // Group all available items by location in THIS store
+  const allLocationGroups = useMemo(() => {
+    return groupItemsByShopLocation(availableItems, currentShop)
+  }, [availableItems, currentShop])
+
+  // Filter and sort items within each location group according to user preferences
+  const locationGroups = useMemo(() => {
+    return allLocationGroups
+      .map(({ location, items: groupItems }) => {
+        let itemsToShow = groupItems
+        if (hideCheckedItems) {
+          itemsToShow = itemsToShow.filter((i) => !i.inCart)
+        }
+        if (moveCheckedToBottom) {
+          itemsToShow = [...itemsToShow].sort((a, b) => {
+            if (a.inCart !== b.inCart) {
+              return a.inCart ? 1 : -1 // unchecked first, checked at bottom
+            }
+            return a.name.localeCompare(b.name)
+          })
+        }
+        return {
+          location,
+          items: itemsToShow,
+          pickedCount: groupItems.filter((i) => i.inCart).length,
+          totalCount: groupItems.length,
+        }
+      })
+      .filter((g) => (hideCheckedItems ? g.items.length > 0 : true))
+  }, [allLocationGroups, hideCheckedItems, moveCheckedToBottom])
 
   const toggleSectionCollapse = (location: string) => {
     setCollapsedSections((prev) => ({
@@ -489,24 +538,102 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               : `Either no items are on your list, or none are carried at ${currentShop.name}.`}
           </p>
         </div>
-      ) : pendingItems.length === 0 ? (
-        <div className="text-center py-10 bg-emerald-50 rounded-2xl border border-emerald-200 p-6 mb-6">
-          <PartyPopper className="w-12 h-12 text-emerald-600 mx-auto mb-2 animate-bounce" />
-          <h3 className="text-lg font-bold text-emerald-900">All items picked for {currentShop.name}!</h3>
-          <p className="text-xs text-emerald-700 mt-1">
-            Ready to checkout or proceed to your next store stop?
-          </p>
-          <button
-            onClick={handleFinishTrip}
-            className="mt-4 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-emerald-700 transition"
-          >
-            Review & Finish Trip
-          </button>
-        </div>
       ) : (
         <div className="space-y-4">
-          {locationGroups.map(({ location, items: groupItems }) => {
+          {/* Celebration Card when all items are picked */}
+          {pendingItems.length === 0 && (
+            <div className="text-center py-8 bg-emerald-50 rounded-2xl border border-emerald-200 p-6 mb-2">
+              <PartyPopper className="w-10 h-10 text-emerald-600 mx-auto mb-2 animate-bounce" />
+              <h3 className="text-base sm:text-lg font-bold text-emerald-900">
+                All items picked for {currentShop.name}!
+              </h3>
+              <p className="text-xs text-emerald-700 mt-1">
+                Ready to checkout or proceed to your next store stop?
+              </p>
+              <button
+                onClick={handleFinishTrip}
+                className="mt-3 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition"
+              >
+                Review & Finish Trip
+              </button>
+            </div>
+          )}
+
+          {/* View Options Toolbar: Checked at bottom & Hide checked */}
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2 pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Aisles & Items
+              </span>
+              <span className="text-[11px] font-semibold text-slate-400">
+                ({cartItems.length} of {availableItems.length} picked)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Option: Move checked items to bottom of each aisle category */}
+              <button
+                type="button"
+                onClick={() => setMoveCheckedToBottom((prev) => !prev)}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition border flex items-center gap-1.5 ${
+                  moveCheckedToBottom
+                    ? 'bg-slate-100 text-slate-800 border-slate-300 shadow-2xs font-bold'
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                }`}
+                title="Move crossed-off items to the bottom of each aisle"
+              >
+                <ArrowDownNarrowWide className="w-3.5 h-3.5 text-slate-500" />
+                <span>Checked at bottom</span>
+              </button>
+
+              {/* Option: Hide checked items */}
+              <button
+                type="button"
+                onClick={() => setHideCheckedItems((prev) => !prev)}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition border flex items-center gap-1.5 ${
+                  hideCheckedItems
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs font-bold'
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                }`}
+                title="Hide crossed-off items from the aisles"
+              >
+                {hideCheckedItems ? (
+                  <EyeOff className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5 text-slate-400" />
+                )}
+                <span>Hide checked</span>
+                {hideCheckedItems && cartItems.length > 0 && (
+                  <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded-full font-bold">
+                    {cartItems.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* When all items are checked and hideCheckedItems is ON */}
+          {hideCheckedItems && locationGroups.length === 0 && (
+            <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+              <div className="text-sm font-bold text-slate-800">
+                All {cartItems.length} {cartItems.length === 1 ? 'item is' : 'items are'} checked off and hidden
+              </div>
+              <button
+                type="button"
+                onClick={() => setHideCheckedItems(false)}
+                className="mt-2 text-xs text-emerald-700 font-bold hover:underline"
+              >
+                Show checked items
+              </button>
+            </div>
+          )}
+
+          {/* Location / Aisle Groups */}
+          {locationGroups.map(({ location, items: groupItems, pickedCount, totalCount }) => {
             const isCollapsed = collapsedSections[location]
+            const isAllPickedInAisle = totalCount > 0 && pickedCount === totalCount
+
             return (
               <div
                 key={location}
@@ -518,16 +645,28 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   className="w-full flex items-center justify-between px-4 py-3 bg-slate-50/80 border-b border-slate-100 hover:bg-slate-100/80 transition text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+                    <div
+                      className={`p-1.5 rounded-lg ${
+                        isAllPickedInAisle
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
                       <MapPin className="w-3.5 h-3.5" />
                     </div>
                     <div>
                       <span className="text-xs font-bold text-slate-900 tracking-tight">
                         {location}
                       </span>
-                      <span className="text-[11px] text-slate-500 ml-2">
-                        ({groupItems.length} {groupItems.length === 1 ? 'item' : 'items'})
-                      </span>
+                      {isAllPickedInAisle ? (
+                        <span className="text-[11px] text-emerald-700 font-semibold ml-2">
+                          ✓ All {totalCount} picked
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-slate-500 ml-2">
+                          ({totalCount - pickedCount} to pick • {totalCount} total)
+                        </span>
+                      )}
                     </div>
                   </div>
                   {isCollapsed ? (
@@ -541,6 +680,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 {!isCollapsed && (
                   <div className="divide-y divide-slate-100">
                     {groupItems.map((item) => {
+                      const isPicked = item.inCart
                       const comp = compareShopPrices(item, currentShop.id, shops)
                       const shopDetail = item.shops[currentShop.id]
                       const itemUnitPrice = shopDetail?.price || null
@@ -550,24 +690,44 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       return (
                         <div
                           key={item.id}
-                          className="p-3.5 sm:p-4 hover:bg-slate-50/60 transition flex items-center justify-between gap-3"
+                          className={`p-3.5 sm:p-4 transition flex items-center justify-between gap-3 ${
+                            isPicked
+                              ? 'bg-slate-50/70 hover:bg-slate-100/70'
+                              : 'hover:bg-slate-50/60 bg-white'
+                          }`}
                         >
                           {/* Left: Checkbox & Item details */}
                           <div className="flex items-start gap-3 min-w-0 flex-1">
                             <button
                               onClick={() => toggleInCart(item.id)}
-                              className="text-slate-300 hover:text-emerald-600 transition shrink-0 mt-0.5"
-                              title="Mark as picked into cart"
+                              className="transition shrink-0 mt-0.5"
+                              title={isPicked ? 'Mark as unpicked' : 'Mark as picked into cart'}
                             >
-                              <Circle className="w-6 h-6" />
+                              {isPicked ? (
+                                <CheckCircle2 className="w-6 h-6 text-emerald-600 fill-emerald-100" />
+                              ) : (
+                                <Circle className="w-6 h-6 text-slate-300 hover:text-emerald-600" />
+                              )}
                             </button>
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-baseline gap-2 flex-wrap">
-                                <span className="text-sm font-bold text-slate-900">
+                                <span
+                                  className={`text-sm tracking-tight ${
+                                    isPicked
+                                      ? 'line-through text-slate-400 font-medium'
+                                      : 'text-slate-900 font-bold'
+                                  }`}
+                                >
                                   {item.name}
                                 </span>
-                                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                                <span
+                                  className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                                    isPicked
+                                      ? 'bg-slate-200/60 text-slate-400'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
                                   {quantity} {item.unit}
                                 </span>
                                 <button
@@ -580,40 +740,46 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                               </div>
 
                               {item.notes && (
-                                <p className="text-xs text-slate-500 mt-0.5 italic">
+                                <p
+                                  className={`text-xs mt-0.5 italic ${
+                                    isPicked ? 'text-slate-400 line-through' : 'text-slate-500'
+                                  }`}
+                                >
                                   {item.notes}
                                 </p>
                               )}
 
                               {/* Price Comparison Highlights */}
-                              <div className="mt-1 flex items-center gap-2 flex-wrap">
-                                {comp.isCheaperElsewhere && comp.cheapestShop && (
-                                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                                    <TrendingDown className="w-3 h-3 text-rose-600" />
-                                    <span>
-                                      Cheaper at {comp.cheapestShop.name}:{' '}
-                                      {formatPrice(comp.cheapestPrice)}
-                                      {comp.cheapestUnitPrice && (
-                                        <span className="font-normal ml-0.5">
-                                          ({formatUnitPrice(comp.cheapestUnitPrice, item.shops[comp.cheapestShop.id]?.packageUnit)})
-                                        </span>
-                                      )}
-                                    </span>
-                                  </div>
-                                )}
+                              {!isPicked && (
+                                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                                  {comp.isCheaperElsewhere && comp.cheapestShop && (
+                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                                      <TrendingDown className="w-3 h-3 text-rose-600" />
+                                      <span>
+                                        Cheaper at {comp.cheapestShop.name}:{' '}
+                                        {formatPrice(comp.cheapestPrice)}
+                                        {comp.cheapestUnitPrice && (
+                                          <span className="font-normal ml-0.5">
+                                            ({formatUnitPrice(comp.cheapestUnitPrice, item.shops[comp.cheapestShop.id]?.packageUnit)})
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  )}
 
-                                {comp.isBestPriceHere && (
-                                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    <Sparkles className="w-3 h-3 text-emerald-600" />
-                                    <span>Best Price Here!</span>
-                                  </div>
-                                )}
-                              </div>
+                                  {comp.isBestPriceHere && (
+                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <Sparkles className="w-3 h-3 text-emerald-600" />
+                                      <span>Best Price Here!</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
 
-                          {/* Right: Requirement (5) - Total cost on top line, unit price on second line */}
-                          <div className="shrink-0 flex items-center gap-2">
+                          {/* Right: Price box */}
+                          <div className={`shrink-0 flex items-center gap-2 ${isPicked ? 'opacity-70' : ''}`}>
                             {editingPriceItemId === item.id ? (
                               <div className="flex items-center gap-1">
                                 <span className="text-xs text-slate-500">$</span>
@@ -647,15 +813,19 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                               >
                                 {/* Top line: Total cost */}
                                 <div className="flex items-center gap-1">
-                                  <span className="text-sm font-extrabold text-slate-900 tracking-tight">
+                                  <span
+                                    className={`text-sm font-extrabold tracking-tight ${
+                                      isPicked ? 'line-through text-slate-400' : 'text-slate-900'
+                                    }`}
+                                  >
                                     {formatPrice(totalItemPrice)}
                                   </span>
                                   <Edit2 className="w-3 h-3 text-slate-300 group-hover:text-emerald-600" />
                                 </div>
 
-                                {/* Second line: Price per item when quantity > 1 (Requirement 5) */}
+                                {/* Second line: Price per item when quantity > 1 */}
                                 {quantity > 1 && itemUnitPrice !== null && (
-                                  <div className="text-[10px] text-slate-500 font-medium">
+                                  <div className="text-[10px] text-slate-400 font-medium">
                                     ({formatPrice(itemUnitPrice)} ea × {quantity})
                                   </div>
                                 )}
@@ -680,63 +850,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         </div>
       )}
 
-      {/* 6. In-Cart (Checked Off) Items Section */}
-      {cartItems.length > 0 && (
-        <div className="mt-8 bg-slate-100/70 rounded-2xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                In Cart ({cartItems.length})
-              </span>
-              <span className="text-xs font-semibold text-slate-500">
-                • {formatPrice(cartTotal)}
-              </span>
-            </div>
-            <button
-              onClick={handleFinishTrip}
-              className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1"
-            >
-              <span>Finish Trip</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="space-y-1.5">
-            {cartItems.map((item) => {
-              const itemPrice = item.shops[currentShop.id]?.price || 0
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-white/80 border border-slate-200/80 text-xs transition"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <button
-                      onClick={() => toggleInCart(item.id)}
-                      className="text-emerald-600 hover:text-slate-400 transition shrink-0"
-                      title="Undo check"
-                    >
-                      <CheckCircle2 className="w-5 h-5 fill-emerald-600 text-white" />
-                    </button>
-                    <span className="line-through text-slate-400 font-medium truncate">
-                      {item.name}
-                    </span>
-                    <span className="text-slate-400 text-[11px]">
-                      ({item.quantity} {item.unit})
-                    </span>
-                  </div>
-
-                  <span className="text-slate-400 font-semibold shrink-0">
-                    {formatPrice(itemPrice * item.quantity)}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 7. Sticky Bottom Summary Bar */}
+      {/* 6. Sticky Bottom Summary Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 sm:p-4 z-20 shadow-xl">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
