@@ -379,8 +379,21 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                     />
                     <span>{shop.name}</span>
                     {detail?.price ? (
-                      <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-slate-700">
-                        ${detail.price.toFixed(2)}
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded border font-mono ${
+                          minUnitPriceEntry?.shopId === shop.id && unitPriceEntries.length > 1
+                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold shadow-2xs'
+                            : 'bg-white text-slate-700 border-slate-200'
+                        }`}
+                        title={
+                          detail.unitPrice && detail.packageUnit
+                            ? `Normalized: ${formatUnitPrice(detail.unitPrice, detail.packageUnit)} (Shelf: $${detail.price.toFixed(2)})`
+                            : `Shelf price: $${detail.price.toFixed(2)}`
+                        }
+                      >
+                        {detail.unitPrice && detail.packageUnit
+                          ? formatUnitPrice(detail.unitPrice, detail.packageUnit)
+                          : `$${detail.price.toFixed(2)}`}
                       </span>
                     ) : null}
                   </button>
@@ -392,9 +405,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
             {activeShop && (
               <div className="mt-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div className="w-3 h-3 rounded-full bg-emerald-600" />
                     <span className="text-sm font-bold text-slate-900">{activeShop.name}</span>
+                    {currentShopDetail.unitPrice && currentShopDetail.packageUnit && (
+                      <span className="text-[11px] bg-indigo-100 text-indigo-900 border border-indigo-200 px-2 py-0.5 rounded-md font-mono font-bold">
+                        {formatUnitPrice(currentShopDetail.unitPrice, currentShopDetail.packageUnit)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Availability Toggle */}
