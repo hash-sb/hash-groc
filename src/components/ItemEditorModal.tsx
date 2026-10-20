@@ -627,35 +627,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                         </div>
                       </div>
 
-                      {/* Quick Aisle Chips Directly Below */}
-                      {availableAislesForShop.length > 0 && (
-                        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1.5 pb-0.5">
-                          <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">
-                            Aisles:
-                          </span>
-                          {availableAislesForShop.map((aisle) => {
-                            const isSelected = currentShopDetail.location === aisle
-                            return (
-                              <button
-                                key={aisle}
-                                type="button"
-                                onClick={() => {
-                                  handleShopDetailChange(activeShop.id, { location: aisle })
-                                  setIsAisleDropdownOpen(false)
-                                }}
-                                className={`text-xs px-2.5 py-1 rounded-lg shrink-0 transition border ${
-                                  isSelected
-                                    ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-2xs'
-                                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                                }`}
-                              >
-                                {aisle}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-
                       {/* Dropdown Menu Showing ALL Store Aisles */}
                       {isAisleDropdownOpen && (
                         <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
