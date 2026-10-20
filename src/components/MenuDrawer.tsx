@@ -1,18 +1,16 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   X,
   BarChart3,
   Store,
   Users,
   Cloud,
-  Edit3,
   LogIn,
   ChevronRight,
   RotateCcw,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
-import type { ShoppingItem } from '../types'
 
 interface MenuDrawerProps {
   isOpen: boolean
@@ -20,7 +18,6 @@ interface MenuDrawerProps {
   onOpenStoreManager: () => void
   onOpenHousehold: () => void
   onOpenConfig: () => void
-  onEditItem: (item: ShoppingItem) => void
 }
 
 export const MenuDrawer: React.FC<MenuDrawerProps> = ({
@@ -29,11 +26,9 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onOpenStoreManager,
   onOpenHousehold,
   onOpenConfig,
-  onEditItem,
 }) => {
-  const { setMode, items, household, resetToSampleData } = useShopping()
+  const { setMode, household, resetToSampleData } = useShopping()
   const { user, signInWithGoogle, signOut, isConfigured } = useAuth()
-  const [showItemPicker, setShowItemPicker] = useState(false)
 
   if (!isOpen) return null
 
@@ -51,7 +46,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div>
             <h2 className="text-base font-bold text-slate-900">App Menu</h2>
-            <p className="text-xs text-slate-500">Advanced settings, stores & analysis</p>
+            <p className="text-xs text-slate-500">Settings, stores & analysis</p>
           </div>
           <button
             onClick={onClose}
@@ -127,52 +122,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
             </button>
 
-            {/* 2. Edit Store Details, Aisles & Prices */}
-            <button
-              onClick={() => setShowItemPicker(!showItemPicker)}
-              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition text-left group border border-transparent hover:border-slate-200"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
-                  <Edit3 className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-slate-900">
-                    Edit Item Details & Prices
-                  </div>
-                  <div className="text-xs text-slate-500">Set store aisles, prices & packages</div>
-                </div>
-              </div>
-              <ChevronRight
-                className={`w-4 h-4 text-slate-400 transition-transform ${
-                  showItemPicker ? 'rotate-90' : ''
-                }`}
-              />
-            </button>
-
-            {/* Item Picker for Editing Details */}
-            {showItemPicker && (
-              <div className="pl-12 pr-2 py-1 space-y-1 max-h-48 overflow-y-auto">
-                <div className="text-[11px] text-slate-400 font-semibold mb-1">
-                  Select an item to edit store details:
-                </div>
-                {items.map((i) => (
-                  <button
-                    key={i.id}
-                    onClick={() => {
-                      onEditItem(i)
-                      onClose()
-                    }}
-                    className="w-full text-left p-2 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-900 text-xs font-semibold text-slate-700 truncate transition flex justify-between items-center"
-                  >
-                    <span className="truncate">{i.name}</span>
-                    <span className="text-[10px] text-slate-400 shrink-0">Edit →</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* 3. Manage Stores */}
+            {/* 2. Manage Stores */}
             <button
               onClick={() => {
                 onOpenStoreManager()
@@ -194,7 +144,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
             </button>
 
-            {/* 4. Household & Sync Sharing */}
+            {/* 3. Household & Sync Sharing */}
             <button
               onClick={() => {
                 onOpenHousehold()
@@ -214,7 +164,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
             </button>
 
-            {/* 5. Cloud / Firebase Settings */}
+            {/* 4. Cloud / Firebase Settings */}
             <button
               onClick={() => {
                 onOpenConfig()

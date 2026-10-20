@@ -5,6 +5,8 @@ import {
   Check,
   Search,
   ShoppingBag,
+  Edit2,
+  CheckCheck,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -15,7 +17,9 @@ interface AddModeViewProps {
   onOpenStoreManager: () => void
 }
 
-export const AddModeView: React.FC<AddModeViewProps> = ({}) => {
+export const AddModeView: React.FC<AddModeViewProps> = ({
+  onEditItem,
+}) => {
   const {
     items,
     categories,
@@ -29,6 +33,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({}) => {
   const [quickInput, setQuickInput] = useState('')
   const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
   const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(true)
+  const [isEditMode, setIsEditMode] = useState<boolean>(false)
 
   const neededCount = items.filter((i) => i.isNeeded).length
   const totalCount = items.length
@@ -73,24 +78,17 @@ export const AddModeView: React.FC<AddModeViewProps> = ({}) => {
       }
     })
 
-    // Sort category names
-    const sortedCats = Object.keys(groups).sort((a, b) => {
-      // If activeTab is needed, only show categories with needed items
-      return a.localeCompare(b)
-    })
+    const sortedCats = Object.keys(groups).sort((a, b) => a.localeCompare(b))
 
     return sortedCats.map((cat) => {
       const { needed, unneeded } = groups[cat]
-      // Sort items within each subgroup alphabetically
       needed.sort((a, b) => a.name.localeCompare(b.name))
       unneeded.sort((a, b) => a.name.localeCompare(b.name))
 
       let orderedItems: ShoppingItem[] = []
       if (putUncheckedAtBottom) {
-        // Checked items at top, unchecked at bottom
         orderedItems = [...needed, ...unneeded]
       } else {
-        // Simple alphabetical
         orderedItems = [...needed, ...unneeded].sort((a, b) => a.name.localeCompare(b.name))
       }
 
@@ -139,48 +137,73 @@ export const AddModeView: React.FC<AddModeViewProps> = ({}) => {
         </div>
       </form>
 
-      {/* 2. Simple View Controls (All Items vs Need to Buy Only) */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-4">
-        {/* View Switcher: All Items vs Need to Buy */}
-        <div className="flex bg-slate-200/80 p-1 rounded-xl">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              activeTab === 'all'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>All Items</span>
-            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-bold">
-              {totalCount}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('needed')}
-            className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              activeTab === 'needed'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>Need to Buy</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                activeTab === 'needed'
-                  ? 'bg-white/25 text-white'
-                  : 'bg-emerald-100 text-emerald-800'
+      {/* 2. View Controls & EDIT MODE TOGGLE BUTTON */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-3">
+        {/* Left: View Tabs (All Items vs Need to Buy) */}
+        <div className="flex items-center gap-2">
+          <div className="flex bg-slate-200/80 p-1 rounded-xl shrink-0">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === 'all'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {neededCount}
-            </span>
+              <span>All Items</span>
+              <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-bold">
+                {totalCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('needed')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === 'needed'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>Need to Buy</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  activeTab === 'needed'
+                    ? 'bg-white/25 text-white'
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}
+              >
+                {neededCount}
+              </span>
+            </button>
+          </div>
+
+          {/* EDIT MODE TOGGLE BUTTON (Requested) */}
+          <button
+            type="button"
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs ${
+              isEditMode
+                ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-300'
+                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+            }`}
+            title="Toggle Edit Mode to configure prices, stores & aisles"
+          >
+            {isEditMode ? (
+              <>
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span>Done Editing</span>
+              </>
+            ) : (
+              <>
+                <Edit2 className="w-3.5 h-3.5 text-amber-600" />
+                <span>Edit Items</span>
+              </>
+            )}
           </button>
         </div>
 
-        {/* Search & Sort Option */}
+        {/* Right: Search & Unchecked at bottom toggle */}
         <div className="flex items-center gap-2 justify-between sm:justify-end">
-          {/* Put unchecked items at bottom toggle option */}
           {activeTab === 'all' && (
             <label className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium cursor-pointer select-none">
               <input
@@ -193,8 +216,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({}) => {
             </label>
           )}
 
-          {/* Compact Search */}
-          <div className="relative w-36 sm:w-44">
+          <div className="relative w-36 sm:w-40">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
             <input
               type="text"
@@ -207,7 +229,25 @@ export const AddModeView: React.FC<AddModeViewProps> = ({}) => {
         </div>
       </div>
 
-      {/* 3. Categorized Items List: Simple, Peaceful & Distraction-Free */}
+      {/* Edit Mode Active Banner */}
+      {isEditMode && (
+        <div className="mb-4 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-1.5">
+            <Edit2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>
+              <strong>Edit Mode is ON:</strong> Tap <strong>Edit</strong> on any item to set store prices, aisle locations, or package sizes.
+            </span>
+          </div>
+          <button
+            onClick={() => setIsEditMode(false)}
+            className="text-[11px] font-bold text-amber-700 underline shrink-0 ml-2"
+          >
+            Done
+          </button>
+        </div>
+      )}
+
+      {/* 3. Categorized Items List */}
       {categorizedGroups.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-200 p-6">
           <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-2" />
@@ -258,17 +298,42 @@ export const AddModeView: React.FC<AddModeViewProps> = ({}) => {
                           item.isNeeded ? 'bg-emerald-50/30' : 'hover:bg-slate-50/50'
                         }`}
                       >
-                        {/* Left: Item Name & Unit */}
-                        <div className="min-w-0 flex-1">
-                          <span
-                            className={`text-sm tracking-tight block truncate ${
-                              item.isNeeded
-                                ? 'font-bold text-slate-900'
-                                : 'font-medium text-slate-600'
-                            }`}
-                          >
-                            {item.name}
-                          </span>
+                        {/* Left: Item Name & Unit (Clickable to edit if in Edit Mode) */}
+                        <div
+                          className={`min-w-0 flex-1 ${
+                            isEditMode ? 'cursor-pointer group' : ''
+                          }`}
+                          onClick={() => {
+                            if (isEditMode) onEditItem(item)
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`text-sm tracking-tight block truncate ${
+                                item.isNeeded
+                                  ? 'font-bold text-slate-900'
+                                  : 'font-medium text-slate-600'
+                              } ${isEditMode ? 'group-hover:text-amber-700 underline decoration-amber-300' : ''}`}
+                            >
+                              {item.name}
+                            </span>
+
+                            {/* Edit pill if in edit mode */}
+                            {isEditMode && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onEditItem(item)
+                                }}
+                                className="px-2 py-0.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-bold flex items-center gap-1 transition shrink-0 shadow-2xs"
+                                title="Edit prices & aisles"
+                              >
+                                <Edit2 className="w-2.5 h-2.5" />
+                                <span>Edit</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Middle: Quantity Stepper ([-] [ qty unit ] [+]) */}

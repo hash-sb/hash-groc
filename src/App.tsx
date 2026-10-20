@@ -75,7 +75,6 @@ const AppContent: React.FC = () => {
         onOpenStoreManager={() => setIsStoreManagerOpen(true)}
         onOpenHousehold={() => setIsHouseholdModalOpen(true)}
         onOpenConfig={() => setIsConfigModalOpen(true)}
-        onEditItem={(item) => setEditingItem(item)}
       />
 
       {/* Item Create / Edit Modal */}
