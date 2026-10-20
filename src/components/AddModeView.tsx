@@ -11,6 +11,20 @@ import {
 import type { ShoppingItem } from '../types'
 import { useShopping } from '../context/ShoppingContext'
 
+const COMMON_UNITS = [
+  'items',
+  'bags',
+  'lbs',
+  'oz',
+  'gal',
+  'cartons',
+  'cans',
+  'boxes',
+  'packs',
+  'jars',
+  'bottles',
+]
+
 interface AddModeViewProps {
   onOpenCreateModal: () => void
   onEditItem: (item: ShoppingItem) => void
@@ -32,6 +46,8 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'needed'>('all')
   const [quickInput, setQuickInput] = useState('')
   const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
+  const [quickQuantity, setQuickQuantity] = useState<number>(1)
+  const [quickUnit, setQuickUnit] = useState<string>('items')
   const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(true)
   const [isEditMode, setIsEditMode] = useState<boolean>(false)
 
@@ -41,8 +57,9 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!quickInput.trim()) return
-    await quickAddItem(quickInput.trim(), quickCategory)
+    await quickAddItem(quickInput.trim(), quickCategory, quickQuantity, quickUnit)
     setQuickInput('')
+    setQuickQuantity(1)
   }
 
   // Filter items based on activeTab and search query
@@ -103,37 +120,94 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
   return (
     <div className="pb-28 pt-3 max-w-2xl mx-auto px-3 sm:px-4">
-      {/* 1. Quick Add Bar: Clean & Minimal */}
-      <form onSubmit={handleQuickAdd} className="mb-4">
-        <div className="flex items-center gap-1.5 p-1.5 bg-white border border-slate-300 rounded-2xl shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition">
+      {/* 1. Quick Add Bar: Item Name, Quantity, Unit, & Category */}
+      <form onSubmit={handleQuickAdd} className="mb-4 bg-white border border-slate-300 rounded-2xl p-2 sm:p-2.5 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition">
+        {/* Top: Name Input + Add Button */}
+        <div className="flex items-center gap-2">
           <input
             type="text"
             placeholder="Add an item to buy (e.g. Milk, Bananas)..."
             value={quickInput}
             onChange={(e) => setQuickInput(e.target.value)}
-            className="flex-1 px-3 py-1.5 text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
+            className="flex-1 px-2.5 py-1 text-sm sm:text-base bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
           />
-
-          <select
-            value={quickCategory}
-            onChange={(e) => setQuickCategory(e.target.value)}
-            className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 font-semibold text-slate-700 outline-none max-w-[120px] truncate"
-          >
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
           <button
             type="submit"
             disabled={!quickInput.trim()}
-            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 shadow-xs shrink-0"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs sm:text-sm font-bold rounded-xl transition flex items-center gap-1 shadow-xs shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Add</span>
           </button>
+        </div>
+
+        {/* Bottom Options Row: Quantity Stepper, Unit Selector, and Category */}
+        <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+          {/* Quantity Stepper */}
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+              Qty:
+            </span>
+            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setQuickQuantity((q) => Math.max(1, q - 1))}
+                className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition"
+                title="Decrease quantity"
+              >
+                <Minus className="w-3 h-3" />
+              </button>
+
+              <span className="w-6 text-center font-bold text-xs text-slate-800">
+                {quickQuantity}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setQuickQuantity((q) => q + 1)}
+                className="w-7 h-7 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition"
+                title="Increase quantity"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
+          {/* Unit Selector */}
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+              Unit:
+            </span>
+            <select
+              value={quickUnit}
+              onChange={(e) => setQuickUnit(e.target.value)}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none"
+            >
+              {COMMON_UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Category Selector */}
+          <div className="flex items-center gap-1 flex-1 min-w-[130px]">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+              Category:
+            </span>
+            <select
+              value={quickCategory}
+              onChange={(e) => setQuickCategory(e.target.value)}
+              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none truncate"
+            >
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </form>
 

@@ -32,7 +32,12 @@ interface ShoppingContextType {
   moveShopOrder: (shopId: string, direction: 'left' | 'right') => Promise<void>
   // Item operations
   addItem: (itemData: Omit<ShoppingItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>
-  quickAddItem: (name: string, category?: string) => Promise<string>
+  quickAddItem: (
+    name: string,
+    category?: string,
+    quantity?: number,
+    unit?: string
+  ) => Promise<string>
   updateItem: (id: string, updates: Partial<ShoppingItem>) => Promise<void>
   deleteItem: (id: string) => Promise<void>
   changeItemQuantity: (id: string, delta: number) => Promise<void>
@@ -369,7 +374,12 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return id
   }
 
-  const quickAddItem = async (name: string, category = 'Produce') => {
+  const quickAddItem = async (
+    name: string,
+    category = 'Produce',
+    quantity = 1,
+    unit = 'items'
+  ) => {
     const trimmed = name.trim()
     if (!trimmed) return ''
 
@@ -386,8 +396,8 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return await addItem({
       name: trimmed,
       category,
-      quantity: 1,
-      unit: 'items',
+      quantity: Math.max(1, quantity),
+      unit: unit || 'items',
       isNeeded: true,
       inCart: false,
       shops: initialShops,
