@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem } from '../types'
+import { COMMON_UNITS } from '../types'
 import { useShopping } from '../context/ShoppingContext'
 import { formatUnitPrice } from '../utils/pricing'
 
@@ -19,7 +20,6 @@ interface ItemEditorModalProps {
   onClose: () => void
 }
 
-const COMMON_UNITS = ['items', 'bags', 'lbs', 'oz', 'gal', 'cartons', 'cans', 'boxes', 'packs', 'jars', 'bottles']
 const COMMON_PKG_UNITS = ['oz', 'lb', 'gal', 'fl oz', 'ct', 'can', 'bottle', 'bar']
 
 export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose }) => {
@@ -28,7 +28,9 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
   const [name, setName] = useState(item?.name || '')
   const [category, setCategory] = useState(item?.category || (categories[0] || 'Produce'))
   const [quantity, setQuantity] = useState(item?.quantity || 1)
-  const [unit, setUnit] = useState(item?.unit || 'items')
+  const [unit, setUnit] = useState(
+    item?.unit && item.unit !== 'items' ? item.unit : 'pieces'
+  )
   const [notes, setNotes] = useState(item?.notes || '')
   const [isNeeded, setIsNeeded] = useState(item ? item.isNeeded : true)
 

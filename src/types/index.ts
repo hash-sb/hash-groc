@@ -43,4 +43,29 @@ export interface Household {
   storeOrder?: string[]
 }
 
+export const COMMON_UNITS = [
+  'pieces',
+  'dozens',
+  'bags',
+  'lbs',
+  'oz',
+  'kg',
+  'gal',
+  'qt',
+  'pt',
+  'liters',
+  'fl oz',
+  'cartons',
+  'cans',
+  'boxes',
+  'packs',
+  'jars',
+  'bottles',
+  'bunches',
+  'heads',
+  'loaves',
+  'tubs',
+  'rolls',
+] as const
+
 export type AppMode = 'add' | 'shopping' | 'analysis'

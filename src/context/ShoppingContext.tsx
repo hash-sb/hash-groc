@@ -378,7 +378,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     name: string,
     category = 'Produce',
     quantity = 1,
-    unit = 'items'
+    unit = 'pieces'
   ) => {
     const trimmed = name.trim()
     if (!trimmed) return ''
@@ -397,7 +397,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       name: trimmed,
       category,
       quantity: Math.max(1, quantity),
-      unit: unit || 'items',
+      unit: unit || 'pieces',
       isNeeded: true,
       inCart: false,
       shops: initialShops,

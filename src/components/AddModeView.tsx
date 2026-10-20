@@ -12,21 +12,8 @@ import {
   Unlock,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
+import { COMMON_UNITS } from '../types'
 import { useShopping } from '../context/ShoppingContext'
-
-const COMMON_UNITS = [
-  'items',
-  'bags',
-  'lbs',
-  'oz',
-  'gal',
-  'cartons',
-  'cans',
-  'boxes',
-  'packs',
-  'jars',
-  'bottles',
-]
 
 interface AddModeViewProps {
   onOpenCreateModal: () => void
@@ -50,7 +37,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [quickInput, setQuickInput] = useState('')
   const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
-  const [quickUnit, setQuickUnit] = useState<string>('items')
+  const [quickUnit, setQuickUnit] = useState<string>('pieces')
   const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(true)
   const [isLockedItems, setIsLockedItems] = useState<boolean>(() => {
     return localStorage.getItem('hash_groc_lock_items') === 'true'
