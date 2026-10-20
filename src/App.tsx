@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar'
 import { AddModeView } from './components/AddModeView'
 import { ShoppingModeView } from './components/ShoppingModeView'
 import { AnalysisModeView } from './components/AnalysisModeView'
+import { MenuDrawer } from './components/MenuDrawer'
 import { ItemEditorModal } from './components/ItemEditorModal'
 import { ShopManagerModal } from './components/ShopManagerModal'
 import { HouseholdModal } from './components/HouseholdModal'
@@ -12,8 +13,9 @@ import { FirebaseConfigModal } from './components/FirebaseConfigModal'
 import type { ShoppingItem } from './types'
 
 const AppContent: React.FC = () => {
-  const { mode, loading } = useShopping()
+  const { mode, setMode, loading } = useShopping()
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isStoreManagerOpen, setIsStoreManagerOpen] = useState(false)
@@ -33,10 +35,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <Navbar
-        onOpenHousehold={() => setIsHouseholdModalOpen(true)}
-        onOpenConfig={() => setIsConfigModalOpen(true)}
-      />
+      <Navbar onOpenMenu={() => setIsMenuOpen(true)} />
 
       <main>
         {mode === 'add' && (
@@ -55,9 +54,29 @@ const AppContent: React.FC = () => {
         )}
 
         {mode === 'analysis' && (
-          <AnalysisModeView onEditItem={(item) => setEditingItem(item)} />
+          <div>
+            <div className="max-w-7xl mx-auto px-4 pt-3 pb-1">
+              <button
+                onClick={() => setMode('add')}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+              >
+                <span>← Back to Simple List</span>
+              </button>
+            </div>
+            <AnalysisModeView onEditItem={(item) => setEditingItem(item)} />
+          </div>
         )}
       </main>
+
+      {/* Slide-out Menu Drawer for all secondary options */}
+      <MenuDrawer
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        onOpenStoreManager={() => setIsStoreManagerOpen(true)}
+        onOpenHousehold={() => setIsHouseholdModalOpen(true)}
+        onOpenConfig={() => setIsConfigModalOpen(true)}
+        onEditItem={(item) => setEditingItem(item)}
+      />
 
       {/* Item Create / Edit Modal */}
       {(isCreateModalOpen || editingItem) && (
