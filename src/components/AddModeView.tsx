@@ -5,10 +5,11 @@ import {
   Check,
   Search,
   ShoppingBag,
-  Edit2,
   MoreHorizontal,
   ArrowDownWideNarrow,
   SlidersHorizontal,
+  Lock,
+  Unlock,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -51,10 +52,17 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
   const [quickUnit, setQuickUnit] = useState<string>('items')
   const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(true)
-  const [isEditMode, setIsEditMode] = useState<boolean>(false)
+  const [isLockedItems, setIsLockedItems] = useState<boolean>(() => {
+    return localStorage.getItem('hash_groc_lock_items') === 'true'
+  })
   const [showOptionsPopover, setShowOptionsPopover] = useState<boolean>(false)
 
   const popoverRef = useRef<HTMLDivElement>(null)
+
+  // Persist lock items setting
+  useEffect(() => {
+    localStorage.setItem('hash_groc_lock_items', String(isLockedItems))
+  }, [isLockedItems])
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -286,46 +294,62 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             <button
               type="button"
               onClick={() => setShowOptionsPopover(!showOptionsPopover)}
-              className={`p-1.5 rounded-xl border transition shadow-2xs ${
-                showOptionsPopover || isEditMode
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+              className={`p-1.5 rounded-xl border transition shadow-2xs flex items-center gap-1 ${
+                showOptionsPopover || isLockedItems
+                  ? 'border-amber-400 bg-amber-50 text-amber-800'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
               }`}
               title="View Options & Settings"
             >
-              <MoreHorizontal className="w-4 h-4" />
+              {isLockedItems ? (
+                <Lock className="w-3.5 h-3.5 text-amber-600" />
+              ) : (
+                <MoreHorizontal className="w-4 h-4" />
+              )}
             </button>
 
             {/* Dropdown Popover */}
             {showOptionsPopover && (
-              <div className="absolute right-0 top-9 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 z-30 animate-in fade-in duration-150">
+              <div className="absolute right-0 top-9 w-64 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 z-30 animate-in fade-in duration-150">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1">
                   <SlidersHorizontal className="w-3 h-3 text-slate-400" />
-                  <span>List Options</span>
+                  <span>List Settings</span>
                 </div>
 
-                <div className="space-y-2">
-                  {/* Option 1: Edit Items Mode Switch */}
+                <div className="space-y-1.5">
+                  {/* Option 1: Lock Items (Requested) */}
                   <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs">
                     <div className="flex items-center gap-2">
-                      <Edit2 className="w-3.5 h-3.5 text-amber-600" />
-                      <span className="font-semibold text-slate-800">Edit Items Mode</span>
+                      {isLockedItems ? (
+                        <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                      ) : (
+                        <Unlock className="w-4 h-4 text-slate-400 shrink-0" />
+                      )}
+                      <div>
+                        <div className="font-semibold text-slate-800">Lock Items</div>
+                        <div className="text-[10px] text-slate-400">
+                          {isLockedItems ? 'Tapping title is disabled' : 'Tap item title to edit'}
+                        </div>
+                      </div>
                     </div>
                     <input
                       type="checkbox"
-                      checked={isEditMode}
+                      checked={isLockedItems}
                       onChange={(e) => {
-                        setIsEditMode(e.target.checked)
+                        setIsLockedItems(e.target.checked)
                       }}
-                      className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500"
+                      className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 shrink-0 ml-2"
                     />
                   </label>
 
                   {/* Option 2: Put unchecked at bottom Switch */}
                   <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs">
                     <div className="flex items-center gap-2">
-                      <ArrowDownWideNarrow className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="font-semibold text-slate-800">Unchecked at bottom</span>
+                      <ArrowDownWideNarrow className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-slate-800">Unchecked at bottom</div>
+                        <div className="text-[10px] text-slate-400">Sort needed items to top</div>
+                      </div>
                     </div>
                     <input
                       type="checkbox"
@@ -333,7 +357,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                       onChange={(e) => {
                         setPutUncheckedAtBottom(e.target.checked)
                       }}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2"
                     />
                   </label>
                 </div>
@@ -342,24 +366,6 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Optional Banner when Edit Mode is active */}
-      {isEditMode && (
-        <div className="mb-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between animate-in fade-in">
-          <div className="flex items-center gap-1.5">
-            <Edit2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span>
-              <strong>Edit Mode Active:</strong> Tap any item or its edit button to set prices and aisles.
-            </span>
-          </div>
-          <button
-            onClick={() => setIsEditMode(false)}
-            className="text-[11px] font-bold text-amber-700 underline shrink-0 ml-2"
-          >
-            Done
-          </button>
-        </div>
-      )}
 
       {/* 3. Categorized Items List */}
       {categorizedGroups.length === 0 ? (
@@ -412,39 +418,25 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           item.isNeeded ? 'bg-emerald-50/30' : 'hover:bg-slate-50/50'
                         }`}
                       >
-                        {/* Left: Item Name & Unit (Clickable to edit anytime or in edit mode) */}
+                        {/* Left: Item Name & Unit (Clickable to edit when not locked) */}
                         <div
-                          className="min-w-0 flex-1 cursor-pointer group"
-                          onClick={() => onEditItem(item)}
-                          title="Click to view/edit details"
+                          className={`min-w-0 flex-1 ${
+                            !isLockedItems ? 'cursor-pointer group' : ''
+                          }`}
+                          onClick={() => {
+                            if (!isLockedItems) onEditItem(item)
+                          }}
+                          title={!isLockedItems ? 'Click to edit item & prices' : undefined}
                         >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-sm tracking-tight block truncate ${
-                                item.isNeeded
-                                  ? 'font-bold text-slate-900'
-                                  : 'font-medium text-slate-600'
-                              } group-hover:text-emerald-700`}
-                            >
-                              {item.name}
-                            </span>
-
-                            {/* Edit pill if in edit mode */}
-                            {isEditMode && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onEditItem(item)
-                                }}
-                                className="px-2 py-0.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-bold flex items-center gap-1 transition shrink-0 shadow-2xs"
-                                title="Edit prices & aisles"
-                              >
-                                <Edit2 className="w-2.5 h-2.5" />
-                                <span>Edit</span>
-                              </button>
-                            )}
-                          </div>
+                          <span
+                            className={`text-sm tracking-tight block truncate ${
+                              item.isNeeded
+                                ? 'font-bold text-slate-900'
+                                : 'font-medium text-slate-600'
+                            } ${!isLockedItems ? 'group-hover:text-emerald-700' : ''}`}
+                          >
+                            {item.name}
+                          </span>
                         </div>
 
                         {/* Middle: Quantity Stepper ([-] [ qty unit ] [+]) */}
