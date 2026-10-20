@@ -8,7 +8,6 @@ import {
   Plus,
   Minus,
   Scale,
-  Sparkles,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem } from '../types'
 import { COMMON_UNITS } from '../types'
@@ -395,23 +394,16 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                     </div>
 
                     {/* Bottom: Stacked Normalized Unit Price */}
-                    <div className="mt-1.5">
+                    <div className="mt-1">
                       {isAvailable ? (
                         detail?.price ? (
-                          <div>
-                            <div className="text-xs font-mono font-extrabold text-slate-900 leading-tight">
-                              {detail.unitPrice && detail.packageUnit
-                                ? formatUnitPrice(detail.unitPrice, detail.packageUnit)
-                                : `$${detail.price.toFixed(2)}`}
-                            </div>
-                            {detail.packageSize && detail.packageSize > 0 && (
-                              <div className="text-[10px] text-slate-400 font-normal truncate mt-0.5">
-                                (${detail.price.toFixed(2)} shelf)
-                              </div>
-                            )}
+                          <div className="text-[11px] font-mono font-bold text-slate-800 leading-tight">
+                            {detail.unitPrice && detail.packageUnit
+                              ? formatUnitPrice(detail.unitPrice, detail.packageUnit)
+                              : `$${detail.price.toFixed(2)}`}
                           </div>
                         ) : (
-                          <div className="text-[11px] text-slate-400 italic">No price</div>
+                          <div className="text-[10px] text-slate-400 italic">No price</div>
                         )
                       ) : (
                         <div className="text-[10px] text-rose-600 font-semibold">Not carried</div>
@@ -426,14 +418,9 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
             {activeShop && (
               <div className="mt-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-emerald-600" />
                     <span className="text-sm font-bold text-slate-900">{activeShop.name}</span>
-                    {currentShopDetail.unitPrice && currentShopDetail.packageUnit && (
-                      <span className="text-[11px] bg-indigo-100 text-indigo-900 border border-indigo-200 px-2 py-0.5 rounded-md font-mono font-bold">
-                        {formatUnitPrice(currentShopDetail.unitPrice, currentShopDetail.packageUnit)}
-                      </span>
-                    )}
                   </div>
 
                   {/* Availability Toggle */}
@@ -537,30 +524,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                         </div>
                       </div>
                     </div>
-
-                    {/* Normalized Unit Price Banner */}
-                    {currentShopDetail.unitPrice && (
-                      <div className="p-2.5 rounded-xl bg-indigo-50/80 border border-indigo-200 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5 text-indigo-900 font-semibold">
-                          <Scale className="w-4 h-4 text-indigo-600" />
-                          <span>Normalized Unit Price:</span>
-                          <span className="font-mono font-bold text-indigo-950">
-                            {formatUnitPrice(
-                              currentShopDetail.unitPrice,
-                              currentShopDetail.packageUnit
-                            )}
-                          </span>
-                        </div>
-
-                        {/* Best Unit Price Indicator */}
-                        {minUnitPriceEntry && minUnitPriceEntry.shopId === activeShop.id && unitPriceEntries.length > 1 && (
-                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md flex items-center gap-1 border border-emerald-300">
-                            <Sparkles className="w-3 h-3 text-emerald-600" />
-                            Lowest unit cost!
-                          </span>
-                        )}
-                      </div>
-                    )}
 
                     {/* Location / Aisle */}
                     <div>
