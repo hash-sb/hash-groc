@@ -564,7 +564,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                     </div>
 
                     {/* Location / Aisle Combobox */}
-                    <div className="relative" ref={aisleDropdownRef}>
+                    <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-emerald-600" />
@@ -584,8 +584,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                         )}
                       </div>
 
-                      {/* Input with Clear and Chevron Dropdown Toggle */}
-                      <div className="relative">
+                      {/* Input Container - directly anchors dropdown under this box */}
+                      <div className="relative" ref={aisleDropdownRef}>
                         <input
                           type="text"
                           placeholder="Select an aisle or type custom..."
@@ -625,80 +625,67 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                             )}
                           </button>
                         </div>
-                      </div>
 
-                      {/* Dropdown Menu Showing ALL Store Aisles */}
-                      {isAisleDropdownOpen && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
-                          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/90">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                              All Aisles in {activeShop.name} ({availableAislesForShop.length})
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setIsAisleDropdownOpen(false)}
-                              className="text-xs text-slate-400 hover:text-slate-700 font-semibold"
-                            >
-                              Done
-                            </button>
-                          </div>
-
-                          <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 p-1">
-                            {/* Clear option */}
-                            {currentShopDetail.location && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleShopDetailChange(activeShop.id, { location: '' })
-                                  setIsAisleDropdownOpen(false)
-                                }}
-                                className="w-full px-3 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 rounded-xl flex items-center justify-between transition"
-                              >
-                                <span>Clear Aisle (Unassigned)</span>
-                                <X className="w-3.5 h-3.5 text-rose-400" />
-                              </button>
-                            )}
-
-                            {/* List of all available aisles */}
-                            {availableAislesForShop.map((aisle) => {
-                              const isSelected = currentShopDetail.location === aisle
-                              return (
+                        {/* Dropdown Menu directly under the Aisle input box */}
+                        {isAisleDropdownOpen && (
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in duration-75">
+                            <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 p-1">
+                              {/* Option: Clear / Unassigned */}
+                              {currentShopDetail.location && (
                                 <button
-                                  key={aisle}
                                   type="button"
                                   onClick={() => {
-                                    handleShopDetailChange(activeShop.id, { location: aisle })
+                                    handleShopDetailChange(activeShop.id, { location: '' })
                                     setIsAisleDropdownOpen(false)
                                   }}
-                                  className={`w-full px-3 py-2 text-left text-xs rounded-xl flex items-center justify-between transition ${
-                                    isSelected
-                                      ? 'bg-emerald-50 text-emerald-950 font-bold'
-                                      : 'text-slate-700 hover:bg-slate-50'
-                                  }`}
+                                  className="w-full px-3 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center justify-between transition"
                                 >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <MapPin
-                                      className={`w-3.5 h-3.5 shrink-0 ${
-                                        isSelected ? 'text-emerald-600' : 'text-slate-400'
-                                      }`}
-                                    />
-                                    <span className="truncate">{aisle}</span>
-                                  </div>
-                                  {isSelected && (
-                                    <Check className="w-4 h-4 text-emerald-600 shrink-0 ml-2" />
-                                  )}
+                                  <span>Clear Aisle (Unassigned)</span>
+                                  <X className="w-3.5 h-3.5 text-rose-400" />
                                 </button>
-                              )
-                            })}
+                              )}
 
-                            {availableAislesForShop.length === 0 && (
-                              <div className="p-3 text-center text-xs text-slate-400">
-                                No aisles configured for {activeShop.name}. Type in the field to set a location.
-                              </div>
-                            )}
+                              {/* List of all available aisles */}
+                              {availableAislesForShop.map((aisle) => {
+                                const isSelected = currentShopDetail.location === aisle
+                                return (
+                                  <button
+                                    key={aisle}
+                                    type="button"
+                                    onClick={() => {
+                                      handleShopDetailChange(activeShop.id, { location: aisle })
+                                      setIsAisleDropdownOpen(false)
+                                    }}
+                                    className={`w-full px-3 py-2 text-left text-xs rounded-lg flex items-center justify-between transition ${
+                                      isSelected
+                                        ? 'bg-emerald-50 text-emerald-950 font-bold'
+                                        : 'text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <MapPin
+                                        className={`w-3.5 h-3.5 shrink-0 ${
+                                          isSelected ? 'text-emerald-600' : 'text-slate-400'
+                                        }`}
+                                      />
+                                      <span className="truncate">{aisle}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <Check className="w-4 h-4 text-emerald-600 shrink-0 ml-2" />
+                                    )}
+                                  </button>
+                                )
+                              })}
+
+                              {availableAislesForShop.length === 0 && (
+                                <div className="p-3 text-center text-xs text-slate-400">
+                                  No aisles configured for {activeShop.name}. Type above to add a location.
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
                     {/* Store Packaging Note */}
