@@ -467,11 +467,11 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           </button>
                         </div>
 
-                        {/* Right: Buy / Remove Toggle Button */}
+                        {/* Right: Buy / Remove Toggle Button (Fixed Width w-20 to prevent layout shift) */}
                         <button
                           type="button"
                           onClick={() => toggleNeeded(item.id)}
-                          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shrink-0 shadow-2xs ${
+                          className={`w-20 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 shrink-0 shadow-2xs ${
                             item.isNeeded
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                               : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200'
