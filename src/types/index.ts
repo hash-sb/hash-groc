@@ -1,0 +1,46 @@
+export interface Shop {
+  id: string
+  name: string
+  color: string // Tailwind color key, e.g. 'emerald', 'amber', 'rose', 'blue', 'purple'
+  icon?: string // icon name or emoji
+  defaultAisles: string[] // common aisle/location suggestions in this shop
+  notes?: string
+  orderIndex?: number // Custom sequence for shopping trip planning (Stop 1, Stop 2...)
+}
+
+export interface ItemShopDetail {
+  available: boolean // Include / Exclude in this shop
+  price: number | null // Base price in USD
+  location: string // Location / Aisle in this particular shop (e.g. 'Aisle 3', 'Back Cooler')
+  unitSize?: string // e.g. '2-pack', '32 oz'
+  packageSize?: number | null // e.g. 56 (for 56 oz) or 2 (for 2 gal)
+  packageUnit?: string // e.g. 'oz', 'lb', 'gal', 'ct', 'can', 'bottle'
+  unitPrice?: number | null // Computed price per packageUnit (e.g. $0.18 / oz)
+  notes?: string
+}
+
+export interface ShoppingItem {
+  id: string
+  name: string
+  category: string // e.g. 'Produce', 'Dairy & Eggs', 'Pantry'
+  quantity: number
+  unit: string // e.g., 'items', 'bags', 'lbs', 'gallons', 'cans', 'boxes'
+  isNeeded: boolean // True if currently on the active shopping list
+  inCart: boolean // True if picked up in the current shopping session
+  notes?: string
+  shops: Record<string, ItemShopDetail> // Keyed by Shop.id
+  createdAt: number
+  updatedAt: number
+}
+
+export interface Household {
+  id: string
+  name: string
+  inviteCode: string
+  createdByUserEmail?: string
+  memberEmails?: string[]
+  customCategories?: string[]
+  storeOrder?: string[]
+}
+
+export type AppMode = 'add' | 'shopping' | 'analysis'
