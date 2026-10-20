@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Plus,
   Minus,
@@ -6,7 +6,9 @@ import {
   Search,
   ShoppingBag,
   Edit2,
-  CheckCheck,
+  MoreHorizontal,
+  ArrowDownWideNarrow,
+  SlidersHorizontal,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -50,6 +52,22 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [quickUnit, setQuickUnit] = useState<string>('items')
   const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(true)
   const [isEditMode, setIsEditMode] = useState<boolean>(false)
+  const [showOptionsPopover, setShowOptionsPopover] = useState<boolean>(false)
+
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setShowOptionsPopover(false)
+      }
+    }
+    if (showOptionsPopover) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showOptionsPopover])
 
   const neededCount = items.filter((i) => i.isNeeded).length
   const totalCount = items.length
@@ -211,86 +229,48 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         </div>
       </form>
 
-      {/* 2. View Controls & EDIT MODE TOGGLE BUTTON */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-3">
+      {/* 2. Clean View Controls: All Items / Need to Buy + Search + Subtle '···' View Options */}
+      <div className="flex items-center justify-between gap-2 mb-3">
         {/* Left: View Tabs (All Items vs Need to Buy) */}
-        <div className="flex items-center gap-2">
-          <div className="flex bg-slate-200/80 p-1 rounded-xl shrink-0">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === 'all'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span>All Items</span>
-              <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-bold">
-                {totalCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('needed')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === 'needed'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span>Need to Buy</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                  activeTab === 'needed'
-                    ? 'bg-white/25 text-white'
-                    : 'bg-emerald-100 text-emerald-800'
-                }`}
-              >
-                {neededCount}
-              </span>
-            </button>
-          </div>
-
-          {/* EDIT MODE TOGGLE BUTTON (Requested) */}
+        <div className="flex bg-slate-200/80 p-1 rounded-xl shrink-0">
           <button
-            type="button"
-            onClick={() => setIsEditMode(!isEditMode)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs ${
-              isEditMode
-                ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-300'
-                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+            onClick={() => setActiveTab('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'all'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
-            title="Toggle Edit Mode to configure prices, stores & aisles"
           >
-            {isEditMode ? (
-              <>
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span>Done Editing</span>
-              </>
-            ) : (
-              <>
-                <Edit2 className="w-3.5 h-3.5 text-amber-600" />
-                <span>Edit Items</span>
-              </>
-            )}
+            <span>All Items</span>
+            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-bold">
+              {totalCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('needed')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'needed'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span>Need to Buy</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                activeTab === 'needed'
+                  ? 'bg-white/25 text-white'
+                  : 'bg-emerald-100 text-emerald-800'
+              }`}
+            >
+              {neededCount}
+            </span>
           </button>
         </div>
 
-        {/* Right: Search & Unchecked at bottom toggle */}
-        <div className="flex items-center gap-2 justify-between sm:justify-end">
-          {activeTab === 'all' && (
-            <label className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={putUncheckedAtBottom}
-                onChange={(e) => setPutUncheckedAtBottom(e.target.checked)}
-                className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
-              />
-              <span>Unchecked at bottom</span>
-            </label>
-          )}
-
-          <div className="relative w-36 sm:w-40">
+        {/* Right: Compact Search & Subtle '···' View Options Icon */}
+        <div className="flex items-center gap-1.5">
+          <div className="relative w-32 sm:w-40">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
             <input
               type="text"
@@ -300,16 +280,76 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
               className="w-full pl-8 pr-2 py-1 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
           </div>
+
+          {/* Subtle '···' View Options Button & Dropdown */}
+          <div className="relative" ref={popoverRef}>
+            <button
+              type="button"
+              onClick={() => setShowOptionsPopover(!showOptionsPopover)}
+              className={`p-1.5 rounded-xl border transition shadow-2xs ${
+                showOptionsPopover || isEditMode
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+              }`}
+              title="View Options & Settings"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+
+            {/* Dropdown Popover */}
+            {showOptionsPopover && (
+              <div className="absolute right-0 top-9 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 z-30 animate-in fade-in duration-150">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1">
+                  <SlidersHorizontal className="w-3 h-3 text-slate-400" />
+                  <span>List Options</span>
+                </div>
+
+                <div className="space-y-2">
+                  {/* Option 1: Edit Items Mode Switch */}
+                  <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs">
+                    <div className="flex items-center gap-2">
+                      <Edit2 className="w-3.5 h-3.5 text-amber-600" />
+                      <span className="font-semibold text-slate-800">Edit Items Mode</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isEditMode}
+                      onChange={(e) => {
+                        setIsEditMode(e.target.checked)
+                      }}
+                      className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500"
+                    />
+                  </label>
+
+                  {/* Option 2: Put unchecked at bottom Switch */}
+                  <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs">
+                    <div className="flex items-center gap-2">
+                      <ArrowDownWideNarrow className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="font-semibold text-slate-800">Unchecked at bottom</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={putUncheckedAtBottom}
+                      onChange={(e) => {
+                        setPutUncheckedAtBottom(e.target.checked)
+                      }}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Edit Mode Active Banner */}
+      {/* Optional Banner when Edit Mode is active */}
       {isEditMode && (
-        <div className="mb-4 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between animate-in fade-in">
+        <div className="mb-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between animate-in fade-in">
           <div className="flex items-center gap-1.5">
             <Edit2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
             <span>
-              <strong>Edit Mode is ON:</strong> Tap <strong>Edit</strong> on any item to set store prices, aisle locations, or package sizes.
+              <strong>Edit Mode Active:</strong> Tap any item or its edit button to set prices and aisles.
             </span>
           </div>
           <button
@@ -372,14 +412,11 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           item.isNeeded ? 'bg-emerald-50/30' : 'hover:bg-slate-50/50'
                         }`}
                       >
-                        {/* Left: Item Name & Unit (Clickable to edit if in Edit Mode) */}
+                        {/* Left: Item Name & Unit (Clickable to edit anytime or in edit mode) */}
                         <div
-                          className={`min-w-0 flex-1 ${
-                            isEditMode ? 'cursor-pointer group' : ''
-                          }`}
-                          onClick={() => {
-                            if (isEditMode) onEditItem(item)
-                          }}
+                          className="min-w-0 flex-1 cursor-pointer group"
+                          onClick={() => onEditItem(item)}
+                          title="Click to view/edit details"
                         >
                           <div className="flex items-center gap-2">
                             <span
@@ -387,7 +424,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                                 item.isNeeded
                                   ? 'font-bold text-slate-900'
                                   : 'font-medium text-slate-600'
-                              } ${isEditMode ? 'group-hover:text-amber-700 underline decoration-amber-300' : ''}`}
+                              } group-hover:text-emerald-700`}
                             >
                               {item.name}
                             </span>
