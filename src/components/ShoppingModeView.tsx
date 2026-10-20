@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   CheckCircle2,
   Circle,
@@ -16,10 +16,19 @@ import {
   ArrowLeft,
   DollarSign,
   Plus,
+  Minus,
   Zap,
   Eye,
   EyeOff,
   ArrowDownNarrowWide,
+  Sun,
+  Moon,
+  PackageX,
+  Scale,
+  Calculator,
+  Navigation,
+  Check,
+  X,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
@@ -49,13 +58,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     setSaveMode,
     moveShopOrder,
     items,
+    updateItem,
     toggleInCart,
     updateItemShopDetail,
     clearCart,
   } = useShopping()
 
-  const [editingPriceItemId, setEditingPriceItemId] = useState<string | null>(null)
-  const [tempPriceInput, setTempPriceInput] = useState<string>('')
   const [showUnavailableDrawer, setShowUnavailableDrawer] = useState<boolean>(false)
   const [showTripSummary, setShowTripSummary] = useState<boolean>(false)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
@@ -89,6 +97,104 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   useEffect(() => {
     localStorage.setItem('hash_groc_shopping_checked_bottom', String(moveCheckedToBottom))
   }, [moveCheckedToBottom])
+
+  // Feature 1: Screen Wake Lock (keep screen awake while shopping)
+  const [keepScreenAwake, setKeepScreenAwake] = useState<boolean>(() => {
+    const saved = localStorage.getItem('hash_groc_wake_lock')
+    return saved !== null ? saved === 'true' : true
+  })
+  const [wakeLockActive, setWakeLockActive] = useState<boolean>(false)
+  const wakeLockRef = useRef<any>(null)
+
+  useEffect(() => {
+    localStorage.setItem('hash_groc_wake_lock', String(keepScreenAwake))
+  }, [keepScreenAwake])
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator) || !keepScreenAwake) {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {})
+        wakeLockRef.current = null
+        setWakeLockActive(false)
+      }
+      return
+    }
+
+    let isMounted = true
+    const requestLock = async () => {
+      try {
+        const lock = await (navigator as any).wakeLock.request('screen')
+        if (isMounted) {
+          wakeLockRef.current = lock
+          setWakeLockActive(true)
+          lock.addEventListener('release', () => {
+            if (isMounted) setWakeLockActive(false)
+          })
+        }
+      } catch {
+        if (isMounted) setWakeLockActive(false)
+      }
+    }
+
+    requestLock()
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && keepScreenAwake) {
+        requestLock()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      isMounted = false
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {})
+        wakeLockRef.current = null
+      }
+    }
+  }, [keepScreenAwake])
+
+  // Feature 1: Haptic feedback helper
+  const triggerHaptic = (ms = 20) => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(ms)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Feature 2: Auto-collapse completed aisles
+  const [autoCollapseCompleted, setAutoCollapseCompleted] = useState<boolean>(() => {
+    const saved = localStorage.getItem('hash_groc_auto_collapse_aisles')
+    return saved !== null ? saved === 'true' : true
+  })
+
+  useEffect(() => {
+    localStorage.setItem('hash_groc_auto_collapse_aisles', String(autoCollapseCompleted))
+  }, [autoCollapseCompleted])
+
+  // Feature 3: Out of stock state & feedback toast
+  const [outOfStockItem, setOutOfStockItem] = useState<ShoppingItem | null>(null)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3500)
+      return () => clearTimeout(timer)
+    }
+  }, [toastMessage])
+
+  // Feature 4: Fast In-Store Price & Weighted Scale Calculator Modal
+  const [calcModalItem, setCalcModalItem] = useState<ShoppingItem | null>(null)
+  const [calcMode, setCalcMode] = useState<'price' | 'scale'>('price')
+  const [calcShelfPrice, setCalcShelfPrice] = useState<string>('')
+  const [calcWeight, setCalcWeight] = useState<string>('')
+  const [calcPricePerUnit, setCalcPricePerUnit] = useState<string>('')
+  const [calcWeightUnit, setCalcWeightUnit] = useState<string>('lb')
 
   // All needed items on active shopping list
   const allNeededItems = items.filter((item) => item.isNeeded)
@@ -212,20 +318,116 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   }, [allLocationGroups, hideCheckedItems, moveCheckedToBottom])
 
   const toggleSectionCollapse = (location: string) => {
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [location]: !prev[location],
-    }))
+    setCollapsedSections((prev) => {
+      const group = locationGroups.find((g) => g.location === location)
+      const isAllDone = group ? group.totalCount > 0 && group.pickedCount === group.totalCount : false
+      const defaultState = autoCollapseCompleted && isAllDone
+      const currentVal = prev[location] !== undefined ? prev[location] : defaultState
+      return {
+        ...prev,
+        [location]: !currentVal,
+      }
+    })
   }
 
-  const handlePriceUpdate = async (itemId: string) => {
-    const parsed = parseFloat(tempPriceInput)
-    if (!isNaN(parsed) && parsed >= 0) {
-      await updateItemShopDetail(itemId, currentShop.id, { price: parsed })
-    }
-    setEditingPriceItemId(null)
-    setTempPriceInput('')
+  const handleToggleInCart = async (itemId: string) => {
+    triggerHaptic(25)
+    await toggleInCart(itemId)
   }
+
+  const scrollToAisle = (loc: string) => {
+    const el = document.getElementById(`aisle-section-${encodeURIComponent(loc)}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      triggerHaptic(15)
+    }
+  }
+
+  const handleMoveOutOfStock = async (item: ShoppingItem, targetShopId?: string) => {
+    const currentDetail = item.shops[currentShop.id] || { available: true, price: null, location: '' }
+    const updatedShops = {
+      ...item.shops,
+      [currentShop.id]: {
+        ...currentDetail,
+        available: false, // Mark out of stock / excluded from this store stop
+      },
+    }
+
+    let targetShopName = ''
+    if (targetShopId) {
+      const targetDetail = item.shops[targetShopId] || { available: true, price: null, location: '' }
+      updatedShops[targetShopId] = {
+        ...targetDetail,
+        available: true, // Make sure it is included at target store
+      }
+      targetShopName = shops.find((s) => s.id === targetShopId)?.name || 'next stop'
+    }
+
+    await updateItem(item.id, { shops: updatedShops })
+    triggerHaptic(30)
+    setOutOfStockItem(null)
+
+    if (targetShopId) {
+      setToastMessage(`Moved "${item.name}" to ${targetShopName}`)
+    } else {
+      setToastMessage(`Excluded "${item.name}" from ${currentShop.name} (kept on list)`)
+    }
+  }
+
+  const openPriceCalculator = (item: ShoppingItem) => {
+    const currentPrice = item.shops[currentShop.id]?.price
+    const isWeightUnit = ['lb', 'lbs', 'oz', 'kg'].includes(item.unit?.toLowerCase())
+
+    setCalcModalItem(item)
+    setCalcShelfPrice(currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
+    setCalcWeight(item.quantity ? item.quantity.toString() : '1')
+    setCalcPricePerUnit(
+      item.shops[currentShop.id]?.unitPrice?.toString() ||
+        (currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
+    )
+    setCalcWeightUnit(isWeightUnit ? item.unit : 'lb')
+    setCalcMode(isWeightUnit ? 'scale' : 'price')
+    triggerHaptic(15)
+  }
+
+  const handleSaveCalculatorPrice = async () => {
+    if (!calcModalItem) return
+    let finalPrice: number | null = null
+
+    if (calcMode === 'scale') {
+      const w = parseFloat(calcWeight)
+      const ppu = parseFloat(calcPricePerUnit)
+      if (!isNaN(w) && !isNaN(ppu)) {
+        finalPrice = Number((w * ppu).toFixed(2))
+      }
+    } else {
+      const p = parseFloat(calcShelfPrice)
+      if (!isNaN(p)) {
+        finalPrice = p
+      }
+    }
+
+    if (finalPrice !== null) {
+      await updateItemShopDetail(calcModalItem.id, currentShop.id, {
+        price: finalPrice,
+      })
+      triggerHaptic(30)
+      setToastMessage(`Updated price for ${calcModalItem.name} to $${finalPrice.toFixed(2)}`)
+    }
+
+    setCalcModalItem(null)
+  }
+
+  // Feature 2: Next pending aisle for runner navigation
+  const nextPendingAisle = locationGroups.find((g) => g.pickedCount < g.totalCount)
+
+  // Feature 5: Multi-store stop sequencing
+  const currentStopIndex = visibleShops.findIndex((s) => s.id === currentShop.id)
+  const nextShop =
+    currentStopIndex !== -1 && currentStopIndex < visibleShops.length - 1
+      ? visibleShops[currentStopIndex + 1]
+      : null
+  const nextShopItemCount = nextShop ? getShopItemCount(nextShop.id) : 0
 
   const handleFinishTrip = () => {
     confetti({
@@ -559,18 +761,77 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
           )}
 
-          {/* View Options Toolbar: Checked at bottom & Hide checked */}
+          {/* View Options Toolbar: Screen Wake Lock, Next Aisle, Auto-collapse, Checked at bottom & Hide checked */}
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2 pt-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Aisles & Items
               </span>
               <span className="text-[11px] font-semibold text-slate-400">
                 ({cartItems.length} of {availableItems.length} picked)
               </span>
+
+              {/* Feature 2: Next pending aisle jump pill */}
+              {nextPendingAisle && (
+                <button
+                  type="button"
+                  onClick={() => scrollToAisle(nextPendingAisle.location)}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-900 text-white hover:bg-slate-800 active:scale-95 transition flex items-center gap-1 shadow-2xs"
+                  title={`Scroll directly to next pending aisle: ${nextPendingAisle.location}`}
+                >
+                  <Navigation className="w-3 h-3 text-emerald-400" />
+                  <span>Next: {nextPendingAisle.location}</span>
+                  <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Feature 1: Screen Wake Lock toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15)
+                  setKeepScreenAwake((prev) => !prev)
+                }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition border flex items-center gap-1.5 ${
+                  keepScreenAwake && wakeLockActive
+                    ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-2xs font-bold'
+                    : keepScreenAwake
+                    ? 'bg-amber-50/50 text-amber-700 border-amber-200 font-semibold'
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                }`}
+                title={
+                  keepScreenAwake
+                    ? 'Screen Wake Lock active: screen stays awake while shopping'
+                    : 'Screen Wake Lock off'
+                }
+              >
+                {keepScreenAwake ? (
+                  <Sun className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                ) : (
+                  <Moon className="w-3.5 h-3.5 text-slate-400" />
+                )}
+                <span>{keepScreenAwake ? 'Awake' : 'Sleep OK'}</span>
+              </button>
+
+              {/* Feature 2: Auto-collapse completed aisles toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15)
+                  setAutoCollapseCompleted((prev) => !prev)
+                }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition border flex items-center gap-1.5 ${
+                  autoCollapseCompleted
+                    ? 'bg-blue-50 text-blue-800 border-blue-300 shadow-2xs font-bold'
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                }`}
+                title="Automatically collapse aisles when all items inside are picked"
+              >
+                <span>Auto-collapse Done</span>
+              </button>
+
               {/* Option: Move checked items to bottom of each aisle category */}
               <button
                 type="button"
@@ -631,13 +892,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
           {/* Location / Aisle Groups */}
           {locationGroups.map(({ location, items: groupItems, pickedCount, totalCount }) => {
-            const isCollapsed = collapsedSections[location]
             const isAllPickedInAisle = totalCount > 0 && pickedCount === totalCount
+            const isAutoCollapsed = autoCollapseCompleted && isAllPickedInAisle
+            const isCollapsed =
+              collapsedSections[location] !== undefined
+                ? collapsedSections[location]
+                : isAutoCollapsed
 
             return (
               <div
                 key={location}
-                className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden transition-all"
+                id={`aisle-section-${encodeURIComponent(location)}`}
+                className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden transition-all scroll-mt-24"
               >
                 {/* Location / Aisle Category Header */}
                 <button
@@ -699,7 +965,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                           {/* Left: Checkbox & Item details */}
                           <div className="flex items-start gap-3 min-w-0 flex-1">
                             <button
-                              onClick={() => toggleInCart(item.id)}
+                              onClick={() => handleToggleInCart(item.id)}
                               className="transition shrink-0 mt-0.5"
                               title={isPicked ? 'Mark as unpicked' : 'Mark as picked into cart'}
                             >
@@ -736,6 +1002,17 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   title="Edit item / aisles"
                                 >
                                   <Edit2 className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    triggerHaptic(15)
+                                    setOutOfStockItem(item)
+                                  }}
+                                  className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition"
+                                  title="Out of stock? Shift to another store stop or exclude"
+                                >
+                                  <PackageX className="w-3 h-3" />
                                 </button>
                               </div>
 
@@ -780,64 +1057,38 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
                           {/* Right: Price box */}
                           <div className={`shrink-0 flex items-center gap-2 ${isPicked ? 'opacity-70' : ''}`}>
-                            {editingPriceItemId === item.id ? (
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs text-slate-500">$</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  autoFocus
-                                  value={tempPriceInput}
-                                  onChange={(e) => setTempPriceInput(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handlePriceUpdate(item.id)
-                                    if (e.key === 'Escape') setEditingPriceItemId(null)
-                                  }}
-                                  className="w-16 px-1.5 py-1 text-xs border border-emerald-500 rounded font-bold"
-                                />
-                                <button
-                                  onClick={() => handlePriceUpdate(item.id)}
-                                  className="text-xs bg-emerald-600 text-white px-2 py-1 rounded font-bold"
+                            <button
+                              type="button"
+                              onClick={() => openPriceCalculator(item)}
+                              className="group flex flex-col items-end px-2.5 py-1 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 active:scale-95 transition text-right shadow-2xs"
+                              title="Tap to update price or calculate produce scale weight"
+                            >
+                              {/* Top line: Total cost */}
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`text-sm font-extrabold tracking-tight ${
+                                    isPicked ? 'line-through text-slate-400' : 'text-slate-900'
+                                  }`}
                                 >
-                                  Save
-                                </button>
+                                  {formatPrice(totalItemPrice)}
+                                </span>
+                                <Calculator className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition" />
                               </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setEditingPriceItemId(item.id)
-                                  setTempPriceInput(itemUnitPrice !== null ? itemUnitPrice.toString() : '')
-                                }}
-                                className="group flex flex-col items-end px-2.5 py-1 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition text-right"
-                                title="Click to update shelf price"
-                              >
-                                {/* Top line: Total cost */}
-                                <div className="flex items-center gap-1">
-                                  <span
-                                    className={`text-sm font-extrabold tracking-tight ${
-                                      isPicked ? 'line-through text-slate-400' : 'text-slate-900'
-                                    }`}
-                                  >
-                                    {formatPrice(totalItemPrice)}
-                                  </span>
-                                  <Edit2 className="w-3 h-3 text-slate-300 group-hover:text-emerald-600" />
+
+                              {/* Second line: Price per item when quantity > 1 */}
+                              {quantity > 1 && itemUnitPrice !== null && (
+                                <div className="text-[10px] text-slate-400 font-medium">
+                                  ({formatPrice(itemUnitPrice)} ea × {quantity})
                                 </div>
+                              )}
 
-                                {/* Second line: Price per item when quantity > 1 */}
-                                {quantity > 1 && itemUnitPrice !== null && (
-                                  <div className="text-[10px] text-slate-400 font-medium">
-                                    ({formatPrice(itemUnitPrice)} ea × {quantity})
-                                  </div>
-                                )}
-
-                                {/* Normalized package unit price if present */}
-                                {shopDetail?.unitPrice && (
-                                  <div className="text-[9px] text-indigo-700 font-mono">
-                                    {formatUnitPrice(shopDetail.unitPrice, shopDetail.packageUnit)}
-                                  </div>
-                                )}
-                              </button>
-                            )}
+                              {/* Normalized package unit price if present */}
+                              {shopDetail?.unitPrice && (
+                                <div className="text-[9px] text-indigo-700 font-mono">
+                                  {formatUnitPrice(shopDetail.unitPrice, shopDetail.packageUnit)}
+                                </div>
+                              )}
+                            </button>
                           </div>
                         </div>
                       )
@@ -921,20 +1172,336 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             <div className="space-y-2">
+              {nextShop && (
+                <button
+                  onClick={async () => {
+                    await clearCart(true)
+                    setShowTripSummary(false)
+                    setSelectedShopId(nextShop.id)
+                    triggerHaptic(40)
+                    confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } })
+                  }}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-2"
+                >
+                  <span>Complete Stop & Start Stop {currentStopIndex + 2}: {nextShop.name}</span>
+                  {nextShopItemCount > 0 && (
+                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">
+                      {nextShopItemCount} items
+                    </span>
+                  )}
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </button>
+              )}
+
               <button
                 onClick={async () => {
                   await clearCart(true)
                   setShowTripSummary(false)
                 }}
-                className="w-full py-2.5 px-4 bg-emerald-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm hover:bg-emerald-700 transition"
+                className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition ${
+                  nextShop
+                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                }`}
               >
-                Mark Purchased & Clear from List
+                {nextShop ? 'Mark Purchased & End Trip Here' : 'Mark Purchased & Clear from List'}
               </button>
+
               <button
                 onClick={() => setShowTripSummary(false)}
                 className="w-full py-2 px-4 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition"
               >
                 Keep On List / Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Toast Notification Banner */}
+      {toastMessage && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold flex items-center gap-2 backdrop-blur animate-in fade-in slide-in-from-bottom-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* 10. Out of Stock & Move Store Modal */}
+      {outOfStockItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <PackageX className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+                    Item Out of Stock?
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    <span className="font-bold text-slate-800">{outOfStockItem.name}</span> at {currentShop.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setOutOfStockItem(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 mb-4">
+              Choose what to do with this item for your shopping trip:
+            </p>
+
+            <div className="space-y-2 mb-4">
+              {/* Option to move to other shops */}
+              {shops
+                .filter((s) => s.id !== currentShop.id)
+                .map((targetShop) => {
+                  const isNextStop = nextShop?.id === targetShop.id
+                  return (
+                    <button
+                      key={targetShop.id}
+                      onClick={() => handleMoveOutOfStock(outOfStockItem, targetShop.id)}
+                      className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition ${
+                        isNextStop
+                          ? 'bg-emerald-50/70 border-emerald-300 hover:bg-emerald-100/70 text-emerald-900'
+                          : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Store className={`w-4 h-4 ${isNextStop ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        <div>
+                          <div className="text-xs font-bold">
+                            Move to {targetShop.name}
+                            {isNextStop && (
+                              <span className="ml-1.5 text-[10px] font-extrabold uppercase bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
+                                Next Stop
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            Remove from {currentShop.name} and pick up at {targetShop.name}
+                          </div>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    </button>
+                  )
+                })}
+
+              {/* Option to just exclude from this store stop without reassigning */}
+              <button
+                onClick={() => handleMoveOutOfStock(outOfStockItem)}
+                className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left flex items-center justify-between transition"
+              >
+                <div>
+                  <div className="text-xs font-bold text-slate-800">
+                    Exclude from {currentShop.name} Only
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Keep on your list for future trips, but remove from today's {currentShop.name} stop
+                  </div>
+                </div>
+                <X className="w-4 h-4 text-slate-400 shrink-0" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setOutOfStockItem(null)}
+              className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 11. Quick Price & Produce Scale Calculator Modal */}
+      {calcModalItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Update Price at {currentShop.name}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  <span className="font-bold text-slate-800">{calcModalItem.name}</span>
+                  {calcModalItem.quantity ? ` (${calcModalItem.quantity} ${calcModalItem.unit})` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setCalcModalItem(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mode Switcher */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl mb-4">
+              <button
+                type="button"
+                onClick={() => setCalcMode('price')}
+                className={`py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                  calcMode === 'price'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Calculator className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Direct Shelf Price</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCalcMode('scale')}
+                className={`py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                  calcMode === 'scale'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Scale className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Produce / Scale</span>
+              </button>
+            </div>
+
+            {/* Mode 1: Shelf Price with Steppers */}
+            {calcMode === 'price' && (
+              <div className="space-y-4 mb-5">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    Shelf Price per item
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      autoFocus
+                      placeholder="0.00"
+                      value={calcShelfPrice}
+                      onChange={(e) => setCalcShelfPrice(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2.5 text-xl font-black text-slate-900 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Stepper Buttons */}
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
+                    Quick Adjust:
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { label: '-$1.00', delta: -1.0, isMinus: true },
+                      { label: '-$0.10', delta: -0.1, isMinus: true },
+                      { label: '+$0.10', delta: 0.1, isMinus: false },
+                      { label: '+$1.00', delta: 1.0, isMinus: false },
+                    ].map((step) => (
+                      <button
+                        key={step.label}
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(10)
+                          const cur = parseFloat(calcShelfPrice) || 0
+                          const nextVal = Math.max(0, cur + step.delta)
+                          setCalcShelfPrice(nextVal.toFixed(2))
+                        }}
+                        className="py-1.5 px-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 active:scale-95 transition flex items-center justify-center gap-0.5"
+                      >
+                        {step.isMinus ? <Minus className="w-3 h-3 text-slate-400" /> : <Plus className="w-3 h-3 text-slate-400" />}
+                        <span>{step.label.replace(/^[+-]/, '')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: Scale Weight x Price/Unit */}
+            {calcMode === 'scale' && (
+              <div className="space-y-4 mb-5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Scale Weight
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        step="0.01"
+                        autoFocus
+                        placeholder="e.g. 2.45"
+                        value={calcWeight}
+                        onChange={(e) => setCalcWeight(e.target.value)}
+                        className="w-full px-3 py-2 text-base font-bold text-slate-900 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
+                      />
+                      <span className="text-xs font-semibold text-slate-500">
+                        {calcWeightUnit}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Price per {calcWeightUnit}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g. 1.99"
+                        value={calcPricePerUnit}
+                        onChange={(e) => setCalcPricePerUnit(e.target.value)}
+                        className="w-full pl-6 pr-2 py-2 text-base font-bold text-slate-900 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calculation preview */}
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div className="text-xs text-emerald-800">
+                    <span className="font-semibold">{calcWeight || '0'} {calcWeightUnit}</span>
+                    <span> × </span>
+                    <span className="font-semibold">${calcPricePerUnit || '0.00'}/{calcWeightUnit}</span>
+                  </div>
+                  <div className="text-sm font-extrabold text-emerald-900">
+                    ={' '}
+                    {formatPrice(
+                      (parseFloat(calcWeight) || 0) * (parseFloat(calcPricePerUnit) || 0)
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCalcModalItem(null)}
+                className="w-1/3 py-2.5 px-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCalculatorPrice}
+                className="w-2/3 py-2.5 px-3 bg-emerald-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save Price to Store</span>
               </button>
             </div>
           </div>
