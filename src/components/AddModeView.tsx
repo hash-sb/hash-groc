@@ -38,7 +38,10 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
   const [quickUnit, setQuickUnit] = useState<string>('pieces')
-  const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(true)
+  const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(() => {
+    const saved = localStorage.getItem('hash_groc_unchecked_bottom')
+    return saved !== null ? saved === 'true' : false
+  })
   const [isLockedItems, setIsLockedItems] = useState<boolean>(() => {
     return localStorage.getItem('hash_groc_lock_items') === 'true'
   })
@@ -50,6 +53,11 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   useEffect(() => {
     localStorage.setItem('hash_groc_lock_items', String(isLockedItems))
   }, [isLockedItems])
+
+  // Persist unchecked at bottom setting
+  useEffect(() => {
+    localStorage.setItem('hash_groc_unchecked_bottom', String(putUncheckedAtBottom))
+  }, [putUncheckedAtBottom])
 
   // Close popover when clicking outside
   useEffect(() => {
