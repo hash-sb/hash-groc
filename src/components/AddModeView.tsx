@@ -467,7 +467,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           </button>
                         </div>
 
-                        {/* Right: Add / Remove Toggle Button */}
+                        {/* Right: Buy / Remove Toggle Button */}
                         <button
                           type="button"
                           onClick={() => toggleNeeded(item.id)}
@@ -476,7 +476,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                               : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200'
                           }`}
-                          title={item.isNeeded ? 'Remove from shopping list' : 'Add to shopping list'}
+                          title={item.isNeeded ? 'Remove from shopping list' : 'Mark to buy on shopping list'}
                         >
                           {item.isNeeded ? (
                             <>
@@ -486,7 +486,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           ) : (
                             <>
                               <Plus className="w-3.5 h-3.5 text-slate-400" />
-                              <span>Add</span>
+                              <span>Buy</span>
                             </>
                           )}
                         </button>
