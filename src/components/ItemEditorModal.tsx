@@ -354,48 +354,69 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
               </span>
             </div>
 
-            {/* Store Tabs */}
-            <div className="flex gap-1.5 overflow-x-auto pb-2 no-scrollbar">
+            {/* Store Grid (2x2 on mobile, 4-col on desktop) — No Horizontal Scrolling */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
               {shops.map((shop) => {
                 const isSelected = shop.id === activeTabShopId
                 const detail = shopDetails[shop.id]
                 const isAvailable = detail?.available ?? true
+                const isLowest =
+                  minUnitPriceEntry?.shopId === shop.id && unitPriceEntries.length > 1
 
                 return (
                   <button
                     key={shop.id}
                     type="button"
                     onClick={() => setActiveTabShopId(shop.id)}
-                    className={`px-3 py-2 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1.5 border transition ${
+                    className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-xs'
-                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                        ? 'border-emerald-500 bg-emerald-50/90 text-emerald-950 font-bold shadow-xs ring-2 ring-emerald-500/20'
+                        : isLowest
+                        ? 'border-emerald-200 bg-emerald-50/40 text-slate-700 hover:bg-emerald-50/70'
+                        : 'border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isAvailable ? 'bg-emerald-500' : 'bg-rose-400'
-                      }`}
-                    />
-                    <span>{shop.name}</span>
-                    {detail?.price ? (
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded border font-mono ${
-                          minUnitPriceEntry?.shopId === shop.id && unitPriceEntries.length > 1
-                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold shadow-2xs'
-                            : 'bg-white text-slate-700 border-slate-200'
-                        }`}
-                        title={
-                          detail.unitPrice && detail.packageUnit
-                            ? `Normalized: ${formatUnitPrice(detail.unitPrice, detail.packageUnit)} (Shelf: $${detail.price.toFixed(2)})`
-                            : `Shelf price: $${detail.price.toFixed(2)}`
-                        }
-                      >
-                        {detail.unitPrice && detail.packageUnit
-                          ? formatUnitPrice(detail.unitPrice, detail.packageUnit)
-                          : `$${detail.price.toFixed(2)}`}
-                      </span>
-                    ) : null}
+                    {/* Top: Dot + Store Name + Best Badge */}
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            isAvailable ? 'bg-emerald-500' : 'bg-rose-400'
+                          }`}
+                        />
+                        <span className="text-xs font-bold truncate">{shop.name}</span>
+                      </div>
+
+                      {isLowest && isAvailable && (
+                        <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-1 py-0.2 rounded shrink-0">
+                          Best
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bottom: Stacked Normalized Unit Price */}
+                    <div className="mt-1.5">
+                      {isAvailable ? (
+                        detail?.price ? (
+                          <div>
+                            <div className="text-xs font-mono font-extrabold text-slate-900 leading-tight">
+                              {detail.unitPrice && detail.packageUnit
+                                ? formatUnitPrice(detail.unitPrice, detail.packageUnit)
+                                : `$${detail.price.toFixed(2)}`}
+                            </div>
+                            {detail.packageSize && detail.packageSize > 0 && (
+                              <div className="text-[10px] text-slate-400 font-normal truncate mt-0.5">
+                                (${detail.price.toFixed(2)} shelf)
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-slate-400 italic">No price</div>
+                        )
+                      ) : (
+                        <div className="text-[10px] text-rose-600 font-semibold">Not carried</div>
+                      )}
+                    </div>
                   </button>
                 )
               })}
