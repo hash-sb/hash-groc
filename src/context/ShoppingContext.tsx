@@ -29,7 +29,7 @@ interface ShoppingContextType {
   addShop: (shop: Omit<Shop, 'id'>) => Promise<string>
   updateShop: (id: string, updates: Partial<Shop>) => Promise<void>
   deleteShop: (id: string) => Promise<void>
-  moveShopOrder: (shopId: string, direction: 'left' | 'right') => Promise<void>
+  moveShopOrder: (shopId: string, direction: 'left' | 'right', targetShopId?: string) => Promise<void>
   // Item operations
   addItem: (itemData: Omit<ShoppingItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>
   quickAddItem: (
@@ -330,10 +330,18 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }
 
-  const moveShopOrder = async (shopId: string, direction: 'left' | 'right') => {
+  const moveShopOrder = async (shopId: string, direction: 'left' | 'right', targetShopId?: string) => {
     const currentIndex = shops.findIndex((s) => s.id === shopId)
     if (currentIndex === -1) return
-    const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1
+
+    let targetIndex: number
+    if (targetShopId) {
+      targetIndex = shops.findIndex((s) => s.id === targetShopId)
+      if (targetIndex === -1) return
+    } else {
+      targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1
+    }
+
     if (targetIndex < 0 || targetIndex >= shops.length) return
 
     const reordered = [...shops]

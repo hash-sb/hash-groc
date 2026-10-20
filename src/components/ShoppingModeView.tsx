@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   CheckCircle2,
   Circle,
@@ -17,6 +17,8 @@ import {
   DollarSign,
   Plus,
   Zap,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
@@ -57,10 +59,52 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [showTripSummary, setShowTripSummary] = useState<boolean>(false)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
 
-  const currentShop = shops.find((s) => s.id === selectedShopId) || shops[0]
+  // Option: Hide stores with 0 items to shop
+  const [hideEmptyStores, setHideEmptyStores] = useState<boolean>(() => {
+    const saved = localStorage.getItem('hash_groc_hide_empty_stores')
+    return saved !== null ? saved === 'true' : false
+  })
+
+  useEffect(() => {
+    localStorage.setItem('hash_groc_hide_empty_stores', String(hideEmptyStores))
+  }, [hideEmptyStores])
 
   // All needed items on active shopping list
   const allNeededItems = items.filter((item) => item.isNeeded)
+
+  // Count items needed to buy at a specific shop (taking into account Save Mode)
+  const getShopItemCount = (shopId: string) => {
+    return allNeededItems.filter((item) => {
+      const detail = item.shops[shopId]
+      const isCarried = detail ? detail.available : true
+      if (!isCarried) return false
+      if (saveMode) return isCheapestAtStore(item, shopId, shops)
+      return true
+    }).length
+  }
+
+  // Filter stores that have items to shop
+  const nonEmptyShops = shops.filter((s) => getShopItemCount(s.id) > 0)
+  const hiddenCount = shops.length - nonEmptyShops.length
+
+  const visibleShops = useMemo(() => {
+    if (!hideEmptyStores) return shops
+    // Fall back to all shops if every shop has 0 items (so user isn't stuck with empty UI)
+    return nonEmptyShops.length > 0 ? nonEmptyShops : shops
+  }, [shops, hideEmptyStores, nonEmptyShops])
+
+  // Current active shop (guaranteed to be within visibleShops if available)
+  const currentShop =
+    visibleShops.find((s) => s.id === selectedShopId) || visibleShops[0] || shops[0]
+
+  useEffect(() => {
+    if (hideEmptyStores && visibleShops.length > 0) {
+      const isCurrentVisible = visibleShops.some((s) => s.id === selectedShopId)
+      if (!isCurrentVisible) {
+        setSelectedShopId(visibleShops[0].id)
+      }
+    }
+  }, [hideEmptyStores, visibleShops, selectedShopId, setSelectedShopId])
 
   // Items available at this store
   const carriedAtShopItems = allNeededItems.filter((item) => {
@@ -147,26 +191,56 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     <div className="pb-32 pt-3 max-w-4xl mx-auto px-3 sm:px-6">
       {/* 1. Trip Planner: Reorderable Store Tabs */}
       <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-            <Store className="w-4 h-4 text-emerald-600" />
-            <span>Trip Plan / Store Stops</span>
-          </label>
-          <span className="text-[11px] text-slate-500">
-            Use arrows to arrange your store stops in order
-          </span>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Store className="w-4 h-4 text-emerald-600" />
+              <span>Trip Plan / Store Stops</span>
+            </label>
+            {hideEmptyStores && hiddenCount > 0 && (
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-full">
+                {visibleShops.length} of {shops.length} stops
+              </span>
+            )}
+          </div>
+
+          {/* Option: Hide stores without items to shop */}
+          <button
+            type="button"
+            onClick={() => setHideEmptyStores((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold transition border ${
+              hideEmptyStores
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="Toggle hiding stores without any items to shop"
+          >
+            {hideEmptyStores ? (
+              <EyeOff className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Eye className="w-3.5 h-3.5 text-slate-400" />
+            )}
+            <span>Hide empty stores</span>
+            {hideEmptyStores && hiddenCount > 0 && (
+              <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded-full font-bold">
+                {hiddenCount}
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-          {shops.map((shop, index) => {
-            const isSelected = shop.id === selectedShopId
-            const count = allNeededItems.filter((item) => {
+          {visibleShops.map((shop, index) => {
+            const isSelected = shop.id === currentShop.id
+            const count = getShopItemCount(shop.id)
+            const pickedCount = allNeededItems.filter((item) => {
               const detail = item.shops[shop.id]
               const isCarried = detail ? detail.available : true
               if (!isCarried) return false
-              if (saveMode) return isCheapestAtStore(item, shop.id, shops)
-              return true
+              if (saveMode && !isCheapestAtStore(item, shop.id, shops)) return false
+              return item.inCart
             }).length
+            const isFullyPicked = count > 0 && pickedCount === count
 
             return (
               <div
@@ -181,15 +255,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 <div className="flex flex-col border-r border-slate-200/80 p-0.5">
                   <button
                     disabled={index === 0}
-                    onClick={() => moveShopOrder(shop.id, 'left')}
+                    onClick={() => moveShopOrder(shop.id, 'left', visibleShops[index - 1]?.id)}
                     className="p-1 text-slate-400 hover:text-slate-800 disabled:opacity-20 transition"
                     title="Move stop earlier in trip"
                   >
                     <ArrowLeft className="w-3 h-3" />
                   </button>
                   <button
-                    disabled={index === shops.length - 1}
-                    onClick={() => moveShopOrder(shop.id, 'right')}
+                    disabled={index === visibleShops.length - 1}
+                    onClick={() => moveShopOrder(shop.id, 'right', visibleShops[index + 1]?.id)}
                     className="p-1 text-slate-400 hover:text-slate-800 disabled:opacity-20 transition"
                     title="Move stop later in trip"
                   >
@@ -210,7 +284,13 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       <span className="text-sm font-bold tracking-tight">{shop.name}</span>
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
-                      {count} {count === 1 ? 'item' : 'items'} to buy
+                      {isFullyPicked ? (
+                        <span className="text-emerald-700 font-semibold">✓ All {count} picked</span>
+                      ) : (
+                        <span>
+                          {count} {count === 1 ? 'item' : 'items'} to buy
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>
