@@ -26,7 +26,7 @@ interface ItemEditorModalProps {
 const COMMON_PKG_UNITS = ['oz', 'lb', 'gal', 'fl oz', 'ct', 'can', 'bottle', 'bar']
 
 export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose }) => {
-  const { shops, items, addItem, updateItem, deleteItem, categories, addCategory } = useShopping()
+  const { shops, addItem, updateItem, deleteItem, categories, addCategory } = useShopping()
 
   const [name, setName] = useState(item?.name || '')
   const [category, setCategory] = useState(item?.category || (categories[0] || 'Produce'))
@@ -161,16 +161,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
     }
   }, [isAisleDropdownOpen])
 
-  // Collect all available aisles for activeShop (default aisles + any locations used by other items)
+  // Strictly use predefined store aisles to disallow random aisle names
   const availableAislesForShop = useMemo(() => {
     if (!activeShop) return []
-    const set = new Set<string>(activeShop.defaultAisles || [])
-    items.forEach((it) => {
-      const loc = it.shops[activeShop.id]?.location?.trim()
-      if (loc) set.add(loc)
-    })
-    return Array.from(set)
-  }, [activeShop, items])
+    return activeShop.defaultAisles || []
+  }, [activeShop])
 
   // Find lowest unit price across all configured shops for live comparison
   const unitPriceEntries = Object.entries(shopDetails)
@@ -588,14 +583,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                       <div className="relative" ref={aisleDropdownRef}>
                         <input
                           type="text"
-                          placeholder="Select an aisle or type custom..."
+                          readOnly
+                          placeholder="Select an aisle..."
                           value={currentShopDetail.location || ''}
-                          onFocus={() => setIsAisleDropdownOpen(true)}
-                          onChange={(e) => {
-                            handleShopDetailChange(activeShop.id, { location: e.target.value })
-                            setIsAisleDropdownOpen(true)
-                          }}
-                          className="w-full pl-3 pr-16 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white"
+                          onClick={() => setIsAisleDropdownOpen((prev) => !prev)}
+                          className="w-full pl-3 pr-16 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white cursor-pointer select-none font-medium text-slate-800"
                         />
 
                         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
@@ -679,7 +671,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
 
                               {availableAislesForShop.length === 0 && (
                                 <div className="p-3 text-center text-xs text-slate-400">
-                                  No aisles configured for {activeShop.name}. Type above to add a location.
+                                  No aisles configured for {activeShop.name}. Add aisles in Store Settings.
                                 </div>
                               )}
                             </div>
