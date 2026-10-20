@@ -81,99 +81,139 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
               Current Stores ({shops.length})
             </label>
-            <div className="space-y-2">
-              {shops.map((shop) => (
-                <div
-                  key={shop.id}
-                  className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 shadow-xs"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-                      <span className="font-bold text-slate-900 text-sm">{shop.name}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 truncate">
-                      {shop.defaultAisles.length} suggested aisles (
-                      {shop.defaultAisles.slice(0, 3).join(', ')}
-                      {shop.defaultAisles.length > 3 ? '...' : ''})
-                    </div>
-                  </div>
+            <div className="space-y-2.5">
+              {shops.map((shop) => {
+                const isBeingEdited = editingShop?.id === shop.id
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => setEditingShop(shop)}
-                      className="p-1.5 text-slate-500 hover:text-emerald-700 rounded-lg hover:bg-slate-100 transition"
-                      title="Edit Aisles"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(shop)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                      title="Delete Store"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                return (
+                  <div
+                    key={shop.id}
+                    className={`rounded-xl border transition-all ${
+                      isBeingEdited
+                        ? 'border-emerald-500 bg-emerald-50/30 ring-2 ring-emerald-500/20 p-3'
+                        : 'border-slate-200 bg-white p-3 shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                          <span className="font-bold text-slate-900 text-sm">{shop.name}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                          {shop.defaultAisles.length} suggested aisles (
+                          {shop.defaultAisles.slice(0, 3).join(', ')}
+                          {shop.defaultAisles.length > 3 ? '...' : ''})
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => {
+                            if (isBeingEdited) {
+                              setEditingShop(null)
+                            } else {
+                              setEditingShop({
+                                ...shop,
+                                defaultAisles: [...shop.defaultAisles],
+                              })
+                            }
+                          }}
+                          className={`p-1.5 rounded-lg transition ${
+                            isBeingEdited
+                              ? 'bg-emerald-600 text-white'
+                              : 'text-slate-500 hover:text-emerald-700 hover:bg-slate-100'
+                          }`}
+                          title={isBeingEdited ? 'Close Editor' : 'Edit Store & Aisles'}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(shop)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                          title="Delete Store"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Inline Edit Box Directly Below The Store Being Edited */}
+                    {isBeingEdited && (
+                      <div className="mt-3 pt-3 border-t border-emerald-200 space-y-3 animate-in fade-in">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+                            Editing {shop.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingShop(null)}
+                            className="text-xs text-slate-400 hover:text-slate-600 font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Store Name
+                          </label>
+                          <input
+                            type="text"
+                            value={editingShop.name}
+                            onChange={(e) =>
+                              setEditingShop({ ...editingShop, name: e.target.value })
+                            }
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Aisles / Locations (one per line, in walk order)
+                          </label>
+                          <textarea
+                            rows={4}
+                            value={editingShop.defaultAisles.join('\n')}
+                            onChange={(e) =>
+                              setEditingShop({
+                                ...editingShop,
+                                defaultAisles: e.target.value
+                                  .split('\n')
+                                  .map((a) => a.trim())
+                                  .filter(Boolean),
+                              })
+                            }
+                            className="w-full p-2.5 rounded-lg border border-slate-300 text-xs bg-white font-mono"
+                          />
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            Tip: These group and order your items in Shopping Mode.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={handleSaveEdit}
+                            className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-xs hover:bg-emerald-700 transition"
+                          >
+                            Save Changes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingShop(null)}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50 transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
-
-          {/* Edit Shop Drawer */}
-          {editingShop && (
-            <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-900 uppercase">
-                  Edit {editingShop.name} Aisles
-                </span>
-                <button
-                  onClick={() => setEditingShop(null)}
-                  className="text-xs text-slate-400 hover:text-slate-600"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Store Name</label>
-                <input
-                  type="text"
-                  value={editingShop.name}
-                  onChange={(e) => setEditingShop({ ...editingShop, name: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Default Aisles / Locations (one per line, in walk order)
-                </label>
-                <textarea
-                  rows={4}
-                  value={editingShop.defaultAisles.join('\n')}
-                  onChange={(e) =>
-                    setEditingShop({
-                      ...editingShop,
-                      defaultAisles: e.target.value
-                        .split('\n')
-                        .map((a) => a.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  className="w-full p-2.5 rounded-lg border border-slate-300 text-xs bg-white font-mono"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSaveEdit}
-                className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-xs hover:bg-emerald-700 transition"
-              >
-                Save Store Aisles
-              </button>
-            </div>
-          )}
 
           {/* Add New Store Form */}
           <form
