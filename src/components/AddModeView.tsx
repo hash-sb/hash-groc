@@ -240,10 +240,11 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
       {/* 2. Clean View Controls: All Items / Need to Buy + Search + Subtle '···' View Options */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        {/* Left: View Tabs (All Items vs Need to Buy) */}
+        {/* Left: View Tabs (All Items vs To Buy) */}
         <div className="flex bg-slate-200/80 p-1 rounded-xl shrink-0">
           <button
             onClick={() => setActiveTab('all')}
+            title={`All Items: Master pantry catalog (${totalCount} total items)`}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
               activeTab === 'all'
                 ? 'bg-white text-slate-900 shadow-xs'
@@ -258,6 +259,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
           <button
             onClick={() => setActiveTab('needed')}
+            title={`To Buy: Active shopping list (${neededCount} items needed)`}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
               activeTab === 'needed'
                 ? 'bg-emerald-600 text-white shadow-xs'

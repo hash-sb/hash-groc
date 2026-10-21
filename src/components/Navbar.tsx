@@ -37,7 +37,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMenu }) => {
             {/* List / Landing Mode */}
             <button
               onClick={() => setMode('add')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+              title={`List: ${neededCount} to buy out of ${items.length} master items`}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
                 mode === 'add'
                   ? 'bg-white text-emerald-700 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -45,9 +46,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMenu }) => {
             >
               <CheckSquare className="w-4 h-4" />
               <span>List</span>
-              {neededCount > 0 && (
-                <span className="ml-0.5 bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                  {neededCount}
+              {items.length > 0 && (
+                <span
+                  className={`ml-0.5 text-[10px] px-1.5 py-0.2 rounded-full font-bold transition-colors ${
+                    mode === 'add'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {neededCount}/{items.length}
                 </span>
               )}
             </button>
@@ -55,7 +62,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMenu }) => {
             {/* Shopping Mode */}
             <button
               onClick={() => setMode('shopping')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+              title={`Shopping: ${inCartCount} in cart out of ${neededCount} needed`}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
                 mode === 'shopping'
                   ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
                   : 'text-slate-600 hover:text-slate-900'
@@ -63,8 +71,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMenu }) => {
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Shopping</span>
-              {inCartCount > 0 && (
-                <span className="ml-0.5 bg-white/25 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+              {neededCount > 0 && (
+                <span
+                  className={`ml-0.5 text-[10px] px-1.5 py-0.2 rounded-full font-bold transition-colors ${
+                    mode === 'shopping'
+                      ? 'bg-white/25 text-white'
+                      : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
                   {inCartCount}/{neededCount}
                 </span>
               )}
