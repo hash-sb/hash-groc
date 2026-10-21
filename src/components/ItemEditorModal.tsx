@@ -759,7 +759,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                                   className="w-full py-1.5 px-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100/60 rounded-lg flex items-center justify-center gap-1.5 transition border border-dashed border-emerald-300 bg-white"
                                 >
                                   <Plus className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>+ Add New Aisle to {activeShop.name}</span>
+                                  <span>Add New Aisle to {activeShop.name}</span>
                                 </button>
                               )}
                             </div>
