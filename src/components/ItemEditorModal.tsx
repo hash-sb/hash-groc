@@ -20,13 +20,23 @@ import { formatUnitPrice } from '../utils/pricing'
 
 interface ItemEditorModalProps {
   item?: ShoppingItem | null
+  initialShopId?: string
   onClose: () => void
 }
 
 const COMMON_PKG_UNITS = ['oz', 'lb', 'gal', 'fl oz', 'ct', 'can', 'bottle', 'bar']
 
-export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose }) => {
-  const { shops, addItem, updateItem, deleteItem, categories, addCategory, updateShop } = useShopping()
+export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialShopId, onClose }) => {
+  const {
+    shops,
+    addItem,
+    updateItem,
+    deleteItem,
+    categories,
+    addCategory,
+    updateShop,
+    selectedShopId,
+  } = useShopping()
 
   const [name, setName] = useState(item?.name || '')
   const [category, setCategory] = useState(item?.category || (categories[0] || 'Produce'))
@@ -66,7 +76,22 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
     return initial
   })
 
-  const [activeTabShopId, setActiveTabShopId] = useState<string>(shops[0]?.id || '')
+  const [activeTabShopId, setActiveTabShopId] = useState<string>(() => {
+    if (initialShopId && shops.some((s) => s.id === initialShopId)) {
+      return initialShopId
+    }
+    if (selectedShopId && shops.some((s) => s.id === selectedShopId)) {
+      return selectedShopId
+    }
+    return shops[0]?.id || ''
+  })
+
+  useEffect(() => {
+    const target = initialShopId || selectedShopId
+    if (target && shops.some((s) => s.id === target)) {
+      setActiveTabShopId(target)
+    }
+  }, [initialShopId, selectedShopId, shops])
 
   const handleShopDetailChange = (shopId: string, patch: Partial<ItemShopDetail>) => {
     setShopDetails((prev) => {

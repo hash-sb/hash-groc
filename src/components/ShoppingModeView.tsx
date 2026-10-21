@@ -44,7 +44,7 @@ import {
 } from '../utils/pricing'
 
 interface ShoppingModeViewProps {
-  onEditItem: (item: ShoppingItem) => void
+  onEditItem: (item: ShoppingItem, shopId?: string) => void
   onOpenStoreModal: () => void
 }
 
@@ -1097,7 +1097,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 )}
 
                                 <button
-                                  onClick={() => onEditItem(item)}
+                                  onClick={() => onEditItem(item, currentShop.id)}
                                   className="text-slate-400 hover:text-emerald-700 p-0.5 rounded transition"
                                   title="Edit item / aisles"
                                 >
