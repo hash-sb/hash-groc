@@ -27,8 +27,10 @@ export interface PriceComparison {
   }>
 }
 
+export type UnitFamily = 'weight' | 'volume' | 'count' | 'container' | 'unknown'
+
 /** Standard grocery unit conversion multipliers to base units */
-const WEIGHT_TO_OZ: Record<string, number> = {
+export const WEIGHT_TO_OZ: Record<string, number> = {
   oz: 1,
   ounce: 1,
   ounces: 1,
@@ -45,7 +47,7 @@ const WEIGHT_TO_OZ: Record<string, number> = {
   kilograms: 35.274,
 }
 
-const VOLUME_TO_FLOZ: Record<string, number> = {
+export const VOLUME_TO_FLOZ: Record<string, number> = {
   'fl oz': 1,
   floz: 1,
   'fluid ounce': 1,
@@ -69,36 +71,279 @@ const VOLUME_TO_FLOZ: Record<string, number> = {
   liters: 33.814,
 }
 
-const COUNT_TO_ITEMS: Record<string, number> = {
+/** Pure discrete items and count multipliers */
+export const COUNT_TO_ITEMS: Record<string, number> = {
   item: 1,
   items: 1,
   piece: 1,
   pieces: 1,
   ct: 1,
   count: 1,
-  pk: 1,
-  pack: 1,
-  packs: 1,
-  can: 1,
-  cans: 1,
-  bottle: 1,
-  bottles: 1,
-  box: 1,
-  boxes: 1,
-  carton: 1,
-  cartons: 1,
-  bag: 1,
-  bags: 1,
-  bar: 1,
-  bars: 1,
+  ea: 1,
+  each: 1,
   pair: 2,
   pairs: 2,
   dozen: 12,
   dozens: 12,
 }
 
+/** Packaging containers and structural form factors */
+export const CONTAINER_NORMALIZATION: Record<string, string> = {
+  can: 'can',
+  cans: 'can',
+  bottle: 'bottle',
+  bottles: 'bottle',
+  box: 'box',
+  boxes: 'box',
+  carton: 'carton',
+  cartons: 'carton',
+  bag: 'bag',
+  bags: 'bag',
+  bar: 'bar',
+  bars: 'bar',
+  jar: 'jar',
+  jars: 'jar',
+  tub: 'tub',
+  tubs: 'tub',
+  roll: 'roll',
+  rolls: 'roll',
+  loaf: 'loaf',
+  loaves: 'loaf',
+  bunch: 'bunch',
+  bunches: 'bunch',
+  head: 'head',
+  heads: 'head',
+  pk: 'pack',
+  pack: 'pack',
+  packs: 'pack',
+}
+
+export interface UnitOptionGroup {
+  label: string
+  family: UnitFamily
+  units: string[]
+}
+
+/** Pre-grouped unit definitions for UI selectors */
+export const UNIT_GROUPS: UnitOptionGroup[] = [
+  {
+    label: 'Weight',
+    family: 'weight',
+    units: ['oz', 'lb', 'lbs', 'g', 'kg'],
+  },
+  {
+    label: 'Liquid Volume',
+    family: 'volume',
+    units: ['fl oz', 'cup', 'pt', 'qt', 'gal', 'liters', 'ml'],
+  },
+  {
+    label: 'Discrete Count',
+    family: 'count',
+    units: ['pieces', 'ct', 'dozens', 'pairs', 'items'],
+  },
+  {
+    label: 'Containers & Packaging',
+    family: 'container',
+    units: [
+      'bottles',
+      'cans',
+      'boxes',
+      'bags',
+      'jars',
+      'cartons',
+      'tubs',
+      'rolls',
+      'bars',
+      'loaves',
+      'bunches',
+      'heads',
+      'packs',
+    ],
+  },
+]
+
 /**
- * Converts an amount from one unit to another if they belong to the same family
+ * Returns the dimensional unit family for a given unit name
+ */
+export function getUnitFamily(unit?: string | null): UnitFamily {
+  if (!unit) return 'unknown'
+  const u = unit.toLowerCase().trim()
+  if (WEIGHT_TO_OZ[u]) return 'weight'
+  if (VOLUME_TO_FLOZ[u]) return 'volume'
+  if (COUNT_TO_ITEMS[u]) return 'count'
+  if (CONTAINER_NORMALIZATION[u]) return 'container'
+  return 'unknown'
+}
+
+/**
+ * Checks whether two units are physically compatible for automatic conversion
+ */
+export function areUnitsCompatible(unitA?: string | null, unitB?: string | null): boolean {
+  if (!unitA || !unitB) return true
+  const normA = unitA.toLowerCase().trim()
+  const normB = unitB.toLowerCase().trim()
+  if (normA === normB) return true
+
+  const familyA = getUnitFamily(normA)
+  const familyB = getUnitFamily(normB)
+
+  if (familyA !== familyB) return false
+
+  if (familyA === 'container') {
+    return CONTAINER_NORMALIZATION[normA] === CONTAINER_NORMALIZATION[normB]
+  }
+
+  return familyA !== 'unknown'
+}
+
+export interface UnitCompatibilityResult {
+  isCompatible: boolean
+  fromFamily: UnitFamily
+  toFamily: UnitFamily
+  convertedAmount: number | null
+  message: string
+  isConversion: boolean
+}
+
+/**
+ * Detailed compatibility inspector used for real-time validation in the Item Editor
+ */
+export function checkUnitCompatibility(
+  amount: number,
+  fromUnit?: string | null,
+  toUnit?: string | null
+): UnitCompatibilityResult {
+  const normFrom = (fromUnit || '').toLowerCase().trim()
+  const normTo = (toUnit || '').toLowerCase().trim()
+
+  const fromFamily = getUnitFamily(normFrom)
+  const toFamily = getUnitFamily(normTo)
+
+  // Empty unit fallback
+  if (!normFrom || !normTo) {
+    return {
+      isCompatible: true,
+      fromFamily,
+      toFamily,
+      convertedAmount: amount,
+      message: 'Unspecified unit',
+      isConversion: false,
+    }
+  }
+
+  // Exact matching string
+  if (normFrom === normTo) {
+    return {
+      isCompatible: true,
+      fromFamily,
+      toFamily,
+      convertedAmount: amount,
+      message: `Matching unit (${normFrom})`,
+      isConversion: false,
+    }
+  }
+
+  // Weight family
+  if (fromFamily === 'weight' && toFamily === 'weight') {
+    const converted = convertUnits(amount, normFrom, normTo)
+    const formatted =
+      converted !== null
+        ? Number.isInteger(converted)
+          ? converted
+          : Number(converted.toFixed(2))
+        : amount
+    return {
+      isCompatible: true,
+      fromFamily,
+      toFamily,
+      convertedAmount: converted,
+      message: `${amount} ${fromUnit} = ${formatted} ${toUnit} (Weight conversion)`,
+      isConversion: true,
+    }
+  }
+
+  // Volume family
+  if (fromFamily === 'volume' && toFamily === 'volume') {
+    const converted = convertUnits(amount, normFrom, normTo)
+    const formatted =
+      converted !== null
+        ? Number.isInteger(converted)
+          ? converted
+          : Number(converted.toFixed(2))
+        : amount
+    return {
+      isCompatible: true,
+      fromFamily,
+      toFamily,
+      convertedAmount: converted,
+      message: `${amount} ${fromUnit} = ${formatted} ${toUnit} (Volume conversion)`,
+      isConversion: true,
+    }
+  }
+
+  // Discrete Count family (e.g. dozens to ct)
+  if (fromFamily === 'count' && toFamily === 'count') {
+    const converted = convertUnits(amount, normFrom, normTo)
+    const formatted =
+      converted !== null
+        ? Number.isInteger(converted)
+          ? converted
+          : Number(converted.toFixed(2))
+        : amount
+    return {
+      isCompatible: true,
+      fromFamily,
+      toFamily,
+      convertedAmount: converted,
+      message: `${amount} ${fromUnit} = ${formatted} ${toUnit} (Count conversion)`,
+      isConversion: true,
+    }
+  }
+
+  // Matching container (e.g. bottles <-> bottle)
+  if (
+    fromFamily === 'container' &&
+    toFamily === 'container' &&
+    CONTAINER_NORMALIZATION[normFrom] &&
+    CONTAINER_NORMALIZATION[normFrom] === CONTAINER_NORMALIZATION[normTo]
+  ) {
+    return {
+      isCompatible: true,
+      fromFamily,
+      toFamily,
+      convertedAmount: amount,
+      message: `Matching container (${CONTAINER_NORMALIZATION[normFrom]})`,
+      isConversion: false,
+    }
+  }
+
+  const getLabel = (f: UnitFamily) => {
+    switch (f) {
+      case 'weight':
+        return 'Weight'
+      case 'volume':
+        return 'Liquid Volume'
+      case 'count':
+        return 'Discrete Count'
+      case 'container':
+        return 'Container'
+      default:
+        return 'Custom'
+    }
+  }
+
+  return {
+    isCompatible: false,
+    fromFamily,
+    toFamily,
+    convertedAmount: null,
+    message: `Unit mismatch: "${fromUnit}" (${getLabel(fromFamily)}) cannot convert to "${toUnit}" (${getLabel(toFamily)}).`,
+    isConversion: false,
+  }
+}
+
+/**
+ * Converts an amount from one unit to another if they belong to the same dimensional family
  */
 export function convertUnits(
   amount: number,
@@ -123,13 +368,44 @@ export function convertUnits(
     return inFlOz / VOLUME_TO_FLOZ[to]
   }
 
-  // Count family
+  // Discrete Count family (pure counts only)
   if (COUNT_TO_ITEMS[from] && COUNT_TO_ITEMS[to]) {
     const inCount = amount * COUNT_TO_ITEMS[from]
     return inCount / COUNT_TO_ITEMS[to]
   }
 
+  // Matching container plural/singular
+  if (
+    CONTAINER_NORMALIZATION[from] &&
+    CONTAINER_NORMALIZATION[to] &&
+    CONTAINER_NORMALIZATION[from] === CONTAINER_NORMALIZATION[to]
+  ) {
+    return amount
+  }
+
   return null
+}
+
+/**
+ * Normalizes a unit price to standard base units (per oz, per fl oz, or per item)
+ * so unit prices across different package units can be fairly compared and tie-broken.
+ */
+export function getNormalizedUnitPrice(
+  unitPrice: number | null | undefined,
+  unit: string | null | undefined
+): number | null {
+  if (unitPrice === null || unitPrice === undefined || isNaN(unitPrice) || !unit) return null
+  const u = unit.toLowerCase().trim()
+  if (WEIGHT_TO_OZ[u]) {
+    return unitPrice / WEIGHT_TO_OZ[u]
+  }
+  if (VOLUME_TO_FLOZ[u]) {
+    return unitPrice / VOLUME_TO_FLOZ[u]
+  }
+  if (COUNT_TO_ITEMS[u]) {
+    return unitPrice / COUNT_TO_ITEMS[u]
+  }
+  return unitPrice
 }
 
 /**
@@ -157,8 +433,15 @@ export function getPacksNeeded(item: ShoppingItem, shopId: string): number {
       return Math.max(1, Math.ceil(convertedTarget / packSize))
     }
 
-    // Direct ratio if units match or are compatible
-    if (!targetUnit || targetUnit === packUnit) {
+    // Direct ratio if units match or are identical containers
+    const normTarget = targetUnit.toLowerCase().trim()
+    const normPack = packUnit.toLowerCase().trim()
+    if (
+      !targetUnit ||
+      normTarget === normPack ||
+      (CONTAINER_NORMALIZATION[normTarget] &&
+        CONTAINER_NORMALIZATION[normTarget] === CONTAINER_NORMALIZATION[normPack])
+    ) {
       return Math.max(1, Math.ceil(targetAmount / packSize))
     }
   }
@@ -202,6 +485,7 @@ export function compareShopPrices(
   let cheapestPacksNeeded = 1
   let cheapestFulfillmentCost: number | null = null
   let cheapestUnitPrice: number | null = null
+  let cheapestPackageUnit: string | null = null
 
   const allStorePrices: PriceComparison['allStorePrices'] = []
 
@@ -225,7 +509,7 @@ export function compareShopPrices(
       })
 
       // The comparison value is the total fulfillment cost to satisfy the needed amount.
-      // If two stores have equal fulfillment cost, unit price breaks ties.
+      // If two stores have equal fulfillment cost, normalized unit price breaks ties.
       const compVal = fulfillmentCost
 
       if (cheapestCompVal === null || compVal < cheapestCompVal) {
@@ -235,14 +519,25 @@ export function compareShopPrices(
         cheapestPacksNeeded = packsNeeded
         cheapestFulfillmentCost = fulfillmentCost
         cheapestUnitPrice = detail.unitPrice || null
+        cheapestPackageUnit = detail.packageUnit || null
       } else if (compVal === cheapestCompVal && detail.unitPrice && cheapestUnitPrice) {
-        // Tie-breaker: better unit price
-        if (detail.unitPrice < cheapestUnitPrice) {
+        // Tie-breaker: better normalized unit price (fair comparison across oz vs lb, etc.)
+        const normCurrent = getNormalizedUnitPrice(detail.unitPrice, detail.packageUnit)
+        const normCheapest = getNormalizedUnitPrice(cheapestUnitPrice, cheapestPackageUnit)
+        if (normCurrent !== null && normCheapest !== null && normCurrent < normCheapest) {
           cheapestShop = shop
           cheapestPrice = detail.price
           cheapestPacksNeeded = packsNeeded
           cheapestFulfillmentCost = fulfillmentCost
           cheapestUnitPrice = detail.unitPrice
+          cheapestPackageUnit = detail.packageUnit || null
+        } else if (detail.unitPrice < cheapestUnitPrice) {
+          cheapestShop = shop
+          cheapestPrice = detail.price
+          cheapestPacksNeeded = packsNeeded
+          cheapestFulfillmentCost = fulfillmentCost
+          cheapestUnitPrice = detail.unitPrice
+          cheapestPackageUnit = detail.packageUnit || null
         }
       }
     } else if (detail) {
