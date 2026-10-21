@@ -31,10 +31,11 @@ import {
   X,
   MoreHorizontal,
   SlidersHorizontal,
+  Layers,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
-import type { ShoppingItem } from '../types'
+import type { ShoppingItem, StorePackageOption } from '../types'
 import {
   compareShopPrices,
   formatPrice,
@@ -42,6 +43,7 @@ import {
   getPacksNeeded,
   groupItemsByShopLocation,
   isCheapestAtStore,
+  compareShelfSizes,
 } from '../utils/pricing'
 
 interface ShoppingModeViewProps {
@@ -209,11 +211,19 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   // Feature 4: Fast In-Store Price & Weighted Scale Calculator Modal
   const [calcModalItem, setCalcModalItem] = useState<ShoppingItem | null>(null)
-  const [calcMode, setCalcMode] = useState<'price' | 'scale'>('price')
+  const [calcMode, setCalcMode] = useState<'price' | 'scale' | 'compare'>('price')
   const [calcShelfPrice, setCalcShelfPrice] = useState<string>('')
   const [calcWeight, setCalcWeight] = useState<string>('')
   const [calcPricePerUnit, setCalcPricePerUnit] = useState<string>('')
   const [calcWeightUnit, setCalcWeightUnit] = useState<string>('lb')
+
+  // Feature 4b: In-Aisle Shelf Size Comparison
+  const [compareSizeA, setCompareSizeA] = useState<string>('')
+  const [compareUnitA, setCompareUnitA] = useState<string>('oz')
+  const [comparePriceA, setComparePriceA] = useState<string>('')
+  const [compareSizeB, setCompareSizeB] = useState<string>('')
+  const [compareUnitB, setCompareUnitB] = useState<string>('oz')
+  const [comparePriceB, setComparePriceB] = useState<string>('')
 
   // All needed items on active shopping list
   const allNeededItems = items.filter((item) => item.isNeeded)
@@ -400,19 +410,119 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   }
 
   const openPriceCalculator = (item: ShoppingItem) => {
-    const currentPrice = item.shops[currentShop.id]?.price
+    const detail = item.shops[currentShop.id]
+    const currentPrice = detail?.price
+    const currentPkgSize = detail?.packageSize
+    const currentPkgUnit = detail?.packageUnit || item.unit || 'oz'
     const isWeightUnit = ['lb', 'lbs', 'oz', 'kg'].includes(item.unit?.toLowerCase())
 
     setCalcModalItem(item)
     setCalcShelfPrice(currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
     setCalcWeight(item.quantity ? item.quantity.toString() : '1')
     setCalcPricePerUnit(
-      item.shops[currentShop.id]?.unitPrice?.toString() ||
+      detail?.unitPrice?.toString() ||
         (currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
     )
     setCalcWeightUnit(isWeightUnit ? item.unit : 'lb')
     setCalcMode(isWeightUnit ? 'scale' : 'price')
+
+    // Pre-populate Size A for shelf comparison
+    setCompareSizeA(currentPkgSize ? currentPkgSize.toString() : '')
+    setCompareUnitA(currentPkgUnit)
+    setComparePriceA(currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
+    setCompareSizeB('')
+    setCompareUnitB(currentPkgUnit)
+    setComparePriceB('')
+
     triggerHaptic(15)
+  }
+
+  const shelfComparison = useMemo(() => {
+    if (!calcModalItem || calcMode !== 'compare') return null
+    const sA = parseFloat(compareSizeA)
+    const pA = parseFloat(comparePriceA)
+    const sB = parseFloat(compareSizeB)
+    const pB = parseFloat(comparePriceB)
+
+    if (
+      isNaN(sA) ||
+      sA <= 0 ||
+      isNaN(pA) ||
+      pA <= 0 ||
+      isNaN(sB) ||
+      sB <= 0 ||
+      isNaN(pB) ||
+      pB <= 0
+    ) {
+      return null
+    }
+
+    return compareShelfSizes(
+      calcModalItem.quantity || 1,
+      calcModalItem.unit || '',
+      { size: sA, unit: compareUnitA, price: pA },
+      { size: sB, unit: compareUnitB, price: pB }
+    )
+  }, [
+    calcModalItem,
+    calcMode,
+    compareSizeA,
+    comparePriceA,
+    compareUnitA,
+    compareSizeB,
+    comparePriceB,
+    compareUnitB,
+  ])
+
+  const handleApplyWinningSize = async () => {
+    if (!calcModalItem || !shelfComparison) return
+    const winning = shelfComparison.winner === 'B' ? shelfComparison.sizeB : shelfComparison.sizeA
+    await updateItemShopDetail(calcModalItem.id, currentShop.id, {
+      price: winning.price,
+      packageSize: winning.size,
+      packageUnit: winning.unit,
+      unitPrice: winning.unitPrice,
+      unitSize: `${winning.size} ${winning.unit}`,
+    })
+    triggerHaptic(30)
+    setToastMessage(
+      `Applied Size ${shelfComparison.winner} ($${winning.price.toFixed(2)} for ${winning.size} ${winning.unit}) to ${calcModalItem.name}`
+    )
+    setCalcModalItem(null)
+  }
+
+  const handleSaveBothSizes = async () => {
+    if (!calcModalItem || !shelfComparison) return
+    const optA: StorePackageOption = {
+      id: 'opt-a-' + Date.now(),
+      label: `Size A (${shelfComparison.sizeA.size} ${shelfComparison.sizeA.unit})`,
+      packageSize: shelfComparison.sizeA.size,
+      packageUnit: shelfComparison.sizeA.unit,
+      price: shelfComparison.sizeA.price,
+      unitPrice: shelfComparison.sizeA.unitPrice,
+    }
+    const optB: StorePackageOption = {
+      id: 'opt-b-' + (Date.now() + 1),
+      label: `Size B (${shelfComparison.sizeB.size} ${shelfComparison.sizeB.unit})`,
+      packageSize: shelfComparison.sizeB.size,
+      packageUnit: shelfComparison.sizeB.unit,
+      price: shelfComparison.sizeB.price,
+      unitPrice: shelfComparison.sizeB.unitPrice,
+    }
+    const winning = shelfComparison.winner === 'B' ? shelfComparison.sizeB : shelfComparison.sizeA
+    await updateItemShopDetail(calcModalItem.id, currentShop.id, {
+      price: winning.price,
+      packageSize: winning.size,
+      packageUnit: winning.unit,
+      unitPrice: winning.unitPrice,
+      unitSize: `${winning.size} ${winning.unit}`,
+      packageOptions: [optA, optB],
+    })
+    triggerHaptic(30)
+    setToastMessage(
+      `Saved both sizes to ${currentShop.name}! Size ${shelfComparison.winner} selected as optimal.`
+    )
+    setCalcModalItem(null)
   }
 
   const handleSaveCalculatorPrice = async () => {
@@ -1091,6 +1201,21 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   </span>
                                 )}
 
+                                {/* In-Store Multi-Size Savings Badge */}
+                                {comp.hasMultipleSizesAtStore && comp.storeSavingsVsOtherSize && (
+                                  <span
+                                    className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md transition ${
+                                      isPicked
+                                        ? 'bg-slate-100 text-slate-400 line-through'
+                                        : 'bg-indigo-100/80 text-indigo-800'
+                                    }`}
+                                    title={`Multiple sizes at this store: this optimal size saves ${formatPrice(comp.storeSavingsVsOtherSize)} vs ${comp.otherStoreSizeLabel}`}
+                                  >
+                                    <Layers className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-indigo-600'}`} />
+                                    <span>Best Size: -{formatPrice(comp.storeSavingsVsOtherSize)}</span>
+                                  </span>
+                                )}
+
                                 {comp.isCheaperElsewhere && comp.cheapestShop && (
                                   <span
                                     className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md transition ${
@@ -1431,30 +1556,42 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             {/* Mode Switcher */}
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl mb-4">
+            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl mb-4">
               <button
                 type="button"
                 onClick={() => setCalcMode('price')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition ${
                   calcMode === 'price'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Calculator className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Direct Shelf Price</span>
+                <Calculator className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">Shelf Price</span>
               </button>
               <button
                 type="button"
                 onClick={() => setCalcMode('scale')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition ${
                   calcMode === 'scale'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Scale className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Produce / Scale</span>
+                <Scale className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">Scale Wt</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCalcMode('compare')}
+                className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition ${
+                  calcMode === 'compare'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">Compare Sizes</span>
               </button>
             </div>
 
@@ -1574,24 +1711,234 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               </div>
             )}
 
+            {/* Mode 3: In-Aisle Shelf Size Comparison */}
+            {calcMode === 'compare' && (
+              <div className="space-y-3.5 mb-5 text-xs">
+                <div className="text-[11px] text-slate-500">
+                  Compare two package sizes on the shelf for your{' '}
+                  <strong>
+                    {calcModalItem.quantity || 1} {calcModalItem.unit || 'units'}
+                  </strong>{' '}
+                  target need:
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Size A (Current / Known) */}
+                  <div className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+                    <div className="font-bold text-slate-800 text-[11px] flex items-center justify-between">
+                      <span>Size A</span>
+                      {shelfComparison?.winner === 'A' && (
+                        <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
+                          Cheaper
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
+                        Size & Unit
+                      </label>
+                      <div className="flex gap-1">
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Size"
+                          value={compareSizeA}
+                          onChange={(e) => setCompareSizeA(e.target.value)}
+                          className="w-3/5 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Unit"
+                          value={compareUnitA}
+                          onChange={(e) => setCompareUnitA(e.target.value)}
+                          className="w-2/5 px-1 py-1 bg-white border border-slate-300 rounded-lg text-xs outline-none text-center font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
+                        Shelf Price ($)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1 text-slate-400">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={comparePriceA}
+                          onChange={(e) => setComparePriceA(e.target.value)}
+                          className="w-full pl-5 pr-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {shelfComparison && (
+                      <div className="pt-1.5 border-t border-slate-200 text-[11px] space-y-0.5">
+                        <div className="text-slate-500">
+                          Unit: {shelfComparison.sizeA.unitPrice ? `$${shelfComparison.sizeA.unitPrice.toFixed(3)}/${shelfComparison.sizeA.unit}` : '--'}
+                        </div>
+                        <div className="font-bold text-slate-800">
+                          {shelfComparison.sizeA.packsNeeded} pk = ${shelfComparison.sizeA.fulfillmentCost.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Size B (New / Competitor Size) */}
+                  <div className="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-2">
+                    <div className="font-bold text-indigo-950 text-[11px] flex items-center justify-between">
+                      <span>Size B</span>
+                      {shelfComparison?.winner === 'B' && (
+                        <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
+                          Cheaper
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-indigo-900 mb-0.5">
+                        Size & Unit
+                      </label>
+                      <div className="flex gap-1">
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Size"
+                          value={compareSizeB}
+                          onChange={(e) => setCompareSizeB(e.target.value)}
+                          className="w-3/5 px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold outline-none"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Unit"
+                          value={compareUnitB}
+                          onChange={(e) => setCompareUnitB(e.target.value)}
+                          className="w-2/5 px-1 py-1 bg-white border border-indigo-300 rounded-lg text-xs outline-none text-center font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-indigo-900 mb-0.5">
+                        Shelf Price ($)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1 text-slate-400">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={comparePriceB}
+                          onChange={(e) => setComparePriceB(e.target.value)}
+                          className="w-full pl-5 pr-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {shelfComparison && (
+                      <div className="pt-1.5 border-t border-indigo-200 text-[11px] space-y-0.5">
+                        <div className="text-indigo-800">
+                          Unit: {shelfComparison.sizeB.unitPrice ? `$${shelfComparison.sizeB.unitPrice.toFixed(3)}/${shelfComparison.sizeB.unit}` : '--'}
+                        </div>
+                        <div className="font-bold text-indigo-950">
+                          {shelfComparison.sizeB.packsNeeded} pk = ${shelfComparison.sizeB.fulfillmentCost.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Verdict Banner */}
+                {shelfComparison && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
+                      shelfComparison.winner !== 'TIE'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                        : 'bg-slate-100 border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-black text-xs">{shelfComparison.summary}</div>
+                        {shelfComparison.winner !== 'TIE' && (
+                          <div className="text-[11px] text-emerald-800 mt-0.5">
+                            Buying{' '}
+                            <strong>
+                              {shelfComparison.winner === 'B'
+                                ? `${shelfComparison.sizeB.packsNeeded} × ${shelfComparison.sizeB.size} ${shelfComparison.sizeB.unit}`
+                                : `${shelfComparison.sizeA.packsNeeded} × ${shelfComparison.sizeA.size} ${shelfComparison.sizeA.unit}`}
+                            </strong>{' '}
+                            fulfills your demand for the lowest total out-of-pocket cost.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Modal Actions */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCalcModalItem(null)}
-                className="w-1/3 py-2.5 px-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveCalculatorPrice}
-                className="w-2/3 py-2.5 px-3 bg-emerald-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition flex items-center justify-center gap-1.5"
-              >
-                <Check className="w-4 h-4" />
-                <span>Save Price to Store</span>
-              </button>
-            </div>
+            {calcMode === 'compare' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCalcModalItem(null)}
+                  className="w-1/3 py-2.5 px-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+                {shelfComparison ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleApplyWinningSize}
+                      className="w-1/3 py-2.5 px-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-emerald-700 transition truncate"
+                      title="Use the cheaper size right now"
+                    >
+                      Use Winner ({shelfComparison.winner})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveBothSizes}
+                      className="w-1/3 py-2.5 px-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-indigo-700 transition truncate"
+                      title="Keep both sizes saved to this store"
+                    >
+                      Save Both
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-2/3 py-2.5 px-3 bg-slate-200 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed"
+                  >
+                    Enter sizes & prices above
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCalcModalItem(null)}
+                  className="w-1/3 py-2.5 px-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCalculatorPrice}
+                  className="w-2/3 py-2.5 px-3 bg-emerald-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Price to Store</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

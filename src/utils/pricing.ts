@@ -1,4 +1,25 @@
-import type { Shop, ShoppingItem } from '../types'
+import type { Shop, ShoppingItem, StorePackageOption } from '../types'
+
+export interface EvaluatedPackageOption {
+  id: string
+  label?: string
+  packageSize: number
+  packageUnit: string
+  price: number
+  unitPrice?: number | null
+  packsNeeded: number
+  fulfillmentCost: number
+  normalizedUnitPrice?: number | null
+  isOptimal: boolean
+}
+
+export interface OptimalStorePackageResult {
+  bestOption: EvaluatedPackageOption
+  allOptions: EvaluatedPackageOption[]
+  hasMultipleOptions: boolean
+  savingsVsOther?: number
+  otherOptionLabel?: string
+}
 
 export interface PriceComparison {
   currentPrice: number | null
@@ -6,6 +27,10 @@ export interface PriceComparison {
   currentFulfillmentCost: number | null
   currentUnitPrice: number | null
   currentPackageUnit: string | null
+  currentBestPackageOption?: EvaluatedPackageOption
+  hasMultipleSizesAtStore?: boolean
+  storeSavingsVsOtherSize?: number
+  otherStoreSizeLabel?: string
   cheapestShop: Shop | null
   cheapestPrice: number | null
   cheapestPacksNeeded: number
@@ -24,6 +49,8 @@ export interface PriceComparison {
     unitPrice?: number | null
     available: boolean
     location: string
+    hasMultipleSizes?: boolean
+    bestOptionLabel?: string
   }>
 }
 
@@ -409,44 +436,179 @@ export function getNormalizedUnitPrice(
 }
 
 /**
+ * Evaluates all available package sizes at a given store to find the one
+ * with the lowest total fulfillment cost for the item's target demand.
+ */
+export function getOptimalStorePackage(
+  item: ShoppingItem,
+  shopId: string
+): OptimalStorePackageResult {
+  const detail = item.shops[shopId]
+  const targetAmount = item.quantity || 1
+  const targetUnit = item.unit || ''
+
+  // Fallback defaults if store has no data
+  const defaultOption: EvaluatedPackageOption = {
+    id: 'default',
+    label: 'Standard',
+    packageSize: detail?.packageSize || targetAmount,
+    packageUnit: detail?.packageUnit || targetUnit,
+    price: detail?.price || 0,
+    unitPrice: detail?.unitPrice || null,
+    packsNeeded:
+      typeof detail?.storeQuantity === 'number' && detail.storeQuantity > 0
+        ? detail.storeQuantity
+        : Math.max(1, Math.round(targetAmount)),
+    fulfillmentCost:
+      (detail?.price || 0) *
+      (typeof detail?.storeQuantity === 'number' && detail.storeQuantity > 0
+        ? detail.storeQuantity
+        : Math.max(1, Math.round(targetAmount))),
+    normalizedUnitPrice: getNormalizedUnitPrice(detail?.unitPrice, detail?.packageUnit),
+    isOptimal: true,
+  }
+
+  if (!detail) {
+    return {
+      bestOption: defaultOption,
+      allOptions: [defaultOption],
+      hasMultipleOptions: false,
+    }
+  }
+
+  // Gather candidate options: packageOptions if present, or legacy single size
+  let rawCandidates: StorePackageOption[] = []
+
+  if (Array.isArray(detail.packageOptions) && detail.packageOptions.length > 0) {
+    rawCandidates = [...detail.packageOptions]
+  } else if (
+    typeof detail.packageSize === 'number' &&
+    detail.packageSize > 0 &&
+    typeof detail.price === 'number' &&
+    detail.price > 0
+  ) {
+    rawCandidates = [
+      {
+        id: 'primary',
+        label: detail.unitSize || `${detail.packageSize} ${detail.packageUnit || targetUnit}`,
+        packageSize: detail.packageSize,
+        packageUnit: detail.packageUnit || targetUnit,
+        price: detail.price,
+        unitPrice: detail.unitPrice,
+      },
+    ]
+  }
+
+  if (rawCandidates.length === 0) {
+    return {
+      bestOption: defaultOption,
+      allOptions: [defaultOption],
+      hasMultipleOptions: false,
+    }
+  }
+
+  // Evaluate each candidate option
+  const evaluated: EvaluatedPackageOption[] = rawCandidates.map((opt) => {
+    let packs = 1
+
+    if (typeof detail.storeQuantity === 'number' && detail.storeQuantity > 0) {
+      packs = detail.storeQuantity
+    } else if (opt.packageSize > 0) {
+      const convertedTarget = convertUnits(targetAmount, targetUnit, opt.packageUnit)
+      if (convertedTarget !== null && convertedTarget > 0) {
+        packs = Math.max(1, Math.ceil(convertedTarget / opt.packageSize))
+      } else {
+        const normTarget = targetUnit.toLowerCase().trim()
+        const normOpt = opt.packageUnit.toLowerCase().trim()
+        if (
+          !targetUnit ||
+          normTarget === normOpt ||
+          (CONTAINER_NORMALIZATION[normTarget] &&
+            CONTAINER_NORMALIZATION[normTarget] === CONTAINER_NORMALIZATION[normOpt])
+        ) {
+          packs = Math.max(1, Math.ceil(targetAmount / opt.packageSize))
+        } else {
+          packs = Math.max(1, Math.round(targetAmount))
+        }
+      }
+    }
+
+    const computedUnitPrice =
+      typeof opt.unitPrice === 'number' && opt.unitPrice > 0
+        ? opt.unitPrice
+        : opt.packageSize > 0 && opt.price > 0
+        ? Number((opt.price / opt.packageSize).toFixed(4))
+        : null
+
+    const normUnitPrice = getNormalizedUnitPrice(computedUnitPrice, opt.packageUnit)
+    const cost = opt.price * packs
+
+    return {
+      id: opt.id,
+      label: opt.label,
+      packageSize: opt.packageSize,
+      packageUnit: opt.packageUnit,
+      price: opt.price,
+      unitPrice: computedUnitPrice,
+      packsNeeded: packs,
+      fulfillmentCost: cost,
+      normalizedUnitPrice: normUnitPrice,
+      isOptimal: false,
+    }
+  })
+
+  // Sort candidates by fulfillment cost (primary), then normalized unit price (secondary)
+  evaluated.sort((a, b) => {
+    if (Math.abs(a.fulfillmentCost - b.fulfillmentCost) > 0.001) {
+      return a.fulfillmentCost - b.fulfillmentCost
+    }
+    if (
+      typeof a.normalizedUnitPrice === 'number' &&
+      typeof b.normalizedUnitPrice === 'number'
+    ) {
+      return a.normalizedUnitPrice - b.normalizedUnitPrice
+    }
+    return 0
+  })
+
+  evaluated[0].isOptimal = true
+  const bestOption = evaluated[0]
+
+  let savingsVsOther: number | undefined
+  let otherOptionLabel: string | undefined
+
+  if (evaluated.length > 1) {
+    const worst = evaluated[evaluated.length - 1]
+    const diff = worst.fulfillmentCost - bestOption.fulfillmentCost
+    if (diff > 0.005) {
+      savingsVsOther = Number(diff.toFixed(2))
+      otherOptionLabel = worst.label || `${worst.packageSize} ${worst.packageUnit}`
+    }
+  }
+
+  return {
+    bestOption,
+    allOptions: evaluated,
+    hasMultipleOptions: evaluated.length > 1,
+    savingsVsOther,
+    otherOptionLabel,
+  }
+}
+
+/**
  * Calculates how many store packages are needed to fulfill the item's target demand.
- * Formula: ceil(targetAmount / storePackageSize) with unit normalization.
+ * Formula: ceil(targetAmount / storePackageSize) with unit normalization and multi-size optimization.
  */
 export function getPacksNeeded(item: ShoppingItem, shopId: string): number {
   const detail = item.shops[shopId]
-  const targetAmount = item.quantity || 1
-  if (!detail) return targetAmount
+  if (!detail) return item.quantity || 1
 
   // Manual storeQuantity override takes priority if defined
   if (typeof detail.storeQuantity === 'number' && detail.storeQuantity > 0) {
     return detail.storeQuantity
   }
 
-  const targetUnit = item.unit || ''
-  const packSize = detail.packageSize
-  const packUnit = detail.packageUnit || targetUnit
-
-  if (typeof packSize === 'number' && packSize > 0) {
-    // Attempt unit conversion (e.g. 4 lbs target into 16 oz store packs -> 4 packs)
-    const convertedTarget = convertUnits(targetAmount, targetUnit, packUnit)
-    if (convertedTarget !== null && convertedTarget > 0) {
-      return Math.max(1, Math.ceil(convertedTarget / packSize))
-    }
-
-    // Direct ratio if units match or are identical containers
-    const normTarget = targetUnit.toLowerCase().trim()
-    const normPack = packUnit.toLowerCase().trim()
-    if (
-      !targetUnit ||
-      normTarget === normPack ||
-      (CONTAINER_NORMALIZATION[normTarget] &&
-        CONTAINER_NORMALIZATION[normTarget] === CONTAINER_NORMALIZATION[normPack])
-    ) {
-      return Math.max(1, Math.ceil(targetAmount / packSize))
-    }
-  }
-
-  return Math.max(1, Math.round(targetAmount))
+  return getOptimalStorePackage(item, shopId).bestOption.packsNeeded
 }
 
 /**
@@ -469,15 +631,19 @@ export function compareShopPrices(
   shops: Shop[]
 ): PriceComparison {
   const currentDetail = item.shops[currentShopId]
-  const currentPacksNeeded = currentShopId ? getPacksNeeded(item, currentShopId) : (item.quantity || 1)
+  const currentOptResult = currentShopId ? getOptimalStorePackage(item, currentShopId) : null
+  const currentBestOpt = currentOptResult?.bestOption
+  const currentPacksNeeded = currentBestOpt ? currentBestOpt.packsNeeded : (item.quantity || 1)
   const currentPrice =
-    currentDetail?.available && typeof currentDetail.price === 'number'
+    currentDetail?.available && currentBestOpt && currentBestOpt.price > 0
+      ? currentBestOpt.price
+      : currentDetail?.available && typeof currentDetail.price === 'number'
       ? currentDetail.price
       : null
   const currentFulfillmentCost =
     currentPrice !== null ? currentPrice * currentPacksNeeded : null
-  const currentUnitPrice = currentDetail?.unitPrice || null
-  const currentPackageUnit = currentDetail?.packageUnit || null
+  const currentUnitPrice = currentBestOpt?.unitPrice || currentDetail?.unitPrice || null
+  const currentPackageUnit = currentBestOpt?.packageUnit || currentDetail?.packageUnit || null
 
   let cheapestShop: Shop | null = null
   let cheapestCompVal: number | null = null
@@ -491,21 +657,26 @@ export function compareShopPrices(
 
   for (const shop of shops) {
     const detail = item.shops[shop.id]
-    const packsNeeded = getPacksNeeded(item, shop.id)
+    const optResult = getOptimalStorePackage(item, shop.id)
+    const bestOpt = optResult.bestOption
+    const packsNeeded = bestOpt.packsNeeded
+    const effectivePrice = bestOpt.price > 0 ? bestOpt.price : (detail?.price || 0)
 
-    if (detail && detail.available && typeof detail.price === 'number' && detail.price > 0) {
-      const fulfillmentCost = detail.price * packsNeeded
+    if (detail && detail.available && effectivePrice > 0) {
+      const fulfillmentCost = effectivePrice * packsNeeded
 
       allStorePrices.push({
         shop,
-        price: detail.price,
+        price: effectivePrice,
         packsNeeded,
         fulfillmentCost,
-        packageSize: detail.packageSize,
-        packageUnit: detail.packageUnit,
-        unitPrice: detail.unitPrice,
+        packageSize: bestOpt.packageSize,
+        packageUnit: bestOpt.packageUnit,
+        unitPrice: bestOpt.unitPrice,
         available: true,
         location: detail.location || '',
+        hasMultipleSizes: optResult.hasMultipleOptions,
+        bestOptionLabel: bestOpt.label,
       })
 
       // The comparison value is the total fulfillment cost to satisfy the needed amount.
@@ -515,29 +686,29 @@ export function compareShopPrices(
       if (cheapestCompVal === null || compVal < cheapestCompVal) {
         cheapestCompVal = compVal
         cheapestShop = shop
-        cheapestPrice = detail.price
+        cheapestPrice = effectivePrice
         cheapestPacksNeeded = packsNeeded
         cheapestFulfillmentCost = fulfillmentCost
-        cheapestUnitPrice = detail.unitPrice || null
-        cheapestPackageUnit = detail.packageUnit || null
-      } else if (compVal === cheapestCompVal && detail.unitPrice && cheapestUnitPrice) {
+        cheapestUnitPrice = bestOpt.unitPrice || null
+        cheapestPackageUnit = bestOpt.packageUnit || null
+      } else if (compVal === cheapestCompVal && bestOpt.unitPrice && cheapestUnitPrice) {
         // Tie-breaker: better normalized unit price (fair comparison across oz vs lb, etc.)
-        const normCurrent = getNormalizedUnitPrice(detail.unitPrice, detail.packageUnit)
+        const normCurrent = getNormalizedUnitPrice(bestOpt.unitPrice, bestOpt.packageUnit)
         const normCheapest = getNormalizedUnitPrice(cheapestUnitPrice, cheapestPackageUnit)
         if (normCurrent !== null && normCheapest !== null && normCurrent < normCheapest) {
           cheapestShop = shop
-          cheapestPrice = detail.price
+          cheapestPrice = effectivePrice
           cheapestPacksNeeded = packsNeeded
           cheapestFulfillmentCost = fulfillmentCost
-          cheapestUnitPrice = detail.unitPrice
-          cheapestPackageUnit = detail.packageUnit || null
-        } else if (detail.unitPrice < cheapestUnitPrice) {
+          cheapestUnitPrice = bestOpt.unitPrice
+          cheapestPackageUnit = bestOpt.packageUnit || null
+        } else if (bestOpt.unitPrice < cheapestUnitPrice) {
           cheapestShop = shop
-          cheapestPrice = detail.price
+          cheapestPrice = effectivePrice
           cheapestPacksNeeded = packsNeeded
           cheapestFulfillmentCost = fulfillmentCost
-          cheapestUnitPrice = detail.unitPrice
-          cheapestPackageUnit = detail.packageUnit || null
+          cheapestUnitPrice = bestOpt.unitPrice
+          cheapestPackageUnit = bestOpt.packageUnit || null
         }
       }
     } else if (detail) {
@@ -551,6 +722,8 @@ export function compareShopPrices(
         unitPrice: detail.unitPrice,
         available: detail.available,
         location: detail.location || '',
+        hasMultipleSizes: optResult.hasMultipleOptions,
+        bestOptionLabel: bestOpt.label,
       })
     }
   }
@@ -583,6 +756,10 @@ export function compareShopPrices(
     currentFulfillmentCost,
     currentUnitPrice,
     currentPackageUnit,
+    currentBestPackageOption: currentBestOpt,
+    hasMultipleSizesAtStore: currentOptResult?.hasMultipleOptions || false,
+    storeSavingsVsOtherSize: currentOptResult?.savingsVsOther,
+    otherStoreSizeLabel: currentOptResult?.otherOptionLabel,
     cheapestShop,
     cheapestPrice,
     cheapestPacksNeeded,
@@ -592,6 +769,117 @@ export function compareShopPrices(
     isBestPriceHere,
     savingsAmount,
     allStorePrices,
+  }
+}
+
+export interface ShelfSizeComparison {
+  sizeA: {
+    size: number
+    unit: string
+    price: number
+    unitPrice: number | null
+    packsNeeded: number
+    fulfillmentCost: number
+  }
+  sizeB: {
+    size: number
+    unit: string
+    price: number
+    unitPrice: number | null
+    packsNeeded: number
+    fulfillmentCost: number
+  }
+  winner: 'A' | 'B' | 'TIE'
+  savingsAmount: number
+  savingsPercent: number
+  summary: string
+}
+
+/**
+ * In-aisle shelf comparison helper: evaluates two shelf sizes against target demand
+ * to determine which one is truly cheaper to buy and calculates exact dollar savings.
+ */
+export function compareShelfSizes(
+  targetAmount: number,
+  targetUnit: string,
+  sizeA: { size: number; unit: string; price: number },
+  sizeB: { size: number; unit: string; price: number }
+): ShelfSizeComparison {
+  const calcPacks = (packSize: number, packUnit: string) => {
+    if (packSize <= 0) return 1
+    const converted = convertUnits(targetAmount, targetUnit, packUnit)
+    if (converted !== null && converted > 0) {
+      return Math.max(1, Math.ceil(converted / packSize))
+    }
+    const normT = (targetUnit || '').toLowerCase().trim()
+    const normP = (packUnit || '').toLowerCase().trim()
+    if (
+      !targetUnit ||
+      normT === normP ||
+      (CONTAINER_NORMALIZATION[normT] &&
+        CONTAINER_NORMALIZATION[normT] === CONTAINER_NORMALIZATION[normP])
+    ) {
+      return Math.max(1, Math.ceil(targetAmount / packSize))
+    }
+    return Math.max(1, Math.round(targetAmount))
+  }
+
+  const packsA = calcPacks(sizeA.size, sizeA.unit)
+  const costA = Number((packsA * sizeA.price).toFixed(2))
+  const unitPriceA = sizeA.size > 0 ? Number((sizeA.price / sizeA.size).toFixed(4)) : null
+  const normUnitPriceA = getNormalizedUnitPrice(unitPriceA, sizeA.unit)
+
+  const packsB = calcPacks(sizeB.size, sizeB.unit)
+  const costB = Number((packsB * sizeB.price).toFixed(2))
+  const unitPriceB = sizeB.size > 0 ? Number((sizeB.price / sizeB.size).toFixed(4)) : null
+  const normUnitPriceB = getNormalizedUnitPrice(unitPriceB, sizeB.unit)
+
+  let winner: 'A' | 'B' | 'TIE' = 'TIE'
+  let savingsAmount = 0
+  let savingsPercent = 0
+  let summary = ''
+
+  if (Math.abs(costA - costB) < 0.005) {
+    if (
+      normUnitPriceA !== null &&
+      normUnitPriceB !== null &&
+      Math.abs(normUnitPriceA - normUnitPriceB) > 0.0001
+    ) {
+      winner = normUnitPriceA < normUnitPriceB ? 'A' : 'B'
+      summary = `Both total $${costA.toFixed(2)}, but Size ${winner} has a lower unit price.`
+    } else {
+      winner = 'TIE'
+      summary = `Both sizes cost the exact same ($${costA.toFixed(2)}) to fulfill your need.`
+    }
+  } else if (costA < costB) {
+    winner = 'A'
+    savingsAmount = Number((costB - costA).toFixed(2))
+    savingsPercent = costB > 0 ? Math.round((savingsAmount / costB) * 100) : 0
+    summary = `Size A saves $${savingsAmount.toFixed(2)} (${savingsPercent}%) vs Size B.`
+  } else {
+    winner = 'B'
+    savingsAmount = Number((costA - costB).toFixed(2))
+    savingsPercent = costA > 0 ? Math.round((savingsAmount / costA) * 100) : 0
+    summary = `Size B saves $${savingsAmount.toFixed(2)} (${savingsPercent}%) vs Size A.`
+  }
+
+  return {
+    sizeA: {
+      ...sizeA,
+      unitPrice: unitPriceA,
+      packsNeeded: packsA,
+      fulfillmentCost: costA,
+    },
+    sizeB: {
+      ...sizeB,
+      unitPrice: unitPriceB,
+      packsNeeded: packsB,
+      fulfillmentCost: costB,
+    },
+    winner,
+    savingsAmount,
+    savingsPercent,
+    summary,
   }
 }
 

@@ -8,6 +8,15 @@ export interface Shop {
   orderIndex?: number // Custom sequence for shopping trip planning (Stop 1, Stop 2...)
 }
 
+export interface StorePackageOption {
+  id: string
+  label?: string // e.g. 'Small', 'Regular', 'Family Size', 'Club Pack'
+  packageSize: number // e.g. 16
+  packageUnit: string // e.g. 'oz'
+  price: number // e.g. 2.00
+  unitPrice?: number | null // Computed price per unit
+}
+
 export interface ItemShopDetail {
   available: boolean // Include / Exclude in this shop
   price: number | null // Base price in USD
@@ -17,6 +26,7 @@ export interface ItemShopDetail {
   packageUnit?: string // e.g. 'oz', 'lb', 'gal', 'ct', 'can', 'bottle'
   unitPrice?: number | null // Computed price per packageUnit (e.g. $0.18 / oz)
   storeQuantity?: number | null // Optional manual override for number of packages to buy at this store
+  packageOptions?: StorePackageOption[] // Multiple package sizes/variants available at this store
   notes?: string
 }
 

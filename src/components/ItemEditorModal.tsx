@@ -13,13 +13,16 @@ import {
   Check,
   MapPin,
   AlertTriangle,
+  Sparkles,
+  Layers,
 } from 'lucide-react'
-import type { ItemShopDetail, ShoppingItem } from '../types'
+import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
 import {
   formatUnitPrice,
   formatPrice,
   getPacksNeeded,
+  getOptimalStorePackage,
   getUnitFamily,
   checkUnitCompatibility,
   UNIT_GROUPS,
@@ -231,6 +234,123 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       ...others,
     ]
   }, [unit])
+
+  // Multi-size evaluation for the current store
+  const optimalStorePackageResult = useMemo(() => {
+    if (!activeShop) return null
+    return getOptimalStorePackage(
+      {
+        id: item?.id || '',
+        name,
+        category,
+        quantity: Number(quantity) || 1,
+        unit,
+        isNeeded,
+        inCart: false,
+        shops: shopDetails,
+        createdAt: 0,
+        updatedAt: 0,
+      },
+      activeShop.id
+    )
+  }, [item?.id, name, category, quantity, unit, isNeeded, shopDetails, activeShop])
+
+  // New Package Option Input State
+  const [isAddingSizeOption, setIsAddingSizeOption] = useState(false)
+  const [newSizeLabel, setNewSizeLabel] = useState('')
+  const [newSizeVal, setNewSizeVal] = useState('')
+  const [newSizeUnit, setNewSizeUnit] = useState('oz')
+  const [newSizePrice, setNewSizePrice] = useState('')
+
+  useEffect(() => {
+    setIsAddingSizeOption(false)
+    setNewSizeLabel('')
+    setNewSizeVal('')
+    setNewSizePrice('')
+  }, [activeTabShopId])
+
+  const handleAddPackageOption = (shopId: string) => {
+    const size = parseFloat(newSizeVal)
+    const price = parseFloat(newSizePrice)
+    if (isNaN(size) || size <= 0 || isNaN(price) || price <= 0) return
+
+    setShopDetails((prev) => {
+      const existing = prev[shopId] || {
+        available: true,
+        price: null,
+        location: '',
+      }
+
+      const existingOptions = existing.packageOptions ? [...existing.packageOptions] : []
+
+      // If existingOptions is empty and primary size/price exists, include primary as option #1
+      if (
+        existingOptions.length === 0 &&
+        typeof existing.packageSize === 'number' &&
+        existing.packageSize > 0 &&
+        typeof existing.price === 'number' &&
+        existing.price > 0
+      ) {
+        existingOptions.push({
+          id: 'primary-' + Date.now(),
+          label: existing.unitSize || `${existing.packageSize} ${existing.packageUnit || unit}`,
+          packageSize: existing.packageSize,
+          packageUnit: existing.packageUnit || unit,
+          price: existing.price,
+          unitPrice: existing.unitPrice,
+        })
+      }
+
+      const newOpt: StorePackageOption = {
+        id: 'opt-' + Date.now(),
+        label: newSizeLabel.trim() || undefined,
+        packageSize: size,
+        packageUnit: newSizeUnit || unit,
+        price,
+        unitPrice: Number((price / size).toFixed(4)),
+      }
+
+      existingOptions.push(newOpt)
+
+      return {
+        ...prev,
+        [shopId]: {
+          ...existing,
+          packageOptions: existingOptions,
+        },
+      }
+    })
+
+    setNewSizeLabel('')
+    setNewSizeVal('')
+    setNewSizePrice('')
+    setIsAddingSizeOption(false)
+  }
+
+  const handleRemovePackageOption = (shopId: string, optionId: string) => {
+    setShopDetails((prev) => {
+      const existing = prev[shopId]
+      if (!existing || !existing.packageOptions) return prev
+      const updated = existing.packageOptions.filter((o) => o.id !== optionId)
+      return {
+        ...prev,
+        [shopId]: {
+          ...existing,
+          packageOptions: updated.length > 0 ? updated : undefined,
+        },
+      }
+    })
+  }
+
+  const handleSetPrimaryFromOption = (shopId: string, option: StorePackageOption) => {
+    handleShopDetailChange(shopId, {
+      price: option.price,
+      packageSize: option.packageSize,
+      packageUnit: option.packageUnit,
+      unitPrice: option.unitPrice,
+      unitSize: option.label || `${option.packageSize} ${option.packageUnit}`,
+    })
+  }
 
   // Aisle / Location combobox state & ref
   const [isAisleDropdownOpen, setIsAisleDropdownOpen] = useState(false)
@@ -742,6 +862,31 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                               )}
                             </div>
                           </div>
+
+                          {/* Multi-Size Optimization Note */}
+                          {optimalStorePackageResult && optimalStorePackageResult.hasMultipleOptions && (
+                            <div className="p-2 rounded-lg bg-indigo-100/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-1.5 mt-1">
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-bold">Multi-Size Optimization: </span>
+                                <span>
+                                  Option{' '}
+                                  <strong>
+                                    {optimalStorePackageResult.bestOption.label ||
+                                      `${optimalStorePackageResult.bestOption.packageSize} ${optimalStorePackageResult.bestOption.packageUnit}`}
+                                  </strong>{' '}
+                                  was selected as the cheapest way to fulfill your demand.
+                                </span>
+                                {optimalStorePackageResult.savingsVsOther &&
+                                  optimalStorePackageResult.savingsVsOther > 0 && (
+                                    <span className="block font-bold text-emerald-800 mt-0.5">
+                                      🎉 Saves {formatPrice(optimalStorePackageResult.savingsVsOther)}{' '}
+                                      compared to {optimalStorePackageResult.otherOptionLabel}!
+                                    </span>
+                                  )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex flex-col gap-2 text-xs">
@@ -776,6 +921,219 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                         </div>
                       )
                     ) : null}
+
+                    {/* Multiple Package Sizes / Variants Section */}
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                          <span className="text-xs font-bold text-slate-800">
+                            Package Size Options at {activeShop.name}
+                          </span>
+                          {currentShopDetail.packageOptions &&
+                            currentShopDetail.packageOptions.length > 0 && (
+                              <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-full">
+                                {currentShopDetail.packageOptions.length} sizes
+                              </span>
+                            )}
+                        </div>
+
+                        {!isAddingSizeOption && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewSizeUnit(currentShopDetail.packageUnit || unit || 'oz')
+                              setIsAddingSizeOption(true)
+                            }}
+                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 transition"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Add Size Option</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* List of existing variants */}
+                      {currentShopDetail.packageOptions &&
+                        currentShopDetail.packageOptions.length > 0 && (
+                          <div className="space-y-1.5">
+                            {currentShopDetail.packageOptions.map((opt) => {
+                              const isOptimal =
+                                optimalStorePackageResult?.bestOption.id === opt.id
+                              const isCurrentlyPrimary =
+                                currentShopDetail.packageSize === opt.packageSize &&
+                                currentShopDetail.price === opt.price
+
+                              return (
+                                <div
+                                  key={opt.id}
+                                  className={`p-2 rounded-lg border flex items-center justify-between text-xs transition ${
+                                    isOptimal
+                                      ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                                      : 'bg-white border-slate-200 text-slate-800'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    {isOptimal ? (
+                                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    ) : (
+                                      <div className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
+                                    )}
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-bold">
+                                          {opt.label
+                                            ? opt.label
+                                            : `${opt.packageSize} ${opt.packageUnit}`}
+                                        </span>
+                                        {opt.label && (
+                                          <span className="text-[10px] text-slate-500 font-normal">
+                                            ({opt.packageSize} {opt.packageUnit})
+                                          </span>
+                                        )}
+                                        {isOptimal && (
+                                          <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
+                                            Best Value
+                                          </span>
+                                        )}
+                                        {isCurrentlyPrimary && (
+                                          <span className="bg-slate-200 text-slate-700 text-[9px] font-semibold px-1 rounded">
+                                            Primary
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                        <span>Price: {formatPrice(opt.price)}</span>
+                                        {opt.unitPrice && (
+                                          <span className="font-mono text-slate-600">
+                                            ({formatUnitPrice(opt.unitPrice, opt.packageUnit)})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {!isCurrentlyPrimary && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleSetPrimaryFromOption(activeShop.id, opt)
+                                        }
+                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                                        title="Make this size the primary shelf entry"
+                                      >
+                                        Set Primary
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleRemovePackageOption(activeShop.id, opt.id)
+                                      }
+                                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                      title="Remove size option"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                      {/* Inline Add Size Option Form */}
+                      {isAddingSizeOption && (
+                        <div className="p-2.5 bg-white border border-indigo-200 rounded-xl space-y-2 animate-in fade-in">
+                          <div className="text-[11px] font-bold text-indigo-900">
+                            Add Alternative Size at {activeShop.name}
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                Size Label (opt)
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Small / Family"
+                                value={newSizeLabel}
+                                onChange={(e) => setNewSizeLabel(e.target.value)}
+                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                Package Size *
+                              </label>
+                              <input
+                                type="number"
+                                step="any"
+                                placeholder="e.g. 16 or 40"
+                                value={newSizeVal}
+                                onChange={(e) => setNewSizeVal(e.target.value)}
+                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                Unit *
+                              </label>
+                              <select
+                                value={newSizeUnit}
+                                onChange={(e) => setNewSizeUnit(e.target.value)}
+                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-semibold bg-white"
+                              >
+                                {organizedPackageUnitGroups.map((grp) => (
+                                  <optgroup key={grp.label} label={grp.label}>
+                                    {grp.units.map((u) => (
+                                      <option key={u} value={u}>
+                                        {u}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                Price ($) *
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="e.g. 1.99"
+                                value={newSizePrice}
+                                onChange={(e) => setNewSizePrice(e.target.value)}
+                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsAddingSizeOption(false)}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddPackageOption(activeShop.id)}
+                              disabled={!newSizeVal || !newSizePrice}
+                              className="px-3 py-1 bg-indigo-600 disabled:opacity-50 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition"
+                            >
+                              Save Size Option
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Location / Aisle Combobox */}
                     <div>
