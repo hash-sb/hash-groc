@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Sparkles,
   Edit2,
+  Repeat,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -54,6 +55,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   )
   const [notes, setNotes] = useState(item?.notes || '')
   const [isNeeded, setIsNeeded] = useState(item ? item.isNeeded : true)
+  const [isWeekly, setIsWeekly] = useState(Boolean(item?.isWeekly))
 
   // New Category Input State
   const [isAddingNewCat, setIsAddingNewCat] = useState(false)
@@ -148,6 +150,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       unit,
       notes: notes.trim(),
       isNeeded,
+      isWeekly,
       inCart: item ? item.inCart : false,
       shops: shopDetails,
     }
@@ -672,6 +675,28 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+
+            {/* Weekly Recurring Staple Switch */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/70 border border-blue-200">
+              <div>
+                <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                  <Repeat className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Weekly Household Staple?</span>
+                </div>
+                <div className="text-[11px] text-blue-700">
+                  Include this item automatically when selecting weekly essentials with one click
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isWeekly}
+                  onChange={(e) => setIsWeekly(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
           </div>

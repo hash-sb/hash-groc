@@ -12,6 +12,9 @@ import {
   Unlock,
   BookmarkCheck,
   RotateCcw,
+  Repeat,
+  Sparkles,
+  X,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
 import { COMMON_UNITS } from '../types'
@@ -35,15 +38,21 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     hasCustomDefault,
     saveCurrentAsDefault,
     restoreDefaultList,
+    selectWeeklyItems,
+    toggleWeeklyItem,
   } = useShopping()
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'all' | 'needed'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'needed' | 'weekly'>('all')
   const [quickInput, setQuickInput] = useState('')
   const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
   const [quickUnit, setQuickUnit] = useState<string>('pieces')
   const [templateSavedFeedback, setTemplateSavedFeedback] = useState(false)
+  const [weeklyBannerMessage, setWeeklyBannerMessage] = useState<{
+    text: string
+    count: number
+  } | null>(null)
   const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(() => {
     const saved = localStorage.getItem('hash_groc_unchecked_bottom')
     return saved !== null ? saved === 'true' : false
@@ -80,6 +89,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
   const neededCount = items.filter((i) => i.isNeeded).length
   const totalCount = items.length
+  const weeklyCount = items.filter((i) => i.isWeekly).length
 
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,10 +99,22 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     setQuickQuantity(1)
   }
 
+  const handleSelectWeekly = async (resetOthers: boolean = false) => {
+    const count = await selectWeeklyItems(resetOthers)
+    setActiveTab('needed')
+    setWeeklyBannerMessage({
+      text: resetOthers
+        ? `Reset shopping list to ${count} weekly essentials! Scan your fridge and deselect any you have in stock.`
+        : `Added ${count} weekly essentials to your list! Scan your fridge and deselect any you have in stock.`,
+      count,
+    })
+  }
+
   // Filter items based on activeTab and search query
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       if (activeTab === 'needed' && !item.isNeeded) return false
+      if (activeTab === 'weekly' && !item.isWeekly) return false
 
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase()
@@ -238,14 +260,64 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         </div>
       </form>
 
-      {/* 2. Clean View Controls: All Items / Need to Buy + Search + Subtle '···' View Options */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        {/* Left: View Tabs (All Items vs To Buy) */}
-        <div className="flex bg-slate-200/80 p-1 rounded-xl shrink-0">
+      {/* 2. 1-Click Weekly Routine Action Bar */}
+      <div className="mb-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-2xl p-2.5 sm:p-3 shadow-xs flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+            <Repeat className="w-4 h-4 text-white" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-extrabold tracking-tight flex items-center gap-1.5">
+              <span>Weekly Routine</span>
+              <span className="text-[10px] bg-white/25 text-white font-bold px-1.5 py-0.2 rounded-full">
+                {weeklyCount} staples
+              </span>
+            </div>
+            <div className="text-[11px] text-emerald-100 truncate">
+              Select staples in 1 click, then deselect items you already have
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => handleSelectWeekly(false)}
+          className="px-3.5 py-1.5 bg-white text-emerald-800 hover:bg-emerald-50 active:scale-95 text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1 shrink-0 cursor-pointer"
+          title="Select all weekly staples and review To Buy list"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Select Weekly</span>
+        </button>
+      </div>
+
+      {/* Dismissible Feedback Banner */}
+      {weeklyBannerMessage && (
+        <div className="mb-3 bg-teal-50 border border-teal-200 text-teal-900 rounded-xl p-3 flex items-start justify-between gap-2 shadow-xs animate-in fade-in duration-150">
+          <div className="flex items-start gap-2">
+            <Check className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
+            <div className="text-xs font-semibold leading-relaxed">
+              {weeklyBannerMessage.text}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setWeeklyBannerMessage(null)}
+            className="text-teal-700 hover:text-teal-900 p-0.5 rounded-md hover:bg-teal-100 cursor-pointer"
+            title="Dismiss"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* 3. Clean View Controls: All Items / To Buy / Weekly + Search + View Options */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        {/* Left: View Tabs (All Items vs To Buy vs Weekly) */}
+        <div className="flex bg-slate-200/80 p-1 rounded-xl shrink-0 overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveTab('all')}
             title={`All Items: Master pantry catalog (${totalCount} total items)`}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'all'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -260,7 +332,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           <button
             onClick={() => setActiveTab('needed')}
             title={`To Buy: Active shopping list (${neededCount} items needed)`}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'needed'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -277,11 +349,33 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
               {neededCount}
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('weekly')}
+            title={`Weekly Staples: Items consumed weekly (${weeklyCount} items)`}
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'weekly'
+                ? 'bg-teal-700 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Repeat className="w-3 h-3" />
+            <span>Weekly</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                activeTab === 'weekly'
+                  ? 'bg-white/25 text-white'
+                  : 'bg-teal-100 text-teal-800'
+              }`}
+            >
+              {weeklyCount}
+            </span>
+          </button>
         </div>
 
         {/* Right: Compact Search & Subtle '···' View Options Icon */}
         <div className="flex items-center gap-1.5">
-          <div className="relative w-32 sm:w-40">
+          <div className="relative w-28 sm:w-36">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
             <input
               type="text"
@@ -297,7 +391,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             <button
               type="button"
               onClick={() => setShowOptionsPopover(!showOptionsPopover)}
-              className={`p-1.5 rounded-xl border transition shadow-2xs flex items-center gap-1 ${
+              className={`p-1.5 rounded-xl border transition shadow-2xs flex items-center gap-1 cursor-pointer ${
                 showOptionsPopover || isLockedItems
                   ? 'border-amber-400 bg-amber-50 text-amber-800'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
@@ -320,7 +414,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  {/* Option 1: Lock Items (Requested) */}
+                  {/* Option 1: Lock Items */}
                   <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs">
                     <div className="flex items-center gap-2">
                       {isLockedItems ? (
@@ -363,6 +457,53 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                       className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2"
                     />
                   </label>
+                </div>
+
+                {/* Weekly Routine Actions */}
+                <div className="pt-2 mt-2 border-t border-slate-100 space-y-1.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                    Weekly Routine
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await handleSelectWeekly(false)
+                      setShowOptionsPopover(false)
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Repeat className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Add Weekly Staples</span>
+                    </div>
+                    <span className="text-[10px] text-teal-700 font-bold">
+                      +{weeklyCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Start fresh trip with only your ${weeklyCount} weekly staples? (Other items will be unchecked)`
+                        )
+                      ) {
+                        await handleSelectWeekly(true)
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Start Fresh (Weekly Only)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      {weeklyCount}
+                    </span>
+                  </button>
                 </div>
 
                 {/* Default Template Actions */}
@@ -437,11 +578,15 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           <h3 className="text-sm font-bold text-slate-800">
             {activeTab === 'needed'
               ? 'No items marked as needed to buy'
+              : activeTab === 'weekly'
+              ? 'No weekly staples marked yet'
               : 'No items match your search'}
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
             {activeTab === 'needed'
-              ? 'Switch to "All Items" above to pick items from your catalog, or add a new item.'
+              ? 'Tap "Select Weekly" above or browse "All Items" to pick items for your trip.'
+              : activeTab === 'weekly'
+              ? 'Click the "Weekly" badge next to any item in All Items to include it in your weekly routine.'
               : 'Try clearing your search query.'}
           </p>
         </div>
@@ -491,15 +636,39 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           }}
                           title={!isLockedItems ? 'Click to edit item & prices' : undefined}
                         >
-                          <span
-                            className={`text-sm tracking-tight block truncate ${
-                              item.isNeeded
-                                ? 'font-bold text-slate-900'
-                                : 'font-medium text-slate-600'
-                            } ${!isLockedItems ? 'group-hover:text-emerald-700' : ''}`}
-                          >
-                            {item.name}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                            <span
+                              className={`text-sm tracking-tight truncate ${
+                                item.isNeeded
+                                  ? 'font-bold text-slate-900'
+                                  : 'font-medium text-slate-600'
+                              } ${!isLockedItems ? 'group-hover:text-emerald-700' : ''}`}
+                            >
+                              {item.name}
+                            </span>
+
+                            {/* Weekly Staple Badge / Quick Toggle */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleWeeklyItem(item.id)
+                              }}
+                              title={
+                                item.isWeekly
+                                  ? 'Weekly staple (click to unmark)'
+                                  : 'Click to mark as weekly staple'
+                              }
+                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold transition flex items-center gap-0.5 shrink-0 cursor-pointer ${
+                                item.isWeekly
+                                  ? 'bg-teal-100 text-teal-800 hover:bg-teal-200'
+                                  : 'opacity-0 group-hover:opacity-70 hover:!opacity-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                              }`}
+                            >
+                              <Repeat className="w-2.5 h-2.5" />
+                              <span>Weekly</span>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Middle: Quantity Stepper ([-] [ qty unit ] [+]) */}

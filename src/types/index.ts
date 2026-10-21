@@ -38,6 +38,7 @@ export interface ShoppingItem {
   unit: string // e.g., 'items', 'bags', 'lbs', 'gallons', 'cans', 'boxes'
   isNeeded: boolean // True if currently on the active shopping list
   inCart: boolean // True if picked up in the current shopping session
+  isWeekly?: boolean // True if recurring weekly staple
   notes?: string
   shops: Record<string, ItemShopDetail> // Keyed by Shop.id
   createdAt: number

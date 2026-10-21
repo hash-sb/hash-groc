@@ -11,6 +11,7 @@ import {
   onSnapshot,
   getDocs,
   writeBatch,
+  updateDoc,
 } from 'firebase/firestore'
 
 interface ShoppingContextType {
@@ -43,6 +44,8 @@ interface ShoppingContextType {
   changeItemQuantity: (id: string, delta: number) => Promise<void>
   toggleNeeded: (id: string) => Promise<void>
   toggleInCart: (id: string) => Promise<void>
+  selectWeeklyItems: (resetOthers?: boolean) => Promise<number>
+  toggleWeeklyItem: (itemId: string) => Promise<void>
   updateItemShopDetail: (
     itemId: string,
     shopId: string,
@@ -64,11 +67,11 @@ interface ShoppingContextType {
 
 const ShoppingContext = createContext<ShoppingContextType | undefined>(undefined)
 
-const STORAGE_KEY_ITEMS = 'hash_groc_items_v5'
-const STORAGE_KEY_SHOPS = 'hash_groc_shops_v5'
-const STORAGE_KEY_HH = 'hash_groc_current_hh_v5'
-const STORAGE_KEY_SAVEMODE = 'hash_groc_savemode_v5'
-const STORAGE_KEY_CUSTOM_CATS = 'hash_groc_cats_v5'
+const STORAGE_KEY_ITEMS = 'hash_groc_items_v6'
+const STORAGE_KEY_SHOPS = 'hash_groc_shops_v6'
+const STORAGE_KEY_HH = 'hash_groc_current_hh_v6'
+const STORAGE_KEY_SAVEMODE = 'hash_groc_savemode_v6'
+const STORAGE_KEY_CUSTOM_CATS = 'hash_groc_cats_v6'
 const STORAGE_KEY_CUSTOM_DEFAULT_ITEMS = 'hash_groc_custom_default_items_v1'
 const STORAGE_KEY_CUSTOM_DEFAULT_SHOPS = 'hash_groc_custom_default_shops_v1'
 const STORAGE_KEY_CUSTOM_DEFAULT_TIME = 'hash_groc_custom_default_time_v1'
@@ -671,6 +674,56 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCustomDefaultSavedAt(null)
   }
 
+  const selectWeeklyItems = async (resetOthers: boolean = false): Promise<number> => {
+    let count = 0
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+        if (item.isWeekly) {
+          count++
+          if (!item.isNeeded || item.inCart) {
+            batch.update(itemRef, { isNeeded: true, inCart: false, updatedAt: Date.now() })
+          }
+        } else if (resetOthers && item.isNeeded) {
+          batch.update(itemRef, { isNeeded: false, inCart: false, updatedAt: Date.now() })
+        }
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) => {
+        if (item.isWeekly) {
+          count++
+          return { ...item, isNeeded: true, inCart: false, updatedAt: Date.now() }
+        }
+        if (resetOthers && item.isNeeded) {
+          return { ...item, isNeeded: false, inCart: false, updatedAt: Date.now() }
+        }
+        return item
+      })
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+    return count
+  }
+
+  const toggleWeeklyItem = async (itemId: string): Promise<void> => {
+    const item = items.find((i) => i.id === itemId)
+    if (!item) return
+    const newWeekly = !item.isWeekly
+
+    if (isConfigured && db) {
+      const itemRef = doc(db, 'households', household.id, 'items', itemId)
+      await updateDoc(itemRef, { isWeekly: newWeekly, updatedAt: Date.now() })
+    } else {
+      const updated = items.map((i) =>
+        i.id === itemId ? { ...i, isWeekly: newWeekly, updatedAt: Date.now() } : i
+      )
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
   const resetToSampleData = async () => {
     if (isConfigured && db) {
       const batch = writeBatch(db)
@@ -717,6 +770,8 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       changeItemQuantity,
       toggleNeeded,
       toggleInCart,
+      selectWeeklyItems,
+      toggleWeeklyItem,
       updateItemShopDetail,
       clearCart,
       addCategory,

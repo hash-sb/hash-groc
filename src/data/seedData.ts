@@ -82,6 +82,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Pre-washed tender leaves for salads & smoothies",
   "shops": {
     "aldi": {
@@ -150,6 +151,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Slightly firm to ripen at home",
   "shops": {
     "aldi": {
@@ -218,6 +220,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Yellow with slight green stems",
   "shops": {
     "aldi": {
@@ -268,6 +271,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Fresh sweet berries for snacks & bowls",
   "shops": {
     "aldi": {
@@ -336,6 +340,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Sweet, bright red berries",
   "shops": {
     "aldi": {
@@ -386,6 +391,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Crisp Honeycrisp or Gala apples",
   "shops": {
     "aldi": {
@@ -436,6 +442,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Fresh crowns or florets",
   "shops": {
     "aldi": {
@@ -486,6 +493,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Whole crunchy carrots",
   "shops": {
     "aldi": {
@@ -536,6 +544,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Sweet bell peppers (red/yellow/orange)",
   "shops": {
     "aldi": {
@@ -586,6 +595,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Everyday cooking staple",
   "shops": {
     "aldi": {
@@ -636,6 +646,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Firm, fresh bulbs",
   "shops": {
     "aldi": {
@@ -686,6 +697,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Plum tomatoes for salads & sauce",
   "shops": {
     "aldi": {
@@ -736,6 +748,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Medium size, dense and unblemished",
   "shops": {
     "aldi": {
@@ -786,6 +799,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Classic baking and mashing potatoes",
   "shops": {
     "aldi": {
@@ -836,6 +850,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Juicy citrus for cooking & tea",
   "shops": {
     "aldi": {
@@ -886,6 +901,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Tart green citrus for cooking and drinks",
   "shops": {
     "aldi": {
@@ -936,6 +952,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Crisp English or Persian cucumbers",
   "shops": {
     "aldi": {
@@ -986,6 +1003,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Tender medium green zucchini",
   "shops": {
     "aldi": {
@@ -1036,6 +1054,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "bunches",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Crisp celery stalk",
   "shops": {
     "aldi": {
@@ -1086,6 +1105,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "heads",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Crisp romaine hearts for Caesar salads",
   "shops": {
     "aldi": {
@@ -1136,6 +1156,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "bunches",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Fresh curly or lacinato kale",
   "shops": {
     "aldi": {
@@ -1186,6 +1207,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Sliced baby bella or white button mushrooms",
   "shops": {
     "aldi": {
@@ -1236,6 +1258,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Sweet red onions for salads & grilling",
   "shops": {
     "aldi": {
@@ -1286,6 +1309,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "bunches",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Fresh scallions for garnish & stir fry",
   "shops": {
     "aldi": {
@@ -1336,6 +1360,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "bunches",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Fresh green herb for tacos & salsa",
   "shops": {
     "aldi": {
@@ -1386,6 +1411,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Fresh ginger root",
   "shops": {
     "aldi": {
@@ -1436,6 +1462,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Sweet navel or Cara Cara oranges",
   "shops": {
     "aldi": {
@@ -1486,6 +1513,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Crisp seedless red or green grapes",
   "shops": {
     "aldi": {
@@ -1536,6 +1564,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Boneless, skinless lean chicken breasts",
   "shops": {
     "aldi": {
@@ -1604,6 +1633,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Boneless skinless chicken thighs",
   "shops": {
     "aldi": {
@@ -1654,6 +1684,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "85/15 lean ground beef for burgers & pasta",
   "shops": {
     "aldi": {
@@ -1722,6 +1753,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "93/7 lean ground turkey",
   "shops": {
     "aldi": {
@@ -1772,6 +1804,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Fresh salmon portions with skin",
   "shops": {
     "aldi": {
@@ -1822,6 +1855,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Top sirloin steak portions",
   "shops": {
     "aldi": {
@@ -1872,6 +1906,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Boneless center cut pork loin chops",
   "shops": {
     "aldi": {
@@ -1922,6 +1957,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Thick cut applewood smoked bacon",
   "shops": {
     "aldi": {
@@ -1972,6 +2008,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Sweet or hot Italian pork sausage",
   "shops": {
     "aldi": {
@@ -2022,6 +2059,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Oven roasted sliced turkey breast",
   "shops": {
     "aldi": {
@@ -2072,6 +2110,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Raw peeled and deveined tail-on shrimp",
   "shops": {
     "aldi": {
@@ -2122,6 +2161,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Firm or extra-firm organic tofu",
   "shops": {
     "aldi": {
@@ -2172,6 +2212,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "dozens",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Grade A Large eggs",
   "shops": {
     "aldi": {
@@ -2240,6 +2281,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Plain non-fat thick Greek yogurt",
   "shops": {
     "aldi": {
@@ -2308,6 +2350,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "gal",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Pasteurized vitamin D whole milk",
   "shops": {
     "aldi": {
@@ -2376,6 +2419,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Unsweetened plant milk",
   "shops": {
     "aldi": {
@@ -2426,6 +2470,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Creamy barista oat milk",
   "shops": {
     "aldi": {
@@ -2476,6 +2521,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Sharp cheddar block or shredded",
   "shops": {
     "aldi": {
@@ -2544,6 +2590,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Low moisture part skim shredded mozzarella",
   "shops": {
     "aldi": {
@@ -2594,6 +2641,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Aged parmesan wedge or grated",
   "shops": {
     "aldi": {
@@ -2644,6 +2692,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Sweet cream salted or unsalted 4 sticks",
   "shops": {
     "aldi": {
@@ -2694,6 +2743,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Classic brick cream cheese for bagels & baking",
   "shops": {
     "aldi": {
@@ -2744,6 +2794,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Cultured sour cream for dips & chili",
   "shops": {
     "aldi": {
@@ -2794,6 +2845,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "High protein small curd cottage cheese",
   "shops": {
     "aldi": {
@@ -2844,6 +2896,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "loaves",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "100% whole wheat sandwich bread",
   "shops": {
     "aldi": {
@@ -2894,6 +2947,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "loaves",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Artisan crusty sourdough boule or loaf",
   "shops": {
     "aldi": {
@@ -2944,6 +2998,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "packs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Plain or everything sliced bagels",
   "shops": {
     "aldi": {
@@ -2994,6 +3049,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "packs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Fork-split English muffins for breakfast",
   "shops": {
     "aldi": {
@@ -3044,6 +3100,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "packs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Soft burrito or fajita size tortillas",
   "shops": {
     "aldi": {
@@ -3094,6 +3151,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "packs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Yellow or white corn taco tortillas",
   "shops": {
     "aldi": {
@@ -3144,6 +3202,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "packs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "8-count sesame or brioche burger buns",
   "shops": {
     "aldi": {
@@ -3194,6 +3253,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Extra virgin cold pressed olive oil",
   "shops": {
     "aldi": {
@@ -3262,6 +3322,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Creamy peanut butter",
   "shops": {
     "aldi": {
@@ -3312,6 +3373,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Old fashioned rolled oats",
   "shops": {
     "aldi": {
@@ -3362,6 +3424,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Spaghetti or penne pasta",
   "shops": {
     "aldi": {
@@ -3412,6 +3475,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Tomato basil marinara sauce",
   "shops": {
     "aldi": {
@@ -3462,6 +3526,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "cans",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Canned black beans",
   "shops": {
     "aldi": {
@@ -3512,6 +3577,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "cans",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Garbanzo beans for hummus & salads",
   "shops": {
     "aldi": {
@@ -3562,6 +3628,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "cans",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Canned diced tomatoes for stews & chili",
   "shops": {
     "aldi": {
@@ -3612,6 +3679,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "cans",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Concentrated tomato paste",
   "shops": {
     "aldi": {
@@ -3662,6 +3730,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Jasmine or long grain white rice",
   "shops": {
     "aldi": {
@@ -3712,6 +3781,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Whole grain brown rice",
   "shops": {
     "aldi": {
@@ -3762,6 +3832,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Tri-color grain bowl base",
   "shops": {
     "aldi": {
@@ -3812,6 +3883,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Unbleached all-purpose baking flour",
   "shops": {
     "aldi": {
@@ -3862,6 +3934,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Pure cane granulated white sugar",
   "shops": {
     "aldi": {
@@ -3912,6 +3985,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "lbs",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Light or dark brown sugar for baking",
   "shops": {
     "aldi": {
@@ -3962,6 +4036,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Low sodium chicken broth carton",
   "shops": {
     "aldi": {
@@ -4012,6 +4087,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Hearty vegetable cooking broth",
   "shops": {
     "aldi": {
@@ -4062,6 +4138,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Pure clover liquid honey",
   "shops": {
     "aldi": {
@@ -4112,6 +4189,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Spicy pepper condiment",
   "shops": {
     "aldi": {
@@ -4162,6 +4240,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Naturally brewed soy sauce",
   "shops": {
     "aldi": {
@@ -4212,6 +4291,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Real mayonnaise jar",
   "shops": {
     "aldi": {
@@ -4262,6 +4342,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": true,
   "notes": "Medium roast ground coffee",
   "shops": {
     "aldi": {
@@ -4312,6 +4393,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Crispy sea salt tortilla chips",
   "shops": {
     "aldi": {
@@ -4362,6 +4444,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Classic salted kettle potato chips",
   "shops": {
     "aldi": {
@@ -4412,6 +4495,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Crispy sourdough pretzel nuggets or twists",
   "shops": {
     "aldi": {
@@ -4462,6 +4546,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "bags",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Microwave butter popcorn or bagged",
   "shops": {
     "aldi": {
@@ -4512,6 +4597,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Whole roasted or raw almonds",
   "shops": {
     "aldi": {
@@ -4562,6 +4648,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Raw walnut halves & pieces",
   "shops": {
     "aldi": {
@@ -4612,6 +4699,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "70%+ rich dark chocolate bars",
   "shops": {
     "aldi": {
@@ -4662,6 +4750,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Frozen berry blend for smoothies",
   "shops": {
     "aldi": {
@@ -4712,6 +4801,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Sweet green frozen peas",
   "shops": {
     "aldi": {
@@ -4762,6 +4852,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Sweet whole kernel yellow corn",
   "shops": {
     "aldi": {
@@ -4812,6 +4903,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Frozen broccoli florets for quick sides",
   "shops": {
     "aldi": {
@@ -4862,6 +4954,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Thin crust pepperoni or four cheese pizza",
   "shops": {
     "aldi": {
@@ -4912,6 +5005,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "boxes",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Homestyle toaster waffles (10 count)",
   "shops": {
     "aldi": {
@@ -4962,6 +5056,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "bags",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Organic green tea bags",
   "shops": {
     "aldi": {
@@ -5012,6 +5107,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "100% pure squeezed no pulp orange juice",
   "shops": {
     "aldi": {
@@ -5062,6 +5158,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "cans",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Flavored sparkling water 12-pack",
   "shops": {
     "aldi": {
@@ -5112,6 +5209,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "100% apple juice bottle",
   "shops": {
     "aldi": {
@@ -5162,6 +5260,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "rolls",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Absorbent select-a-size paper towels",
   "shops": {
     "aldi": {
@@ -5212,6 +5311,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "rolls",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Soft 2-ply bath tissue rolls",
   "shops": {
     "aldi": {
@@ -5262,6 +5362,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Grease-cutting liquid dish soap",
   "shops": {
     "aldi": {
@@ -5312,6 +5413,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "13-gallon kitchen drawstring trash bags",
   "shops": {
     "aldi": {
@@ -5362,6 +5464,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Liquid laundry detergent for 64+ loads",
   "shops": {
     "aldi": {
@@ -5412,6 +5515,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Liquid moisturizing hand soap pump",
   "shops": {
     "aldi": {
@@ -5462,6 +5566,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Moisturizing body wash bottle",
   "shops": {
     "aldi": {
@@ -5512,6 +5617,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "pieces",
   "isNeeded": true,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Fluoride cavity protection toothpaste tubes",
   "shops": {
     "aldi": {
@@ -5562,6 +5668,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
   "unit": "fl oz",
   "isNeeded": false,
   "inCart": false,
+  "isWeekly": false,
   "notes": "Daily clarifying or moisturizing shampoo",
   "shops": {
     "aldi": {
