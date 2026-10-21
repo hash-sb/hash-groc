@@ -14,7 +14,6 @@ import {
   MapPin,
   AlertTriangle,
   Sparkles,
-  Layers,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -211,30 +210,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     )
   }, [item?.id, name, category, quantity, unit, isNeeded, shopDetails, activeShop])
 
-  // Unit compatibility between item target demand and current shop's package unit
-  const unitCompatibility = useMemo(() => {
-    return checkUnitCompatibility(
-      Number(quantity) || 1,
-      unit,
-      currentShopDetail.packageUnit || unit
-    )
-  }, [quantity, unit, currentShopDetail.packageUnit])
-
-  // Dynamically prioritize compatible package units at the top of the dropdown
-  const organizedPackageUnitGroups = useMemo(() => {
-    const targetFamily = getUnitFamily(unit)
-    const matching = UNIT_GROUPS.filter((g) => g.family === targetFamily)
-    const others = UNIT_GROUPS.filter((g) => g.family !== targetFamily)
-
-    return [
-      ...matching.map((g) => ({
-        ...g,
-        label: `★ Compatible (${g.label})`,
-      })),
-      ...others,
-    ]
-  }, [unit])
-
   // Multi-size evaluation for the current store
   const optimalStorePackageResult = useMemo(() => {
     if (!activeShop) return null
@@ -254,6 +229,52 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       activeShop.id
     )
   }, [item?.id, name, category, quantity, unit, isNeeded, shopDetails, activeShop])
+
+  const hasMultipleSizes = Boolean(
+    currentShopDetail.packageOptions && currentShopDetail.packageOptions.length >= 2
+  )
+
+  const effectiveDisplaySize = hasMultipleSizes
+    ? optimalStorePackageResult?.bestOption.packageSize
+    : currentShopDetail.packageSize
+
+  const effectiveDisplayUnit = hasMultipleSizes
+    ? optimalStorePackageResult?.bestOption.packageUnit
+    : currentShopDetail.packageUnit
+
+  const effectiveDisplayPrice = hasMultipleSizes
+    ? optimalStorePackageResult?.bestOption.price
+    : currentShopDetail.price
+
+  // Unit compatibility between item target demand and current shop's package unit
+  const unitCompatibility = useMemo(() => {
+    const pkgUnit = hasMultipleSizes
+      ? optimalStorePackageResult?.bestOption.packageUnit || unit
+      : currentShopDetail.packageUnit || unit
+
+    return checkUnitCompatibility(Number(quantity) || 1, unit, pkgUnit)
+  }, [
+    quantity,
+    unit,
+    hasMultipleSizes,
+    optimalStorePackageResult?.bestOption.packageUnit,
+    currentShopDetail.packageUnit,
+  ])
+
+  // Dynamically prioritize compatible package units at the top of the dropdown
+  const organizedPackageUnitGroups = useMemo(() => {
+    const targetFamily = getUnitFamily(unit)
+    const matching = UNIT_GROUPS.filter((g) => g.family === targetFamily)
+    const others = UNIT_GROUPS.filter((g) => g.family !== targetFamily)
+
+    return [
+      ...matching.map((g) => ({
+        ...g,
+        label: `★ Compatible (${g.label})`,
+      })),
+      ...others,
+    ]
+  }, [unit])
 
   // New Package Option Input State
   const [isAddingSizeOption, setIsAddingSizeOption] = useState(false)
@@ -332,23 +353,28 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       const existing = prev[shopId]
       if (!existing || !existing.packageOptions) return prev
       const updated = existing.packageOptions.filter((o) => o.id !== optionId)
+      if (updated.length <= 1) {
+        const remaining = updated[0]
+        return {
+          ...prev,
+          [shopId]: {
+            ...existing,
+            price: remaining ? remaining.price : existing.price,
+            packageSize: remaining ? remaining.packageSize : existing.packageSize,
+            packageUnit: remaining ? remaining.packageUnit : existing.packageUnit,
+            unitPrice: remaining ? remaining.unitPrice : existing.unitPrice,
+            unitSize: remaining?.label || existing.unitSize,
+            packageOptions: undefined,
+          },
+        }
+      }
       return {
         ...prev,
         [shopId]: {
           ...existing,
-          packageOptions: updated.length > 0 ? updated : undefined,
+          packageOptions: updated,
         },
       }
-    })
-  }
-
-  const handleSetPrimaryFromOption = (shopId: string, option: StorePackageOption) => {
-    handleShopDetailChange(shopId, {
-      price: option.price,
-      packageSize: option.packageSize,
-      packageUnit: option.packageUnit,
-      unitPrice: option.unitPrice,
-      unitSize: option.label || `${option.packageSize} ${option.packageUnit}`,
     })
   }
 
@@ -711,280 +737,141 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
                 {currentShopDetail.available ? (
                   <div className="space-y-4">
-                    {/* Row 1: Base Price & Package Size for Unit Pricing */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {/* Price Input */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Shelf Price at {activeShop.name} ($)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">$</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="e.g. 9.99"
-                            value={
-                              currentShopDetail.price !== null && currentShopDetail.price !== undefined
-                                ? currentShopDetail.price
-                                : ''
-                            }
-                            onChange={(e) => {
-                              const val = e.target.value === '' ? null : parseFloat(e.target.value)
-                              handleShopDetailChange(activeShop.id, { price: val })
-                            }}
-                            className="w-full pl-7 pr-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Package Size for Unit Price Comparison */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                          <Scale className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Package Size (for unit price)</span>
-                        </label>
-                        <div className="flex gap-1.5">
-                          <input
-                            type="number"
-                            step="any"
-                            placeholder="e.g. 56 or 16 or 2"
-                            value={
-                              currentShopDetail.packageSize !== null &&
-                              currentShopDetail.packageSize !== undefined
-                                ? currentShopDetail.packageSize
-                                : ''
-                            }
-                            onChange={(e) => {
-                              const val = e.target.value === '' ? null : parseFloat(e.target.value)
-                              handleShopDetailChange(activeShop.id, { packageSize: val })
-                            }}
-                            className="w-2/3 px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                          />
-                          <select
-                            value={currentShopDetail.packageUnit || 'oz'}
-                            onChange={(e) =>
-                              handleShopDetailChange(activeShop.id, { packageUnit: e.target.value })
-                            }
-                            className="w-1/3 px-2 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
-                          >
-                            {organizedPackageUnitGroups.map((grp) => (
-                              <optgroup key={grp.label} label={grp.label}>
-                                {grp.units.map((pu) => (
-                                  <option key={pu} value={pu}>
-                                    {pu}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Live Target Demand vs Store Pack Conversion Card */}
-                    {currentShopDetail.packageSize && currentShopDetail.packageSize > 0 ? (
-                      unitCompatibility.isCompatible ? (
-                        <div className="p-3 bg-indigo-50/80 border border-indigo-200/90 rounded-xl flex flex-col gap-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-bold text-indigo-950 flex items-center gap-2">
-                                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                                <span>Store Package Requirement:</span>
-                                <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-black shadow-2xs">
-                                  {calculatedPacks} {calculatedPacks === 1 ? 'pack' : 'packs'}
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-indigo-800 mt-1">
-                                {unitCompatibility.isConversion ? (
-                                  <span>
-                                    {unitCompatibility.message}. Buying{' '}
-                                    <strong>
-                                      {calculatedPacks} × {currentShopDetail.packageSize}{' '}
-                                      {currentShopDetail.packageUnit || unit}
-                                    </strong>{' '}
-                                    satisfies your <strong>{quantity} {unit}</strong> target need.
-                                  </span>
-                                ) : (
-                                  <span>
-                                    Buying{' '}
-                                    <strong>
-                                      {calculatedPacks} × {currentShopDetail.packageSize}{' '}
-                                      {currentShopDetail.packageUnit || unit}
-                                    </strong>{' '}
-                                    satisfies your <strong>{quantity} {unit}</strong> target need.
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            {currentShopDetail.price && (
-                              <div className="text-right pl-3 shrink-0">
-                                <div className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">
-                                  Total to Buy
-                                </div>
-                                <div className="text-base font-black text-indigo-950">
-                                  {formatPrice(calculatedPacks * currentShopDetail.price)}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Optional manual override */}
-                          <div className="flex items-center justify-between pt-1.5 border-t border-indigo-200/60 text-[11px]">
-                            <span className="text-indigo-900 font-medium">
-                              Manual pack override for {activeShop.name}:
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="number"
-                                min="1"
-                                placeholder={`Auto (${calculatedPacks})`}
-                                value={currentShopDetail.storeQuantity || ''}
-                                onChange={(e) => {
-                                  const val =
-                                    e.target.value === ''
-                                      ? null
-                                      : Math.max(1, parseInt(e.target.value) || 1)
-                                  handleShopDetailChange(activeShop.id, { storeQuantity: val })
-                                }}
-                                className="w-20 px-2 py-0.5 text-center rounded border border-indigo-300 text-xs bg-white font-bold text-indigo-950 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              />
-                              {currentShopDetail.storeQuantity && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleShopDetailChange(activeShop.id, { storeQuantity: null })
-                                  }
-                                  className="text-[10px] text-indigo-700 hover:text-rose-600 font-bold underline transition"
-                                >
-                                  Reset
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Multi-Size Optimization Note */}
-                          {optimalStorePackageResult && optimalStorePackageResult.hasMultipleOptions && (
-                            <div className="p-2 rounded-lg bg-indigo-100/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-1.5 mt-1">
-                              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
-                              <div>
-                                <span className="font-bold">Multi-Size Optimization: </span>
-                                <span>
-                                  Option{' '}
-                                  <strong>
-                                    {optimalStorePackageResult.bestOption.label ||
-                                      `${optimalStorePackageResult.bestOption.packageSize} ${optimalStorePackageResult.bestOption.packageUnit}`}
-                                  </strong>{' '}
-                                  was selected as the cheapest way to fulfill your demand.
-                                </span>
-                                {optimalStorePackageResult.savingsVsOther &&
-                                  optimalStorePackageResult.savingsVsOther > 0 && (
-                                    <span className="block font-bold text-emerald-800 mt-0.5">
-                                      🎉 Saves {formatPrice(optimalStorePackageResult.savingsVsOther)}{' '}
-                                      compared to {optimalStorePackageResult.otherOptionLabel}!
-                                    </span>
-                                  )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex flex-col gap-2 text-xs">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-1.5 font-bold text-amber-950">
-                              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                              <span>Unit Compatibility Mismatch</span>
-                            </div>
-                            <span className="bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wide">
-                              Defaulting to {calculatedPacks} {calculatedPacks === 1 ? 'pack' : 'packs'}
-                            </span>
-                          </div>
-
-                          <p className="text-[11px] text-amber-900 leading-relaxed">
-                            {unitCompatibility.message} Grocery items cannot be auto-converted across different measurement dimensions.
-                          </p>
-
-                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/80 text-[11px] flex-wrap">
-                            <span className="text-amber-900 font-medium">Quick fix:</span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleShopDetailChange(activeShop.id, { packageUnit: unit })
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold transition text-xs shadow-2xs"
-                              >
-                                Match store unit to "{unit}"
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    ) : null}
-
-                    {/* Multiple Package Sizes / Variants Section */}
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                    {/* Unified Store Pricing & Package Size(s) Section */}
+                    <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                          <span className="text-xs font-bold text-slate-800">
-                            Package Size Options at {activeShop.name}
+                          <Scale className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Store Pricing & Package {hasMultipleSizes ? 'Sizes' : 'Size'}
                           </span>
-                          {currentShopDetail.packageOptions &&
-                            currentShopDetail.packageOptions.length > 0 && (
-                              <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-full">
-                                {currentShopDetail.packageOptions.length} sizes
-                              </span>
-                            )}
+                          {hasMultipleSizes && (
+                            <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-full">
+                              {currentShopDetail.packageOptions!.length} sizes tracked
+                            </span>
+                          )}
                         </div>
 
-                        {!isAddingSizeOption && (
+                        {!hasMultipleSizes && !isAddingSizeOption && (
                           <button
                             type="button"
                             onClick={() => {
-                              setNewSizeUnit(currentShopDetail.packageUnit || unit || 'oz')
                               setIsAddingSizeOption(true)
+                              setNewSizeUnit(currentShopDetail.packageUnit || unit || 'oz')
                             }}
-                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 transition"
+                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition"
                           >
-                            <Plus className="w-3 h-3" />
-                            <span>Add Size Option</span>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Alternative Size</span>
                           </button>
                         )}
                       </div>
 
-                      {/* List of existing variants */}
-                      {currentShopDetail.packageOptions &&
-                        currentShopDetail.packageOptions.length > 0 && (
+                      {/* Single Size Mode */}
+                      {!hasMultipleSizes ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Price Input */}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Shelf Price at {activeShop.name} ($)
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="e.g. 4.99"
+                                value={
+                                  currentShopDetail.price !== null && currentShopDetail.price !== undefined
+                                    ? currentShopDetail.price
+                                    : ''
+                                }
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? null : parseFloat(e.target.value)
+                                  handleShopDetailChange(activeShop.id, { price: val })
+                                }}
+                                className="w-full pl-7 pr-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Package Size for Unit Price Comparison */}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                              <span>Package Size</span>
+                              {currentShopDetail.unitPrice && (
+                                <span className="text-[11px] font-mono text-indigo-700 font-bold">
+                                  {formatUnitPrice(currentShopDetail.unitPrice, currentShopDetail.packageUnit)}
+                                </span>
+                              )}
+                            </label>
+                            <div className="flex gap-1.5">
+                              <input
+                                type="number"
+                                step="any"
+                                placeholder="e.g. 32 or 16"
+                                value={
+                                  currentShopDetail.packageSize !== null &&
+                                  currentShopDetail.packageSize !== undefined
+                                    ? currentShopDetail.packageSize
+                                    : ''
+                                }
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? null : parseFloat(e.target.value)
+                                  handleShopDetailChange(activeShop.id, { packageSize: val })
+                                }}
+                                className="w-2/3 px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                              />
+                              <select
+                                value={currentShopDetail.packageUnit || 'oz'}
+                                onChange={(e) =>
+                                  handleShopDetailChange(activeShop.id, { packageUnit: e.target.value })
+                                }
+                                className="w-1/3 px-2 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                              >
+                                {organizedPackageUnitGroups.map((grp) => (
+                                  <optgroup key={grp.label} label={grp.label}>
+                                    {grp.units.map((pu) => (
+                                      <option key={pu} value={pu}>
+                                        {pu}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Multi-Size Mode */
+                        <div className="space-y-2">
+                          <div className="text-[11px] text-slate-500">
+                            Multiple package sizes are tracked at {activeShop.name}. The app automatically optimizes between them based on your household demand:
+                          </div>
+
                           <div className="space-y-1.5">
-                            {currentShopDetail.packageOptions.map((opt) => {
-                              const isOptimal =
-                                optimalStorePackageResult?.bestOption.id === opt.id
-                              const isCurrentlyPrimary =
-                                currentShopDetail.packageSize === opt.packageSize &&
-                                currentShopDetail.price === opt.price
+                            {currentShopDetail.packageOptions!.map((opt) => {
+                              const isOptimal = optimalStorePackageResult?.bestOption.id === opt.id
 
                               return (
                                 <div
                                   key={opt.id}
-                                  className={`p-2 rounded-lg border flex items-center justify-between text-xs transition ${
+                                  className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition ${
                                     isOptimal
-                                      ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                                      ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 shadow-2xs'
                                       : 'bg-white border-slate-200 text-slate-800'
                                   }`}
                                 >
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center gap-2.5 min-w-0">
                                     {isOptimal ? (
-                                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
                                     ) : (
-                                      <div className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
+                                      <div className="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0 ml-0.5" />
                                     )}
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5 flex-wrap">
                                         <span className="font-bold">
-                                          {opt.label
-                                            ? opt.label
-                                            : `${opt.packageSize} ${opt.packageUnit}`}
+                                          {opt.label ? opt.label : `${opt.packageSize} ${opt.packageUnit}`}
                                         </span>
                                         {opt.label && (
                                           <span className="text-[10px] text-slate-500 font-normal">
@@ -996,14 +883,9 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                             Best Value
                                           </span>
                                         )}
-                                        {isCurrentlyPrimary && (
-                                          <span className="bg-slate-200 text-slate-700 text-[9px] font-semibold px-1 rounded">
-                                            Primary
-                                          </span>
-                                        )}
                                       </div>
-                                      <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
-                                        <span>Price: {formatPrice(opt.price)}</span>
+                                      <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                        <span className="font-bold text-slate-900">{formatPrice(opt.price)}</span>
                                         {opt.unitPrice && (
                                           <span className="font-mono text-slate-600">
                                             ({formatUnitPrice(opt.unitPrice, opt.packageUnit)})
@@ -1014,40 +896,42 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                   </div>
 
                                   <div className="flex items-center gap-1 shrink-0">
-                                    {!isCurrentlyPrimary && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleSetPrimaryFromOption(activeShop.id, opt)
-                                        }
-                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-                                        title="Make this size the primary shelf entry"
-                                      >
-                                        Set Primary
-                                      </button>
-                                    )}
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        handleRemovePackageOption(activeShop.id, opt.id)
-                                      }
-                                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                      title="Remove size option"
+                                      onClick={() => handleRemovePackageOption(activeShop.id, opt.id)}
+                                      className="p-1.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                      title="Remove this size option"
                                     >
-                                      <Trash2 className="w-3 h-3" />
+                                      <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
                                 </div>
                               )
                             })}
                           </div>
-                        )}
 
-                      {/* Inline Add Size Option Form */}
+                          {!isAddingSizeOption && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewSizeUnit(currentShopDetail.packageUnit || unit || 'oz')
+                                setIsAddingSizeOption(true)
+                              }}
+                              className="w-full py-1.5 px-3 rounded-lg border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/50 text-xs font-bold flex items-center justify-center gap-1 transition"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Another Size Option</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Inline Form to Add a New Size Option */}
                       {isAddingSizeOption && (
-                        <div className="p-2.5 bg-white border border-indigo-200 rounded-xl space-y-2 animate-in fade-in">
-                          <div className="text-[11px] font-bold text-indigo-900">
-                            Add Alternative Size at {activeShop.name}
+                        <div className="p-3 bg-white border border-indigo-200 rounded-xl space-y-2.5 animate-in fade-in shadow-xs">
+                          <div className="text-xs font-bold text-indigo-900 flex items-center gap-1">
+                            <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Add Alternative Package Size</span>
                           </div>
 
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1134,6 +1018,146 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                         </div>
                       )}
                     </div>
+
+                    {/* Live Target Demand vs Store Pack Conversion Card */}
+                    {(hasMultipleSizes || (currentShopDetail.packageSize && currentShopDetail.packageSize > 0)) ? (
+                      unitCompatibility.isCompatible ? (
+                        <div className="p-3 bg-indigo-50/80 border border-indigo-200/90 rounded-xl flex flex-col gap-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-bold text-indigo-950 flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>Store Package Requirement:</span>
+                                <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-black shadow-2xs">
+                                  {calculatedPacks} {calculatedPacks === 1 ? 'pack' : 'packs'}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-indigo-800 mt-1">
+                                {unitCompatibility.isConversion ? (
+                                  <span>
+                                    {unitCompatibility.message}. Buying{' '}
+                                    <strong>
+                                      {calculatedPacks} × {effectiveDisplaySize}{' '}
+                                      {effectiveDisplayUnit || unit}
+                                    </strong>{' '}
+                                    satisfies your <strong>{quantity} {unit}</strong> target need.
+                                  </span>
+                                ) : (
+                                  <span>
+                                    Buying{' '}
+                                    <strong>
+                                      {calculatedPacks} × {effectiveDisplaySize}{' '}
+                                      {effectiveDisplayUnit || unit}
+                                    </strong>{' '}
+                                    satisfies your <strong>{quantity} {unit}</strong> target need.
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {effectiveDisplayPrice && (
+                              <div className="text-right pl-3 shrink-0">
+                                <div className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">
+                                  Total to Buy
+                                </div>
+                                <div className="text-base font-black text-indigo-950">
+                                  {formatPrice(calculatedPacks * effectiveDisplayPrice)}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Multi-Size Optimization Note */}
+                          {optimalStorePackageResult && optimalStorePackageResult.hasMultipleOptions && (
+                            <div className="p-2 rounded-lg bg-indigo-100/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-1.5 mt-0.5">
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-bold">Multi-Size Optimization: </span>
+                                <span>
+                                  Option{' '}
+                                  <strong>
+                                    {optimalStorePackageResult.bestOption.label ||
+                                      `${optimalStorePackageResult.bestOption.packageSize} ${optimalStorePackageResult.bestOption.packageUnit}`}
+                                  </strong>{' '}
+                                  was selected as the cheapest way to fulfill your demand.
+                                </span>
+                                {optimalStorePackageResult.savingsVsOther &&
+                                  optimalStorePackageResult.savingsVsOther > 0 && (
+                                    <span className="block font-bold text-emerald-800 mt-0.5">
+                                      🎉 Saves {formatPrice(optimalStorePackageResult.savingsVsOther)}{' '}
+                                      compared to {optimalStorePackageResult.otherOptionLabel}!
+                                    </span>
+                                  )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Optional manual override */}
+                          <div className="flex items-center justify-between pt-1.5 border-t border-indigo-200/60 text-[11px]">
+                            <span className="text-indigo-900 font-medium">
+                              Manual pack override for {activeShop.name}:
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min="1"
+                                placeholder={`Auto (${calculatedPacks})`}
+                                value={currentShopDetail.storeQuantity || ''}
+                                onChange={(e) => {
+                                  const val =
+                                    e.target.value === ''
+                                      ? null
+                                      : Math.max(1, parseInt(e.target.value) || 1)
+                                  handleShopDetailChange(activeShop.id, { storeQuantity: val })
+                                }}
+                                className="w-20 px-2 py-0.5 text-center rounded border border-indigo-300 text-xs bg-white font-bold text-indigo-950 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              />
+                              {currentShopDetail.storeQuantity && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleShopDetailChange(activeShop.id, { storeQuantity: null })
+                                  }
+                                  className="text-[10px] text-indigo-700 hover:text-rose-600 font-bold underline transition"
+                                >
+                                  Reset
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex flex-col gap-2 text-xs">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-1.5 font-bold text-amber-950">
+                              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span>Unit Compatibility Mismatch</span>
+                            </div>
+                            <span className="bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wide">
+                              Defaulting to {calculatedPacks} {calculatedPacks === 1 ? 'pack' : 'packs'}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-amber-900 leading-relaxed">
+                            {unitCompatibility.message} Grocery items cannot be auto-converted across different measurement dimensions.
+                          </p>
+
+                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/80 text-[11px] flex-wrap">
+                            <span className="text-amber-900 font-medium">Quick fix:</span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleShopDetailChange(activeShop.id, { packageUnit: unit })
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold transition text-xs shadow-2xs"
+                              >
+                                Match store unit to "{unit}"
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ) : null}
 
                     {/* Location / Aisle Combobox */}
                     <div>
