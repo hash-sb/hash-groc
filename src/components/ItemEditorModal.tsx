@@ -26,7 +26,7 @@ interface ItemEditorModalProps {
 const COMMON_PKG_UNITS = ['oz', 'lb', 'gal', 'fl oz', 'ct', 'can', 'bottle', 'bar']
 
 export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose }) => {
-  const { shops, addItem, updateItem, deleteItem, categories, addCategory } = useShopping()
+  const { shops, addItem, updateItem, deleteItem, categories, addCategory, updateShop } = useShopping()
 
   const [name, setName] = useState(item?.name || '')
   const [category, setCategory] = useState(item?.category || (categories[0] || 'Produce'))
@@ -40,6 +40,10 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
   // New Category Input State
   const [isAddingNewCat, setIsAddingNewCat] = useState(false)
   const [newCatInput, setNewCatInput] = useState('')
+
+  // New Aisle Input State
+  const [isAddingNewAisle, setIsAddingNewAisle] = useState(false)
+  const [newAisleInput, setNewAisleInput] = useState('')
 
   // Shop configurations: availability, price, location, packageSize, packageUnit per store
   const [shopDetails, setShopDetails] = useState<Record<string, ItemShopDetail>>(() => {
@@ -131,6 +135,22 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
     }
   }
 
+  const handleAddNewAisle = async () => {
+    const trimmed = newAisleInput.trim()
+    if (!trimmed || !activeShop) return
+
+    const existingAisles = activeShop.defaultAisles || []
+    if (!existingAisles.includes(trimmed)) {
+      const updatedAisles = [...existingAisles, trimmed]
+      await updateShop(activeShop.id, { defaultAisles: updatedAisles })
+    }
+
+    handleShopDetailChange(activeShop.id, { location: trimmed })
+    setNewAisleInput('')
+    setIsAddingNewAisle(false)
+    setIsAisleDropdownOpen(false)
+  }
+
   const activeShop = shops.find((s) => s.id === activeTabShopId) || shops[0]
   const currentShopDetail = (activeShop && shopDetails[activeShop.id]) || {
     available: true,
@@ -144,6 +164,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
 
   useEffect(() => {
     setIsAisleDropdownOpen(false)
+    setIsAddingNewAisle(false)
+    setNewAisleInput('')
   }, [activeTabShopId])
 
   useEffect(() => {
@@ -565,18 +587,31 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
                           <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                           <span>Aisle / Location in {activeShop.name}</span>
                         </label>
-                        {currentShopDetail.location && (
+                        <div className="flex items-center gap-2">
+                          {currentShopDetail.location && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleShopDetailChange(activeShop.id, { location: '' })
+                                setIsAisleDropdownOpen(false)
+                              }}
+                              className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition"
+                            >
+                              Clear
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
-                              handleShopDetailChange(activeShop.id, { location: '' })
-                              setIsAisleDropdownOpen(false)
+                              setIsAisleDropdownOpen(true)
+                              setIsAddingNewAisle(true)
                             }}
-                            className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition"
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5 transition"
                           >
-                            Clear
+                            <Plus className="w-3 h-3" />
+                            <span>Add Aisle</span>
                           </button>
-                        )}
+                        </div>
                       </div>
 
                       {/* Input Container - directly anchors dropdown under this box */}
@@ -671,8 +706,61 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, onClose 
 
                               {availableAislesForShop.length === 0 && (
                                 <div className="p-3 text-center text-xs text-slate-400">
-                                  No aisles configured for {activeShop.name}. Add aisles in Store Settings.
+                                  No aisles configured for {activeShop.name} yet.
                                 </div>
+                              )}
+                            </div>
+
+                            {/* Add New Aisle Row at bottom of dropdown */}
+                            <div className="p-2 border-t border-slate-100 bg-slate-50/70">
+                              {isAddingNewAisle ? (
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    placeholder="New aisle (e.g. Aisle 5 - Pasta)..."
+                                    value={newAisleInput}
+                                    onChange={(e) => setNewAisleInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault()
+                                        handleAddNewAisle()
+                                      }
+                                      if (e.key === 'Escape') {
+                                        setIsAddingNewAisle(false)
+                                        setNewAisleInput('')
+                                      }
+                                    }}
+                                    className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-emerald-400 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-slate-800"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handleAddNewAisle}
+                                    disabled={!newAisleInput.trim()}
+                                    className="px-2.5 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition shadow-2xs"
+                                  >
+                                    Add
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsAddingNewAisle(false)
+                                      setNewAisleInput('')
+                                    }}
+                                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsAddingNewAisle(true)}
+                                  className="w-full py-1.5 px-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100/60 rounded-lg flex items-center justify-center gap-1.5 transition border border-dashed border-emerald-300 bg-white"
+                                >
+                                  <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>+ Add New Aisle to {activeShop.name}</span>
+                                </button>
                               )}
                             </div>
                           </div>
