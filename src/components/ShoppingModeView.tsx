@@ -977,7 +977,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             </button>
 
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-baseline gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <span
                                   className={`text-sm tracking-tight ${
                                     isPicked
@@ -996,6 +996,41 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 >
                                   {quantity} {item.unit}
                                 </span>
+
+                                {/* Inline Price Comparison Micro-Chips */}
+                                {comp.isBestPriceHere && (
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition ${
+                                      isPicked
+                                        ? 'bg-slate-100 text-slate-400 border-slate-200/80 line-through'
+                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                                    }`}
+                                  >
+                                    <Sparkles className={`w-2.5 h-2.5 ${isPicked ? 'text-slate-400' : 'text-emerald-600'}`} />
+                                    <span>Best Price</span>
+                                  </span>
+                                )}
+
+                                {comp.isCheaperElsewhere && comp.cheapestShop && (
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border transition ${
+                                      isPicked
+                                        ? 'bg-slate-100 text-slate-400 border-slate-200/80 line-through'
+                                        : 'bg-rose-50 text-rose-700 border-rose-200/80'
+                                    }`}
+                                    title={`Cheaper at ${comp.cheapestShop.name}: ${formatPrice(comp.cheapestPrice)}${
+                                      comp.cheapestUnitPrice
+                                        ? ` (${formatUnitPrice(comp.cheapestUnitPrice, item.shops[comp.cheapestShop.id]?.packageUnit)})`
+                                        : ''
+                                    }`}
+                                  >
+                                    <TrendingDown className={`w-2.5 h-2.5 ${isPicked ? 'text-slate-400' : 'text-rose-600'}`} />
+                                    <span>
+                                      {comp.cheapestShop.name}: {formatPrice(comp.cheapestPrice)}
+                                    </span>
+                                  </span>
+                                )}
+
                                 <button
                                   onClick={() => onEditItem(item)}
                                   className="text-slate-400 hover:text-emerald-700 p-0.5 rounded transition"
@@ -1024,33 +1059,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 >
                                   {item.notes}
                                 </p>
-                              )}
-
-                              {/* Price Comparison Highlights */}
-                              {!isPicked && (
-                                <div className="mt-1 flex items-center gap-2 flex-wrap">
-                                  {comp.isCheaperElsewhere && comp.cheapestShop && (
-                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                                      <TrendingDown className="w-3 h-3 text-rose-600" />
-                                      <span>
-                                        Cheaper at {comp.cheapestShop.name}:{' '}
-                                        {formatPrice(comp.cheapestPrice)}
-                                        {comp.cheapestUnitPrice && (
-                                          <span className="font-normal ml-0.5">
-                                            ({formatUnitPrice(comp.cheapestUnitPrice, item.shops[comp.cheapestShop.id]?.packageUnit)})
-                                          </span>
-                                        )}
-                                      </span>
-                                    </div>
-                                  )}
-
-                                  {comp.isBestPriceHere && (
-                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                      <Sparkles className="w-3 h-3 text-emerald-600" />
-                                      <span>Best Price Here!</span>
-                                    </div>
-                                  )}
-                                </div>
                               )}
                             </div>
                           </div>
