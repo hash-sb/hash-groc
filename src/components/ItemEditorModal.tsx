@@ -14,6 +14,7 @@ import {
   MapPin,
   AlertTriangle,
   Sparkles,
+  Edit2,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -283,12 +284,67 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   const [newSizeUnit, setNewSizeUnit] = useState('oz')
   const [newSizePrice, setNewSizePrice] = useState('')
 
+  // Editing Existing Package Option State
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null)
+  const [editSizeLabel, setEditSizeLabel] = useState('')
+  const [editSizeVal, setEditSizeVal] = useState('')
+  const [editSizeUnit, setEditSizeUnit] = useState('oz')
+  const [editSizePrice, setEditSizePrice] = useState('')
+
   useEffect(() => {
     setIsAddingSizeOption(false)
+    setEditingOptionId(null)
     setNewSizeLabel('')
     setNewSizeVal('')
     setNewSizePrice('')
+    setEditSizeLabel('')
+    setEditSizeVal('')
+    setEditSizePrice('')
   }, [activeTabShopId])
+
+  const startEditingOption = (opt: StorePackageOption) => {
+    setEditingOptionId(opt.id)
+    setEditSizeLabel(opt.label || '')
+    setEditSizeVal(opt.packageSize.toString())
+    setEditSizeUnit(opt.packageUnit)
+    setEditSizePrice(opt.price.toString())
+  }
+
+  const handleSaveEditedOption = (shopId: string) => {
+    if (!editingOptionId) return
+    const size = parseFloat(editSizeVal)
+    const price = parseFloat(editSizePrice)
+    if (isNaN(size) || size <= 0 || isNaN(price) || price <= 0) return
+
+    setShopDetails((prev) => {
+      const existing = prev[shopId]
+      if (!existing || !existing.packageOptions) return prev
+
+      const updatedOptions = existing.packageOptions.map((opt) => {
+        if (opt.id === editingOptionId) {
+          return {
+            ...opt,
+            label: editSizeLabel.trim() || undefined,
+            packageSize: size,
+            packageUnit: editSizeUnit,
+            price,
+            unitPrice: Number((price / size).toFixed(4)),
+          }
+        }
+        return opt
+      })
+
+      return {
+        ...prev,
+        [shopId]: {
+          ...existing,
+          packageOptions: updatedOptions,
+        },
+      }
+    })
+
+    setEditingOptionId(null)
+  }
 
   const handleAddPackageOption = (shopId: string) => {
     const size = parseFloat(newSizeVal)
@@ -852,6 +908,111 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                           <div className="space-y-1.5">
                             {currentShopDetail.packageOptions!.map((opt) => {
                               const isOptimal = optimalStorePackageResult?.bestOption.id === opt.id
+                              const isEditingThis = editingOptionId === opt.id
+
+                              if (isEditingThis) {
+                                return (
+                                  <div
+                                    key={opt.id}
+                                    className="p-3 bg-white border-2 border-indigo-500 rounded-xl space-y-2.5 shadow-xs animate-in fade-in"
+                                  >
+                                    <div className="flex items-center justify-between text-xs font-bold text-indigo-950">
+                                      <span>Edit Alternative Size & Price</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingOptionId(null)}
+                                        className="text-slate-400 hover:text-slate-600 p-0.5 rounded"
+                                        title="Cancel editing"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                          Size Label (opt)
+                                        </label>
+                                        <input
+                                          type="text"
+                                          placeholder="e.g. Small / Family"
+                                          value={editSizeLabel}
+                                          onChange={(e) => setEditSizeLabel(e.target.value)}
+                                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                          Package Size *
+                                        </label>
+                                        <input
+                                          type="number"
+                                          step="any"
+                                          placeholder="e.g. 16 or 40"
+                                          value={editSizeVal}
+                                          onChange={(e) => setEditSizeVal(e.target.value)}
+                                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                          Unit *
+                                        </label>
+                                        <select
+                                          value={editSizeUnit}
+                                          onChange={(e) => setEditSizeUnit(e.target.value)}
+                                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-semibold bg-white"
+                                        >
+                                          {organizedPackageUnitGroups.map((grp) => (
+                                            <optgroup key={grp.label} label={grp.label}>
+                                              {grp.units.map((u) => (
+                                                <option key={u} value={u}>
+                                                  {u}
+                                                </option>
+                                              ))}
+                                            </optgroup>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                          Price ($) *
+                                        </label>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          placeholder="e.g. 1.99"
+                                          value={editSizePrice}
+                                          onChange={(e) => setEditSizePrice(e.target.value)}
+                                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-1.5 pt-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingOptionId(null)}
+                                        className="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveEditedOption(activeShop.id)}
+                                        disabled={!editSizeVal || !editSizePrice}
+                                        className="px-3 py-1 bg-indigo-600 disabled:opacity-50 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition flex items-center gap-1 shadow-2xs"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>Save Changes</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              }
 
                               return (
                                 <div
@@ -896,6 +1057,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                   </div>
 
                                   <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditingOption(opt)}
+                                      className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                                      title="Edit this size and price"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => handleRemovePackageOption(activeShop.id, opt.id)}
