@@ -8,6 +8,7 @@ import {
   LogIn,
   RotateCcw,
   ShieldCheck,
+  BookmarkCheck,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -17,7 +18,15 @@ interface HouseholdModalProps {
 }
 
 export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
-  const { household, joinHouseholdByCode, createHousehold, resetToSampleData } = useShopping()
+  const {
+    household,
+    joinHouseholdByCode,
+    createHousehold,
+    hasCustomDefault,
+    saveCurrentAsDefault,
+    restoreDefaultList,
+    resetToSampleData,
+  } = useShopping()
   const { user, signInWithGoogle, isConfigured } = useAuth()
 
   const [copiedLink, setCopiedLink] = useState(false)
@@ -246,22 +255,54 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
             </div>
           </form>
 
-          {/* Reset Demo Data */}
-          <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-            <span>Want to restore default demo shops & items?</span>
-            <button
-              type="button"
-              onClick={async () => {
-                if (window.confirm('Reset this household list back to sample items and stores?')) {
-                  await resetToSampleData()
-                  setStatusMessage('Reset to sample data successfully!')
-                }
-              }}
-              className="text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Sample Data</span>
-            </button>
+          {/* Default List & Template Actions */}
+          <div className="pt-3 border-t border-slate-200 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>List Template:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await saveCurrentAsDefault()
+                    setStatusMessage('Saved current list as household default template!')
+                  }}
+                  className="text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <BookmarkCheck className="w-3.5 h-3.5" />
+                  <span>Save as Default</span>
+                </button>
+                <span className="text-slate-300">|</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const confirmMsg = hasCustomDefault
+                      ? 'Restore your saved default template for this household?'
+                      : 'Restore default list? Current list items will be replaced.'
+                    if (window.confirm(confirmMsg)) {
+                      await restoreDefaultList()
+                      setStatusMessage('Restored default list successfully!')
+                    }
+                  }}
+                  className="text-slate-700 hover:text-slate-900 font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restore Default</span>
+                </button>
+                <span className="text-slate-300">|</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (window.confirm('Reset this household list back to 45 original sample items and stores?')) {
+                      await resetToSampleData()
+                      setStatusMessage('Reset to original sample data successfully!')
+                    }
+                  }}
+                  className="text-slate-400 hover:text-slate-600 text-[11px] underline cursor-pointer"
+                >
+                  Reset Factory
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

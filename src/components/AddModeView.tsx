@@ -10,6 +10,8 @@ import {
   SlidersHorizontal,
   Lock,
   Unlock,
+  BookmarkCheck,
+  RotateCcw,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
 import { COMMON_UNITS } from '../types'
@@ -30,6 +32,9 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     toggleNeeded,
     changeItemQuantity,
     quickAddItem,
+    hasCustomDefault,
+    saveCurrentAsDefault,
+    restoreDefaultList,
   } = useShopping()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -38,6 +43,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
   const [quickUnit, setQuickUnit] = useState<string>('pieces')
+  const [templateSavedFeedback, setTemplateSavedFeedback] = useState(false)
   const [putUncheckedAtBottom, setPutUncheckedAtBottom] = useState<boolean>(() => {
     const saved = localStorage.getItem('hash_groc_unchecked_bottom')
     return saved !== null ? saved === 'true' : false
@@ -355,6 +361,66 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                       className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2"
                     />
                   </label>
+                </div>
+
+                {/* Default Template Actions */}
+                <div className="pt-2 mt-2 border-t border-slate-100 space-y-1.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                    Default Template
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await saveCurrentAsDefault()
+                      setTemplateSavedFeedback(true)
+                      setTimeout(() => {
+                        setTemplateSavedFeedback(false)
+                        setShowOptionsPopover(false)
+                      }, 1800)
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {templateSavedFeedback ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      )}
+                      <span>
+                        {templateSavedFeedback ? 'Saved as Default!' : 'Save Current as Default'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-emerald-600 font-bold">
+                      {items.length} items
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const confirmMsg = hasCustomDefault
+                        ? `Restore your saved default template (${items.length} items will be replaced)?`
+                        : 'Restore default list? Current list items will be replaced.'
+                      if (window.confirm(confirmMsg)) {
+                        await restoreDefaultList()
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                      <span>
+                        {hasCustomDefault ? 'Restore Saved Default' : 'Restore Default List'}
+                      </span>
+                    </div>
+                    {hasCustomDefault && (
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">
+                        Custom
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
             )}

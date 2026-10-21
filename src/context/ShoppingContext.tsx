@@ -54,6 +54,11 @@ interface ShoppingContextType {
   // Household operations
   joinHouseholdByCode: (code: string) => Promise<boolean>
   createHousehold: (name: string) => Promise<string>
+  hasCustomDefault: boolean
+  customDefaultSavedAt: number | null
+  saveCurrentAsDefault: () => Promise<void>
+  restoreDefaultList: () => Promise<void>
+  clearCustomDefault: () => Promise<void>
   resetToSampleData: () => Promise<void>
 }
 
@@ -64,6 +69,9 @@ const STORAGE_KEY_SHOPS = 'hash_groc_shops_v4'
 const STORAGE_KEY_HH = 'hash_groc_current_hh_v4'
 const STORAGE_KEY_SAVEMODE = 'hash_groc_savemode_v4'
 const STORAGE_KEY_CUSTOM_CATS = 'hash_groc_cats_v4'
+const STORAGE_KEY_CUSTOM_DEFAULT_ITEMS = 'hash_groc_custom_default_items_v1'
+const STORAGE_KEY_CUSTOM_DEFAULT_SHOPS = 'hash_groc_custom_default_shops_v1'
+const STORAGE_KEY_CUSTOM_DEFAULT_TIME = 'hash_groc_custom_default_time_v1'
 
 const DEFAULT_CATEGORIES = [
   'Produce',
@@ -90,6 +98,13 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [items, setItems] = useState<ShoppingItem[]>([])
   const [customCategories, setCustomCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [hasCustomDefault, setHasCustomDefault] = useState<boolean>(() => {
+    return localStorage.getItem(STORAGE_KEY_CUSTOM_DEFAULT_ITEMS) !== null
+  })
+  const [customDefaultSavedAt, setCustomDefaultSavedAt] = useState<number | null>(() => {
+    const t = localStorage.getItem(STORAGE_KEY_CUSTOM_DEFAULT_TIME)
+    return t ? Number(t) : null
+  })
 
   // Save saveMode changes
   useEffect(() => {
@@ -169,13 +184,18 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           console.error('Error seeding initial Firestore data:', e)
         }
 
-        // Listen for household metadata (e.g. custom categories)
+        // Listen for household metadata (e.g. custom categories & saved templates)
         unsubscribeHH = onSnapshot(hhDocRef, (snap) => {
           if (snap.exists()) {
             const data = snap.data() as Household
             if (data.customCategories) {
               setCustomCategories(data.customCategories)
             }
+            if (data.customDefaultSavedAt !== undefined) {
+              setCustomDefaultSavedAt(data.customDefaultSavedAt || null)
+              setHasCustomDefault(Boolean(data.customDefaultItems && data.customDefaultItems.length > 0))
+            }
+            setHousehold((prev) => ({ ...prev, ...data }))
           }
         })
 
@@ -564,6 +584,93 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return code
   }
 
+  const saveCurrentAsDefault = async () => {
+    const cleanItems = items.map((item) => ({
+      ...item,
+      inCart: false,
+      updatedAt: Date.now(),
+    }))
+    const now = Date.now()
+
+    if (isConfigured && db) {
+      await setDoc(
+        doc(db, 'households', household.id),
+        {
+          customDefaultItems: cleanItems,
+          customDefaultShops: shops,
+          customDefaultSavedAt: now,
+        },
+        { merge: true }
+      )
+    }
+
+    localStorage.setItem(STORAGE_KEY_CUSTOM_DEFAULT_ITEMS, JSON.stringify(cleanItems))
+    localStorage.setItem(STORAGE_KEY_CUSTOM_DEFAULT_SHOPS, JSON.stringify(shops))
+    localStorage.setItem(STORAGE_KEY_CUSTOM_DEFAULT_TIME, String(now))
+
+    setHasCustomDefault(true)
+    setCustomDefaultSavedAt(now)
+  }
+
+  const restoreDefaultList = async () => {
+    if (isConfigured && db) {
+      if (household.customDefaultItems && household.customDefaultItems.length > 0) {
+        const batch = writeBatch(db)
+        const existingItemsSnap = await getDocs(collection(db, 'households', household.id, 'items'))
+        existingItemsSnap.forEach((d) => batch.delete(d.ref))
+        const targetShops =
+          household.customDefaultShops && household.customDefaultShops.length > 0
+            ? household.customDefaultShops
+            : INITIAL_SHOPS
+        for (let i = 0; i < targetShops.length; i++) {
+          const s = { ...targetShops[i], orderIndex: i }
+          batch.set(doc(db, 'households', household.id, 'shops', s.id), s)
+        }
+        for (const it of household.customDefaultItems) {
+          batch.set(doc(db, 'households', household.id, 'items', it.id), it)
+        }
+        await batch.commit()
+        return
+      }
+    }
+
+    const savedCustomItems = localStorage.getItem(STORAGE_KEY_CUSTOM_DEFAULT_ITEMS)
+    const savedCustomShops = localStorage.getItem(STORAGE_KEY_CUSTOM_DEFAULT_SHOPS)
+    if (savedCustomItems) {
+      try {
+        const parsedItems: ShoppingItem[] = JSON.parse(savedCustomItems)
+        const parsedShops: Shop[] = savedCustomShops ? JSON.parse(savedCustomShops) : shops
+        setShops(parsedShops)
+        setItems(parsedItems)
+        persistLocally(parsedShops, parsedItems)
+        return
+      } catch (e) {
+        console.error('Failed to parse saved default template', e)
+      }
+    }
+
+    await resetToSampleData()
+  }
+
+  const clearCustomDefault = async () => {
+    localStorage.removeItem(STORAGE_KEY_CUSTOM_DEFAULT_ITEMS)
+    localStorage.removeItem(STORAGE_KEY_CUSTOM_DEFAULT_SHOPS)
+    localStorage.removeItem(STORAGE_KEY_CUSTOM_DEFAULT_TIME)
+    if (isConfigured && db) {
+      await setDoc(
+        doc(db, 'households', household.id),
+        {
+          customDefaultItems: null,
+          customDefaultShops: null,
+          customDefaultSavedAt: null,
+        },
+        { merge: true }
+      )
+    }
+    setHasCustomDefault(false)
+    setCustomDefaultSavedAt(null)
+  }
+
   const resetToSampleData = async () => {
     if (isConfigured && db) {
       const batch = writeBatch(db)
@@ -615,9 +722,26 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       addCategory,
       joinHouseholdByCode,
       createHousehold,
+      hasCustomDefault,
+      customDefaultSavedAt,
+      saveCurrentAsDefault,
+      restoreDefaultList,
+      clearCustomDefault,
       resetToSampleData,
     }),
-    [mode, selectedShopId, saveMode, shops, items, categories, household, loading, user]
+    [
+      mode,
+      selectedShopId,
+      saveMode,
+      shops,
+      items,
+      categories,
+      household,
+      loading,
+      user,
+      hasCustomDefault,
+      customDefaultSavedAt,
+    ]
   )
 
   return <ShoppingContext.Provider value={value}>{children}</ShoppingContext.Provider>

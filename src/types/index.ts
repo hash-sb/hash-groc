@@ -52,6 +52,9 @@ export interface Household {
   memberEmails?: string[]
   customCategories?: string[]
   storeOrder?: string[]
+  customDefaultItems?: ShoppingItem[]
+  customDefaultShops?: Shop[]
+  customDefaultSavedAt?: number
 }
 
 export const COMMON_UNITS = [

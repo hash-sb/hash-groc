@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   X,
   BarChart3,
@@ -8,6 +8,8 @@ import {
   LogIn,
   ChevronRight,
   RotateCcw,
+  BookmarkCheck,
+  Check,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -27,8 +29,41 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onOpenHousehold,
   onOpenConfig,
 }) => {
-  const { setMode, household, resetToSampleData } = useShopping()
+  const {
+    items,
+    setMode,
+    household,
+    hasCustomDefault,
+    customDefaultSavedAt,
+    saveCurrentAsDefault,
+    restoreDefaultList,
+    resetToSampleData,
+  } = useShopping()
   const { user, signInWithGoogle, signOut, isConfigured } = useAuth()
+  const [savedFeedback, setSavedFeedback] = useState(false)
+
+  const handleSaveDefault = async () => {
+    await saveCurrentAsDefault()
+    setSavedFeedback(true)
+    setTimeout(() => setSavedFeedback(false), 2500)
+  }
+
+  const handleRestoreDefault = async () => {
+    const confirmMsg = hasCustomDefault
+      ? `Restore your saved default template (${items.length} items will be replaced with your saved default)?`
+      : 'Restore default grocery list? Current list items will be replaced.'
+    if (window.confirm(confirmMsg)) {
+      await restoreDefaultList()
+      onClose()
+    }
+  }
+
+  const handleResetFactory = async () => {
+    if (window.confirm('Reset catalog back to the original 45 sample items and default stores?')) {
+      await resetToSampleData()
+      onClose()
+    }
+  }
 
   if (!isOpen) return null
 
@@ -187,20 +222,70 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
             </button>
           </div>
 
-          {/* Reset Demo Data */}
-          <div className="pt-4 border-t border-slate-200">
-            <button
-              onClick={async () => {
-                if (window.confirm('Reset catalog back to sample items and stores?')) {
-                  await resetToSampleData()
-                  onClose()
-                }
-              }}
-              className="w-full py-2 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-              <span>Reset Sample Grocery Data</span>
-            </button>
+          {/* List Templates & Defaults Section */}
+          <div className="pt-3 border-t border-slate-200">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1 mb-2">
+              Default List & Templates
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+              {/* Status / Saved Info */}
+              <div className="flex items-center justify-between text-xs text-slate-600 px-0.5">
+                <span className="font-medium">Current items:</span>
+                <span className="font-bold text-slate-900 bg-white border border-slate-200 px-2 py-0.5 rounded-lg shadow-2xs">
+                  {items.length} items
+                </span>
+              </div>
+
+              {hasCustomDefault && customDefaultSavedAt && (
+                <div className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+                  <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">
+                    Saved default active ({new Date(customDefaultSavedAt).toLocaleDateString()})
+                  </span>
+                </div>
+              )}
+
+              {/* 1. Save Current as Default Button */}
+              <button
+                type="button"
+                onClick={handleSaveDefault}
+                className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                {savedFeedback ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-200" />
+                    <span>Saved Current List as Default!</span>
+                  </>
+                ) : (
+                  <>
+                    <BookmarkCheck className="w-4 h-4" />
+                    <span>Save Current List as Default</span>
+                  </>
+                )}
+              </button>
+
+              {/* 2. Restore Default List Button */}
+              <button
+                type="button"
+                onClick={handleRestoreDefault}
+                className="w-full py-2 px-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <span>{hasCustomDefault ? 'Restore My Saved Default' : 'Restore Default List'}</span>
+              </button>
+
+              {/* 3. Revert to Factory Sample Data */}
+              <div className="pt-1 text-center">
+                <button
+                  type="button"
+                  onClick={handleResetFactory}
+                  className="text-[11px] font-medium text-slate-400 hover:text-slate-600 hover:underline transition"
+                >
+                  Reset to original 45 sample items
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
