@@ -39,6 +39,7 @@ import {
   compareShopPrices,
   formatPrice,
   formatUnitPrice,
+  getPacksNeeded,
   groupItemsByShopLocation,
   isCheapestAtStore,
 } from '../utils/pricing'
@@ -278,27 +279,33 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const pendingItems = availableItems.filter((item) => !item.inCart)
   const cartItems = availableItems.filter((item) => item.inCart)
 
-  // Running Totals Calculation
+  // Running Totals Calculation (uses store-specific packs needed)
   const cartTotal = cartItems.reduce((sum, item) => {
+    const packs = getPacksNeeded(item, currentShop?.id)
     const price = item.shops[currentShop?.id]?.price || 0
-    return sum + price * (item.quantity || 1)
+    return sum + price * packs
   }, 0)
 
   const remainingTotal = pendingItems.reduce((sum, item) => {
+    const packs = getPacksNeeded(item, currentShop?.id)
     const price = item.shops[currentShop?.id]?.price || 0
-    return sum + price * (item.quantity || 1)
+    return sum + price * packs
   }, 0)
 
   const tripEstimatedTotal = cartTotal + remainingTotal
 
-  // Estimated Savings calculation
+  // Estimated Savings calculation based on fulfillment costs
   const estimatedSavings = availableItems.reduce((sum, item) => {
     const comp = compareShopPrices(item, currentShop?.id, shops)
-    const validPrices = comp.allStorePrices.filter((p) => p.available && p.price > 0)
-    if (validPrices.length > 1 && comp.currentPrice) {
-      const maxPrice = Math.max(...validPrices.map((p) => p.price))
-      if (maxPrice > comp.currentPrice) {
-        return sum + (maxPrice - comp.currentPrice) * (item.quantity || 1)
+    if (comp.isBestPriceHere && comp.currentFulfillmentCost !== null) {
+      const otherCosts = comp.allStorePrices
+        .filter((p) => p.shop.id !== currentShop?.id && p.available && p.fulfillmentCost > 0)
+        .map((p) => p.fulfillmentCost)
+      if (otherCosts.length > 0) {
+        const maxOtherCost = Math.max(...otherCosts)
+        if (maxOtherCost > comp.currentFulfillmentCost) {
+          return sum + (maxOtherCost - comp.currentFulfillmentCost)
+        }
       }
     }
     return sum
@@ -1015,8 +1022,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       const comp = compareShopPrices(item, currentShop.id, shops)
                       const shopDetail = item.shops[currentShop.id]
                       const itemUnitPrice = shopDetail?.price || null
-                      const quantity = item.quantity || 1
-                      const totalItemPrice = itemUnitPrice !== null ? itemUnitPrice * quantity : null
+                      const packsNeeded = getPacksNeeded(item, currentShop.id)
+                      const totalItemPrice = itemUnitPrice !== null ? itemUnitPrice * packsNeeded : null
 
                       return (
                         <div
@@ -1059,7 +1066,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                       : 'bg-slate-100 text-slate-700'
                                   }`}
                                 >
-                                  {quantity} {item.unit}
+                                  {shopDetail?.packageSize && (shopDetail.packageSize !== item.quantity || shopDetail.packageUnit !== item.unit) ? (
+                                    <span>
+                                      {packsNeeded} {packsNeeded === 1 ? 'pack' : 'packs'} ({shopDetail.packageSize} {shopDetail.packageUnit || item.unit})
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      {packsNeeded} {item.unit}
+                                    </span>
+                                  )}
                                 </span>
 
                                 {/* Inline Price Comparison Micro-Chips */}
@@ -1083,7 +1098,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                         ? 'bg-slate-100 text-slate-400 line-through'
                                         : 'bg-rose-100/70 text-rose-800'
                                     }`}
-                                    title={`Cheaper at ${comp.cheapestShop.name}: ${formatPrice(comp.cheapestPrice)}${
+                                    title={`Cheaper at ${comp.cheapestShop.name}: ${formatPrice(comp.cheapestFulfillmentCost)} for ${comp.cheapestPacksNeeded} ${comp.cheapestPacksNeeded === 1 ? 'pack' : 'packs'}${
                                       comp.cheapestUnitPrice
                                         ? ` (${formatUnitPrice(comp.cheapestUnitPrice, item.shops[comp.cheapestShop.id]?.packageUnit)})`
                                         : ''
@@ -1091,7 +1106,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   >
                                     <TrendingDown className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-rose-600'}`} />
                                     <span>
-                                      {comp.cheapestShop.name}: {formatPrice(comp.cheapestPrice)}
+                                      {comp.cheapestShop.name}: {formatPrice(comp.cheapestFulfillmentCost || comp.cheapestPrice)}
                                     </span>
                                   </span>
                                 )}
@@ -1148,10 +1163,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 <Calculator className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition" />
                               </div>
 
-                              {/* Second line: Price per item when quantity > 1 */}
-                              {quantity > 1 && itemUnitPrice !== null && (
+                              {/* Second line: Price per item when packsNeeded > 1 */}
+                              {packsNeeded > 1 && itemUnitPrice !== null && (
                                 <div className="text-[10px] text-slate-400 font-medium">
-                                  ({formatPrice(itemUnitPrice)} ea × {quantity})
+                                  ({packsNeeded} × {formatPrice(itemUnitPrice)})
                                 </div>
                               )}
 

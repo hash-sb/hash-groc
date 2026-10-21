@@ -16,7 +16,7 @@ import {
 import type { ItemShopDetail, ShoppingItem } from '../types'
 import { COMMON_UNITS } from '../types'
 import { useShopping } from '../context/ShoppingContext'
-import { formatUnitPrice } from '../utils/pricing'
+import { formatUnitPrice, formatPrice, getPacksNeeded } from '../utils/pricing'
 
 interface ItemEditorModalProps {
   item?: ShoppingItem | null
@@ -182,6 +182,26 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     price: null,
     location: '',
   }
+
+  // Calculate packs needed for current shop based on target quantity and package size
+  const calculatedPacks = useMemo(() => {
+    if (!activeShop) return Number(quantity) || 1
+    return getPacksNeeded(
+      {
+        id: item?.id || '',
+        name,
+        category,
+        quantity: Number(quantity) || 1,
+        unit,
+        isNeeded,
+        inCart: false,
+        shops: shopDetails,
+        createdAt: 0,
+        updatedAt: 0,
+      },
+      activeShop.id
+    )
+  }, [item?.id, name, category, quantity, unit, isNeeded, shopDetails, activeShop])
 
   // Aisle / Location combobox state & ref
   const [isAisleDropdownOpen, setIsAisleDropdownOpen] = useState(false)
@@ -604,6 +624,33 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                         </div>
                       </div>
                     </div>
+
+                    {/* Live Target Demand vs Store Pack Conversion Card */}
+                    {currentShopDetail.packageSize && currentShopDetail.packageSize > 0 ? (
+                      <div className="p-3 bg-indigo-50/80 border border-indigo-200/80 rounded-xl flex items-center justify-between text-xs">
+                        <div>
+                          <div className="font-bold text-indigo-950 flex items-center gap-2">
+                            <span>Store Package Requirement:</span>
+                            <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-black shadow-2xs">
+                              {calculatedPacks} {calculatedPacks === 1 ? 'pack' : 'packs'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-indigo-800 mt-1">
+                            Buying <strong>{calculatedPacks} × {currentShopDetail.packageSize} {currentShopDetail.packageUnit || unit}</strong> satisfies your <strong>{quantity} {unit}</strong> target need.
+                          </div>
+                        </div>
+                        {currentShopDetail.price && (
+                          <div className="text-right pl-3 shrink-0">
+                            <div className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">
+                              Total to Buy
+                            </div>
+                            <div className="text-base font-black text-indigo-950">
+                              {formatPrice(calculatedPacks * currentShopDetail.price)}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
 
                     {/* Location / Aisle Combobox */}
                     <div>

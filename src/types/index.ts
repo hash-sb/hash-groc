@@ -16,6 +16,7 @@ export interface ItemShopDetail {
   packageSize?: number | null // e.g. 56 (for 56 oz) or 2 (for 2 gal)
   packageUnit?: string // e.g. 'oz', 'lb', 'gal', 'ct', 'can', 'bottle'
   unitPrice?: number | null // Computed price per packageUnit (e.g. $0.18 / oz)
+  storeQuantity?: number | null // Optional manual override for number of packages to buy at this store
   notes?: string
 }
 

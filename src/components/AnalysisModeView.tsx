@@ -15,6 +15,7 @@ import {
   compareShopPrices,
   formatPrice,
   formatUnitPrice,
+  getPacksNeeded,
   isCheapestAtStore,
 } from '../utils/pricing'
 
@@ -67,19 +68,22 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
 
     matrixItems.forEach((item) => {
       const comp = compareShopPrices(item, '', shops)
-      const qty = item.quantity || 1
 
       // Add to optimal basket
-      if (comp.cheapestPrice !== null && comp.cheapestPrice > 0) {
-        optimalTotal += comp.cheapestPrice * qty
+      if (comp.cheapestFulfillmentCost !== null && comp.cheapestFulfillmentCost > 0) {
+        optimalTotal += comp.cheapestFulfillmentCost
+        optimalCount++
+      } else if (comp.cheapestPrice !== null && comp.cheapestPrice > 0) {
+        optimalTotal += comp.cheapestPrice * (item.quantity || 1)
         optimalCount++
       }
 
-      // Add to each individual store basket
+      // Add to each individual store basket based on store-specific packs needed
       shops.forEach((shop) => {
         const detail = item.shops[shop.id]
         if (detail && detail.available && typeof detail.price === 'number' && detail.price > 0) {
-          storeTotals[shop.id].total += detail.price * qty
+          const packs = getPacksNeeded(item, shop.id)
+          storeTotals[shop.id].total += detail.price * packs
           storeTotals[shop.id].itemCount++
         }
       })
@@ -318,6 +322,9 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                           price > 0 &&
                           isCheapestAtStore(item, shop.id, shops)
 
+                        const packs = getPacksNeeded(item, shop.id)
+                        const fulfillmentCost = price !== null ? price * packs : null
+
                         return (
                           <td
                             key={shop.id}
@@ -338,7 +345,7 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                                         isCheapest ? 'text-emerald-800' : 'text-slate-800'
                                       }`}
                                     >
-                                      {formatPrice(price)}
+                                      {formatPrice(fulfillmentCost)}
                                     </span>
 
                                     {/* Cheapest Price Highlight Badge */}
@@ -349,6 +356,17 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                                       </span>
                                     )}
                                   </div>
+
+                                  {/* Pack breakdown if packs > 1 or package size differs */}
+                                  {detail.packageSize ? (
+                                    <div className="text-[10px] text-slate-500 font-medium">
+                                      {packs > 1 ? `${packs} × ${formatPrice(price)} ` : ''}({detail.packageSize} {detail.packageUnit || item.unit})
+                                    </div>
+                                  ) : packs > 1 ? (
+                                    <div className="text-[10px] text-slate-500 font-medium">
+                                      ({packs} × {formatPrice(price)})
+                                    </div>
+                                  ) : null}
 
                                   {/* Normalized Unit Price if present */}
                                   {unitPrice && (

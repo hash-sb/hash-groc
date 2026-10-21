@@ -2,10 +2,14 @@ import type { Shop, ShoppingItem } from '../types'
 
 export interface PriceComparison {
   currentPrice: number | null
+  currentPacksNeeded: number
+  currentFulfillmentCost: number | null
   currentUnitPrice: number | null
   currentPackageUnit: string | null
   cheapestShop: Shop | null
   cheapestPrice: number | null
+  cheapestPacksNeeded: number
+  cheapestFulfillmentCost: number | null
   cheapestUnitPrice: number | null
   isCheaperElsewhere: boolean
   isBestPriceHere: boolean
@@ -13,12 +17,153 @@ export interface PriceComparison {
   allStorePrices: Array<{
     shop: Shop
     price: number
+    packsNeeded: number
+    fulfillmentCost: number
     packageSize?: number | null
     packageUnit?: string | null
     unitPrice?: number | null
     available: boolean
     location: string
   }>
+}
+
+/** Standard grocery unit conversion multipliers to base units */
+const WEIGHT_TO_OZ: Record<string, number> = {
+  oz: 1,
+  ounce: 1,
+  ounces: 1,
+  lb: 16,
+  lbs: 16,
+  pound: 16,
+  pounds: 16,
+  g: 0.035274,
+  gram: 0.035274,
+  grams: 0.035274,
+  kg: 35.274,
+  kilo: 35.274,
+  kilogram: 35.274,
+  kilograms: 35.274,
+}
+
+const VOLUME_TO_FLOZ: Record<string, number> = {
+  'fl oz': 1,
+  floz: 1,
+  'fluid ounce': 1,
+  'fluid ounces': 1,
+  cup: 8,
+  cups: 8,
+  pt: 16,
+  pint: 16,
+  pints: 16,
+  qt: 32,
+  quart: 32,
+  quarts: 32,
+  gal: 128,
+  gallon: 128,
+  gallons: 128,
+  ml: 0.033814,
+  milliliter: 0.033814,
+  milliliters: 0.033814,
+  l: 33.814,
+  liter: 33.814,
+  liters: 33.814,
+}
+
+const COUNT_TO_ITEMS: Record<string, number> = {
+  item: 1,
+  items: 1,
+  piece: 1,
+  pieces: 1,
+  ct: 1,
+  count: 1,
+  pk: 1,
+  pack: 1,
+  packs: 1,
+  can: 1,
+  cans: 1,
+  bottle: 1,
+  bottles: 1,
+  box: 1,
+  boxes: 1,
+  carton: 1,
+  cartons: 1,
+  bag: 1,
+  bags: 1,
+  bar: 1,
+  bars: 1,
+  pair: 2,
+  pairs: 2,
+  dozen: 12,
+  dozens: 12,
+}
+
+/**
+ * Converts an amount from one unit to another if they belong to the same family
+ */
+export function convertUnits(
+  amount: number,
+  fromUnit?: string | null,
+  toUnit?: string | null
+): number | null {
+  if (!fromUnit || !toUnit || isNaN(amount) || amount <= 0) return null
+  const from = fromUnit.toLowerCase().trim()
+  const to = toUnit.toLowerCase().trim()
+
+  if (from === to) return amount
+
+  // Weight family
+  if (WEIGHT_TO_OZ[from] && WEIGHT_TO_OZ[to]) {
+    const inOz = amount * WEIGHT_TO_OZ[from]
+    return inOz / WEIGHT_TO_OZ[to]
+  }
+
+  // Volume family
+  if (VOLUME_TO_FLOZ[from] && VOLUME_TO_FLOZ[to]) {
+    const inFlOz = amount * VOLUME_TO_FLOZ[from]
+    return inFlOz / VOLUME_TO_FLOZ[to]
+  }
+
+  // Count family
+  if (COUNT_TO_ITEMS[from] && COUNT_TO_ITEMS[to]) {
+    const inCount = amount * COUNT_TO_ITEMS[from]
+    return inCount / COUNT_TO_ITEMS[to]
+  }
+
+  return null
+}
+
+/**
+ * Calculates how many store packages are needed to fulfill the item's target demand.
+ * Formula: ceil(targetAmount / storePackageSize) with unit normalization.
+ */
+export function getPacksNeeded(item: ShoppingItem, shopId: string): number {
+  const detail = item.shops[shopId]
+  const targetAmount = item.quantity || 1
+  if (!detail) return targetAmount
+
+  // Manual storeQuantity override takes priority if defined
+  if (typeof detail.storeQuantity === 'number' && detail.storeQuantity > 0) {
+    return detail.storeQuantity
+  }
+
+  const targetUnit = item.unit || ''
+  const packSize = detail.packageSize
+  const packUnit = detail.packageUnit || targetUnit
+
+  if (typeof packSize === 'number' && packSize > 0) {
+    // Attempt unit conversion (e.g. 4 lbs target into 16 oz store packs -> 4 packs)
+    const convertedTarget = convertUnits(targetAmount, targetUnit, packUnit)
+    if (convertedTarget !== null && convertedTarget > 0) {
+      return Math.max(1, Math.ceil(convertedTarget / packSize))
+    }
+
+    // Direct ratio if units match or are compatible
+    if (!targetUnit || targetUnit === packUnit) {
+      return Math.max(1, Math.ceil(targetAmount / packSize))
+    }
+  }
+
+  return Math.max(1, Math.round(targetAmount))
 }
 
 /**
@@ -41,31 +186,37 @@ export function compareShopPrices(
   shops: Shop[]
 ): PriceComparison {
   const currentDetail = item.shops[currentShopId]
+  const currentPacksNeeded = currentShopId ? getPacksNeeded(item, currentShopId) : (item.quantity || 1)
   const currentPrice =
     currentDetail?.available && typeof currentDetail.price === 'number'
       ? currentDetail.price
       : null
+  const currentFulfillmentCost =
+    currentPrice !== null ? currentPrice * currentPacksNeeded : null
   const currentUnitPrice = currentDetail?.unitPrice || null
   const currentPackageUnit = currentDetail?.packageUnit || null
 
   let cheapestShop: Shop | null = null
   let cheapestCompVal: number | null = null
   let cheapestPrice: number | null = null
+  let cheapestPacksNeeded = 1
+  let cheapestFulfillmentCost: number | null = null
   let cheapestUnitPrice: number | null = null
 
   const allStorePrices: PriceComparison['allStorePrices'] = []
 
-  // Check if any stores have unit prices with matching units for apples-to-apples comparison
-  const hasNormalizedUnits = Object.values(item.shops).some(
-    (s) => s.available && typeof s.unitPrice === 'number' && s.unitPrice > 0
-  )
-
   for (const shop of shops) {
     const detail = item.shops[shop.id]
+    const packsNeeded = getPacksNeeded(item, shop.id)
+
     if (detail && detail.available && typeof detail.price === 'number' && detail.price > 0) {
+      const fulfillmentCost = detail.price * packsNeeded
+
       allStorePrices.push({
         shop,
         price: detail.price,
+        packsNeeded,
+        fulfillmentCost,
         packageSize: detail.packageSize,
         packageUnit: detail.packageUnit,
         unitPrice: detail.unitPrice,
@@ -73,18 +224,33 @@ export function compareShopPrices(
         location: detail.location || '',
       })
 
-      const compVal = hasNormalizedUnits && detail.unitPrice ? detail.unitPrice : detail.price
+      // The comparison value is the total fulfillment cost to satisfy the needed amount.
+      // If two stores have equal fulfillment cost, unit price breaks ties.
+      const compVal = fulfillmentCost
 
       if (cheapestCompVal === null || compVal < cheapestCompVal) {
         cheapestCompVal = compVal
         cheapestShop = shop
         cheapestPrice = detail.price
+        cheapestPacksNeeded = packsNeeded
+        cheapestFulfillmentCost = fulfillmentCost
         cheapestUnitPrice = detail.unitPrice || null
+      } else if (compVal === cheapestCompVal && detail.unitPrice && cheapestUnitPrice) {
+        // Tie-breaker: better unit price
+        if (detail.unitPrice < cheapestUnitPrice) {
+          cheapestShop = shop
+          cheapestPrice = detail.price
+          cheapestPacksNeeded = packsNeeded
+          cheapestFulfillmentCost = fulfillmentCost
+          cheapestUnitPrice = detail.unitPrice
+        }
       }
     } else if (detail) {
       allStorePrices.push({
         shop,
         price: detail.price || 0,
+        packsNeeded,
+        fulfillmentCost: (detail.price || 0) * packsNeeded,
         packageSize: detail.packageSize,
         packageUnit: detail.packageUnit,
         unitPrice: detail.unitPrice,
@@ -98,36 +264,34 @@ export function compareShopPrices(
   let isCheaperElsewhere = false
   let savingsAmount = 0
 
-  const currentCompVal =
-    hasNormalizedUnits && currentUnitPrice ? currentUnitPrice : currentPrice
-
   if (
-    currentCompVal !== null &&
-    cheapestCompVal !== null &&
+    currentFulfillmentCost !== null &&
+    cheapestFulfillmentCost !== null &&
     cheapestShop &&
     cheapestShop.id !== currentShopId
   ) {
-    if (currentCompVal > cheapestCompVal) {
+    if (currentFulfillmentCost > cheapestFulfillmentCost) {
       isCheaperElsewhere = true
-      // Approximate savings amount
-      if (currentPrice && cheapestPrice) {
-        savingsAmount = Math.max(0, currentPrice - cheapestPrice)
-      }
+      savingsAmount = Math.max(0, currentFulfillmentCost - cheapestFulfillmentCost)
     }
   }
 
   const isBestPriceHere =
-    currentCompVal !== null &&
-    cheapestCompVal !== null &&
-    currentCompVal <= cheapestCompVal &&
+    currentFulfillmentCost !== null &&
+    cheapestFulfillmentCost !== null &&
+    currentFulfillmentCost <= cheapestFulfillmentCost &&
     allStorePrices.filter((p) => p.available && p.price > 0).length > 1
 
   return {
     currentPrice,
+    currentPacksNeeded,
+    currentFulfillmentCost,
     currentUnitPrice,
     currentPackageUnit,
     cheapestShop,
     cheapestPrice,
+    cheapestPacksNeeded,
+    cheapestFulfillmentCost,
     cheapestUnitPrice,
     isCheaperElsewhere,
     isBestPriceHere,
