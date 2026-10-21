@@ -64,11 +64,11 @@ interface ShoppingContextType {
 
 const ShoppingContext = createContext<ShoppingContextType | undefined>(undefined)
 
-const STORAGE_KEY_ITEMS = 'hash_groc_items_v4'
-const STORAGE_KEY_SHOPS = 'hash_groc_shops_v4'
-const STORAGE_KEY_HH = 'hash_groc_current_hh_v4'
-const STORAGE_KEY_SAVEMODE = 'hash_groc_savemode_v4'
-const STORAGE_KEY_CUSTOM_CATS = 'hash_groc_cats_v4'
+const STORAGE_KEY_ITEMS = 'hash_groc_items_v5'
+const STORAGE_KEY_SHOPS = 'hash_groc_shops_v5'
+const STORAGE_KEY_HH = 'hash_groc_current_hh_v5'
+const STORAGE_KEY_SAVEMODE = 'hash_groc_savemode_v5'
+const STORAGE_KEY_CUSTOM_CATS = 'hash_groc_cats_v5'
 const STORAGE_KEY_CUSTOM_DEFAULT_ITEMS = 'hash_groc_custom_default_items_v1'
 const STORAGE_KEY_CUSTOM_DEFAULT_SHOPS = 'hash_groc_custom_default_shops_v1'
 const STORAGE_KEY_CUSTOM_DEFAULT_TIME = 'hash_groc_custom_default_time_v1'

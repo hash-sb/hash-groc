@@ -59,7 +59,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   }
 
   const handleResetFactory = async () => {
-    if (window.confirm('Reset catalog back to the original 45 sample items and default stores?')) {
+    if (window.confirm('Reset catalog back to the comprehensive standard catalog and default stores?')) {
       await resetToSampleData()
       onClose()
     }
@@ -282,7 +282,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   onClick={handleResetFactory}
                   className="text-[11px] font-medium text-slate-400 hover:text-slate-600 hover:underline transition"
                 >
-                  Reset to original 45 sample items
+                  Reset to comprehensive sample catalog
                 </button>
               </div>
             </div>

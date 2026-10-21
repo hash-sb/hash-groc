@@ -292,14 +292,14 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm('Reset this household list back to 45 original sample items and stores?')) {
+                    if (window.confirm('Reset this household list back to the comprehensive standard catalog and stores?')) {
                       await resetToSampleData()
-                      setStatusMessage('Reset to original sample data successfully!')
+                      setStatusMessage('Reset to standard catalog successfully!')
                     }
                   }}
                   className="text-slate-400 hover:text-slate-600 text-[11px] underline cursor-pointer"
                 >
-                  Reset Factory
+                  Reset Standard
                 </button>
               </div>
             </div>
