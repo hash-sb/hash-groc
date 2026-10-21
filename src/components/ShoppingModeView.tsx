@@ -988,10 +988,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   {item.name}
                                 </span>
                                 <span
-                                  className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md border ${
+                                  className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md ${
                                     isPicked
-                                      ? 'bg-slate-200/60 text-slate-400 border-transparent'
-                                      : 'bg-slate-100 text-slate-700 border-transparent'
+                                      ? 'bg-slate-200/60 text-slate-400'
+                                      : 'bg-slate-100 text-slate-700'
                                   }`}
                                 >
                                   {quantity} {item.unit}
@@ -1000,10 +1000,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 {/* Inline Price Comparison Micro-Chips */}
                                 {comp.isBestPriceHere && (
                                   <span
-                                    className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md border transition ${
+                                    className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md transition ${
                                       isPicked
-                                        ? 'bg-slate-100 text-slate-400 border-slate-200/80 line-through'
-                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                                        ? 'bg-slate-100 text-slate-400 line-through'
+                                        : 'bg-emerald-100/70 text-emerald-800'
                                     }`}
                                   >
                                     <Sparkles className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-emerald-600'}`} />
@@ -1013,10 +1013,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
                                 {comp.isCheaperElsewhere && comp.cheapestShop && (
                                   <span
-                                    className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border transition ${
+                                    className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md transition ${
                                       isPicked
-                                        ? 'bg-slate-100 text-slate-400 border-slate-200/80 line-through'
-                                        : 'bg-rose-50 text-rose-700 border-rose-200/80'
+                                        ? 'bg-slate-100 text-slate-400 line-through'
+                                        : 'bg-rose-100/70 text-rose-800'
                                     }`}
                                     title={`Cheaper at ${comp.cheapestShop.name}: ${formatPrice(comp.cheapestPrice)}${
                                       comp.cheapestUnitPrice
