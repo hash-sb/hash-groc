@@ -59,11 +59,11 @@ interface ShoppingContextType {
 
 const ShoppingContext = createContext<ShoppingContextType | undefined>(undefined)
 
-const STORAGE_KEY_ITEMS = 'hash_groc_items_v2'
-const STORAGE_KEY_SHOPS = 'hash_groc_shops_v2'
-const STORAGE_KEY_HH = 'hash_groc_current_hh_v2'
-const STORAGE_KEY_SAVEMODE = 'hash_groc_savemode_v2'
-const STORAGE_KEY_CUSTOM_CATS = 'hash_groc_cats_v2'
+const STORAGE_KEY_ITEMS = 'hash_groc_items_v3'
+const STORAGE_KEY_SHOPS = 'hash_groc_shops_v3'
+const STORAGE_KEY_HH = 'hash_groc_current_hh_v3'
+const STORAGE_KEY_SAVEMODE = 'hash_groc_savemode_v3'
+const STORAGE_KEY_CUSTOM_CATS = 'hash_groc_cats_v3'
 
 const DEFAULT_CATEGORIES = [
   'Produce',
@@ -567,6 +567,10 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const resetToSampleData = async () => {
     if (isConfigured && db) {
       const batch = writeBatch(db)
+      const existingItemsSnap = await getDocs(collection(db, 'households', household.id, 'items'))
+      existingItemsSnap.forEach((d) => batch.delete(d.ref))
+      const existingShopsSnap = await getDocs(collection(db, 'households', household.id, 'shops'))
+      existingShopsSnap.forEach((d) => batch.delete(d.ref))
       for (let i = 0; i < INITIAL_SHOPS.length; i++) {
         const s = { ...INITIAL_SHOPS[i], orderIndex: i }
         batch.set(doc(db, 'households', household.id, 'shops', s.id), s)
