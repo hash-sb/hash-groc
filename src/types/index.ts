@@ -58,6 +58,29 @@ export interface Household {
   customDefaultSavedAt?: number
 }
 
+export interface PurchasedItemRecord {
+  itemId: string
+  name: string
+  category?: string
+  quantity: number
+  unit: string
+  packs: number
+  price: number
+  totalPrice: number
+}
+
+export interface TripReceipt {
+  id: string
+  timestamp: number
+  shopId: string
+  shopName: string
+  shopColor?: string
+  totalAmount: number
+  totalSavings?: number
+  itemsCount: number
+  items: PurchasedItemRecord[]
+}
+
 export const COMMON_UNITS = [
   'pieces',
   'dozens',

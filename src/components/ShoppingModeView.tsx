@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
-import type { ShoppingItem, StorePackageOption } from '../types'
+import type { ShoppingItem, StorePackageOption, PurchasedItemRecord } from '../types'
 import {
   compareShopPrices,
   formatPrice,
@@ -67,6 +67,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     toggleInCart,
     updateItemShopDetail,
     clearCart,
+    recordTripReceipt,
   } = useShopping()
 
   const [showUnavailableDrawer, setShowUnavailableDrawer] = useState<boolean>(false)
@@ -581,6 +582,35 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   // Next shop with items: first check sequence ahead, then wrap around if earlier stops still have items
   const nextShop = shopsAfterCurrentWithItems[0] || shopsBeforeCurrentWithItems[0] || null
   const nextShopItemCount = nextShop ? getShopPendingItemCount(nextShop.id) : 0
+
+  const handleSaveReceiptAndCheckout = async () => {
+    if (cartItems.length > 0) {
+      const purchasedItems: PurchasedItemRecord[] = cartItems.map((item) => {
+        const packs = getPacksNeeded(item, currentShop.id)
+        const price = item.shops[currentShop.id]?.price || 0
+        return {
+          itemId: item.id,
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit,
+          packs,
+          price,
+          totalPrice: Number((price * packs).toFixed(2)),
+        }
+      })
+
+      await recordTripReceipt({
+        shopId: currentShop.id,
+        shopName: currentShop.name,
+        shopColor: currentShop.color,
+        totalAmount: Number(cartTotal.toFixed(2)),
+        totalSavings: Number((estimatedSavings || 0).toFixed(2)),
+        itemsCount: cartItems.length,
+        items: purchasedItems,
+      })
+    }
+  }
 
   const handleFinishTrip = () => {
     confetti({
@@ -1407,6 +1437,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 <>
                   <button
                     onClick={async () => {
+                      await handleSaveReceiptAndCheckout()
                       await clearCart(true)
                       setShowTripSummary(false)
                       setSelectedShopId(nextShop.id)
@@ -1424,6 +1455,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
                   <button
                     onClick={async () => {
+                      await handleSaveReceiptAndCheckout()
                       await clearCart(true)
                       setShowTripSummary(false)
                     }}
@@ -1435,6 +1467,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               ) : (
                 <button
                   onClick={async () => {
+                    await handleSaveReceiptAndCheckout()
                     await clearCart(true)
                     setShowTripSummary(false)
                     confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } })

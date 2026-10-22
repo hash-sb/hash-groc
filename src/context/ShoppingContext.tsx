@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import type { AppMode, ItemShopDetail, Shop, ShoppingItem, Household } from '../types'
+import type { AppMode, ItemShopDetail, Shop, ShoppingItem, Household, TripReceipt } from '../types'
 import { INITIAL_ITEMS, INITIAL_SHOPS } from '../data/seedData'
 import { db, isConfigured } from '../firebase/config'
 import { useAuth } from '../firebase/AuthContext'
@@ -55,6 +55,13 @@ interface ShoppingContextType {
     detail: Partial<ItemShopDetail>
   ) => Promise<void>
   clearCart: (markCompletedAsPurchased?: boolean) => Promise<void>
+  // Receipt / Spending History operations
+  receipts: TripReceipt[]
+  recordTripReceipt: (
+    receipt: Omit<TripReceipt, 'id' | 'timestamp'> & { timestamp?: number }
+  ) => Promise<string>
+  deleteReceipt: (id: string) => Promise<void>
+  clearAllReceipts: () => Promise<void>
   // Category operations
   addCategory: (newCategory: string) => Promise<void>
   // Household operations
@@ -78,6 +85,7 @@ const STORAGE_KEY_CUSTOM_CATS = 'hash_groc_cats_v6'
 const STORAGE_KEY_CUSTOM_DEFAULT_ITEMS = 'hash_groc_custom_default_items_v1'
 const STORAGE_KEY_CUSTOM_DEFAULT_SHOPS = 'hash_groc_custom_default_shops_v1'
 const STORAGE_KEY_CUSTOM_DEFAULT_TIME = 'hash_groc_custom_default_time_v1'
+const STORAGE_KEY_RECEIPTS = 'hash_groc_receipts_v1'
 
 const DEFAULT_CATEGORIES = [
   'Produce',
@@ -93,6 +101,169 @@ const DEFAULT_CATEGORIES = [
   'Other',
 ]
 
+const getSampleReceipts = (): TripReceipt[] => {
+  const now = Date.now()
+  const oneDay = 24 * 60 * 60 * 1000
+  return [
+    {
+      id: 'receipt-sample-1',
+      timestamp: now - 3 * oneDay,
+      shopId: 'costco',
+      shopName: 'Costco',
+      shopColor: 'rose',
+      totalAmount: 68.4,
+      totalSavings: 14.2,
+      itemsCount: 5,
+      items: [
+        {
+          itemId: 'item-costco-1',
+          name: 'Bananas',
+          category: 'Produce',
+          quantity: 2,
+          unit: 'bunches',
+          packs: 2,
+          price: 1.89,
+          totalPrice: 3.78,
+        },
+        {
+          itemId: 'item-costco-2',
+          name: 'Olive Oil',
+          category: 'Pantry & Grains',
+          quantity: 1,
+          unit: 'bottle',
+          packs: 1,
+          price: 16.99,
+          totalPrice: 16.99,
+        },
+        {
+          itemId: 'item-costco-3',
+          name: 'Eggs (2 Dozen)',
+          category: 'Dairy & Eggs',
+          quantity: 2,
+          unit: 'cartons',
+          packs: 2,
+          price: 5.49,
+          totalPrice: 10.98,
+        },
+        {
+          itemId: 'item-costco-4',
+          name: 'Chicken Breast',
+          category: 'Meat & Seafood',
+          quantity: 3,
+          unit: 'packs',
+          packs: 3,
+          price: 8.99,
+          totalPrice: 26.97,
+        },
+        {
+          itemId: 'item-costco-5',
+          name: 'Paper Towels',
+          category: 'Household & Cleaning',
+          quantity: 1,
+          unit: 'pack',
+          packs: 1,
+          price: 9.68,
+          totalPrice: 9.68,
+        },
+      ],
+    },
+    {
+      id: 'receipt-sample-2',
+      timestamp: now - 7 * oneDay,
+      shopId: 'trader_joes',
+      shopName: "Trader Joe's",
+      shopColor: 'emerald',
+      totalAmount: 34.75,
+      totalSavings: 6.5,
+      itemsCount: 4,
+      items: [
+        {
+          itemId: 'item-tj-1',
+          name: 'Greek Yogurt',
+          category: 'Dairy & Eggs',
+          quantity: 2,
+          unit: 'tubs',
+          packs: 2,
+          price: 4.99,
+          totalPrice: 9.98,
+        },
+        {
+          itemId: 'item-tj-2',
+          name: 'Sliced Bread',
+          category: 'Bakery & Bread',
+          quantity: 1,
+          unit: 'loaf',
+          packs: 1,
+          price: 2.99,
+          totalPrice: 2.99,
+        },
+        {
+          itemId: 'item-tj-3',
+          name: 'Baby Spinach',
+          category: 'Produce',
+          quantity: 2,
+          unit: 'bags',
+          packs: 2,
+          price: 2.49,
+          totalPrice: 4.98,
+        },
+        {
+          itemId: 'item-tj-4',
+          name: 'Peanut Butter',
+          category: 'Pantry & Grains',
+          quantity: 2,
+          unit: 'jars',
+          packs: 2,
+          price: 3.4,
+          totalPrice: 6.8,
+        },
+      ],
+    },
+    {
+      id: 'receipt-sample-3',
+      timestamp: now - 12 * oneDay,
+      shopId: 'target',
+      shopName: 'Target',
+      shopColor: 'rose',
+      totalAmount: 22.15,
+      totalSavings: 3.8,
+      itemsCount: 3,
+      items: [
+        {
+          itemId: 'item-tgt-1',
+          name: 'Rolled Oats',
+          category: 'Pantry & Grains',
+          quantity: 1,
+          unit: 'box',
+          packs: 1,
+          price: 4.29,
+          totalPrice: 4.29,
+        },
+        {
+          itemId: 'item-tgt-2',
+          name: 'Ground Coffee',
+          category: 'Beverages',
+          quantity: 1,
+          unit: 'bag',
+          packs: 1,
+          price: 8.99,
+          totalPrice: 8.99,
+        },
+        {
+          itemId: 'item-tgt-3',
+          name: 'Dish Soap',
+          category: 'Household & Cleaning',
+          quantity: 2,
+          unit: 'bottles',
+          packs: 2,
+          price: 3.29,
+          totalPrice: 6.58,
+        },
+      ],
+    },
+  ]
+}
+
 export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth()
   const [mode, setMode] = useState<AppMode>('add')
@@ -104,6 +275,18 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [items, setItems] = useState<ShoppingItem[]>([])
   const [customCategories, setCustomCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [receipts, setReceipts] = useState<TripReceipt[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_RECEIPTS)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      } catch (e) {
+        console.error('Failed to parse receipts from storage', e)
+      }
+    }
+    return getSampleReceipts()
+  })
   const [hasCustomDefault, setHasCustomDefault] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEY_CUSTOM_DEFAULT_ITEMS) !== null
   })
@@ -111,6 +294,11 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const t = localStorage.getItem(STORAGE_KEY_CUSTOM_DEFAULT_TIME)
     return t ? Number(t) : null
   })
+
+  // Persist receipts
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_RECEIPTS, JSON.stringify(receipts))
+  }, [receipts])
 
   // Save saveMode changes
   useEffect(() => {
@@ -167,6 +355,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       let unsubscribeItems = () => {}
       let unsubscribeShops = () => {}
       let unsubscribeHH = () => {}
+      let unsubscribeReceipts = () => {}
 
       const initFirestore = async () => {
         try {
@@ -224,6 +413,18 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setItems(loadedItems.length > 0 ? loadedItems : INITIAL_ITEMS)
           setLoading(false)
         })
+
+        // Listen for receipts
+        const receiptsColRef = collection(db!, 'households', household.id, 'receipts')
+        unsubscribeReceipts = onSnapshot(receiptsColRef, (snapshot) => {
+          if (!snapshot.empty) {
+            const loadedReceipts: TripReceipt[] = []
+            snapshot.forEach((d) => loadedReceipts.push(d.data() as TripReceipt))
+            loadedReceipts.sort((a, b) => b.timestamp - a.timestamp)
+            setReceipts(loadedReceipts)
+            localStorage.setItem(STORAGE_KEY_RECEIPTS, JSON.stringify(loadedReceipts))
+          }
+        })
       }
 
       initFirestore()
@@ -232,6 +433,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         unsubscribeShops()
         unsubscribeItems()
         unsubscribeHH()
+        unsubscribeReceipts()
       }
     } else {
       // LocalStorage fallback
@@ -828,6 +1030,58 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }
 
+  const recordTripReceipt = async (
+    receiptData: Omit<TripReceipt, 'id' | 'timestamp'> & { timestamp?: number }
+  ): Promise<string> => {
+    const id = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    const newReceipt: TripReceipt = {
+      ...receiptData,
+      id,
+      timestamp: receiptData.timestamp || Date.now(),
+    }
+
+    if (isConfigured && db) {
+      try {
+        await setDoc(doc(db!, 'households', household.id, 'receipts', id), newReceipt)
+      } catch (e) {
+        console.error('Failed to save receipt to cloud', e)
+      }
+    }
+
+    const updated = [newReceipt, ...receipts]
+    setReceipts(updated)
+    localStorage.setItem(STORAGE_KEY_RECEIPTS, JSON.stringify(updated))
+    return id
+  }
+
+  const deleteReceipt = async (id: string) => {
+    if (isConfigured && db) {
+      try {
+        await deleteDoc(doc(db!, 'households', household.id, 'receipts', id))
+      } catch (e) {
+        console.error('Failed to delete receipt from cloud', e)
+      }
+    }
+    const updated = receipts.filter((r) => r.id !== id)
+    setReceipts(updated)
+    localStorage.setItem(STORAGE_KEY_RECEIPTS, JSON.stringify(updated))
+  }
+
+  const clearAllReceipts = async () => {
+    if (isConfigured && db) {
+      try {
+        const snap = await getDocs(collection(db!, 'households', household.id, 'receipts'))
+        const batch = writeBatch(db!)
+        snap.forEach((d) => batch.delete(d.ref))
+        await batch.commit()
+      } catch (e) {
+        console.error('Failed to clear cloud receipts', e)
+      }
+    }
+    setReceipts([])
+    localStorage.setItem(STORAGE_KEY_RECEIPTS, JSON.stringify([]))
+  }
+
   const value = useMemo(
     () => ({
       mode,
@@ -859,6 +1113,10 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       clearAllWeekly,
       updateItemShopDetail,
       clearCart,
+      receipts,
+      recordTripReceipt,
+      deleteReceipt,
+      clearAllReceipts,
       addCategory,
       joinHouseholdByCode,
       createHousehold,
@@ -879,6 +1137,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       household,
       loading,
       user,
+      receipts,
       hasCustomDefault,
       customDefaultSavedAt,
     ]

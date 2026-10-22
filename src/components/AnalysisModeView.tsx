@@ -8,8 +8,10 @@ import {
   Share2,
   Check,
   Edit2,
+  Wallet,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
+import { SpendingHistoryView } from './SpendingHistoryView'
 import type { ShoppingItem } from '../types'
 import {
   compareShopPrices,
@@ -24,8 +26,9 @@ interface AnalysisModeViewProps {
 }
 
 export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }) => {
-  const { items, shops, categories } = useShopping()
+  const { items, shops, categories, receipts } = useShopping()
 
+  const [analysisTab, setAnalysisTab] = useState<'matrix' | 'spending'>('spending')
   const [activeTab, setActiveTab] = useState<'needed' | 'catalog'>('needed')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -117,8 +120,48 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
 
   return (
     <div className="pb-28 pt-3 max-w-7xl mx-auto px-3 sm:px-6">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+      {/* View Switcher: Price Matrix vs Spending & History */}
+      <div className="flex bg-slate-200/80 p-1 rounded-2xl mb-4 w-fit overflow-x-auto max-w-full">
+        <button
+          onClick={() => setAnalysisTab('matrix')}
+          className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            analysisTab === 'matrix'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-indigo-600" />
+          <span>Store Price Matrix</span>
+        </button>
+
+        <button
+          onClick={() => setAnalysisTab('spending')}
+          className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            analysisTab === 'spending'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span>Spending & Trip History</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              analysisTab === 'spending'
+                ? 'bg-white/25 text-white'
+                : 'bg-emerald-100 text-emerald-800'
+            }`}
+          >
+            {receipts.length}
+          </span>
+        </button>
+      </div>
+
+      {analysisTab === 'spending' ? (
+        <SpendingHistoryView />
+      ) : (
+        <>
+          {/* 1. Header Toolbar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
         <div>
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
@@ -408,6 +451,8 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }
