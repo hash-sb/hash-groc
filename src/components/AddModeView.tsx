@@ -718,11 +718,11 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                         </div>
 
                         {/* Middle: Quantity Stepper ([-] [ qty unit ] [+]) */}
-                        <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs shrink-0">
+                        <div className="h-8 flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs shrink-0">
                           <button
                             type="button"
                             onClick={() => changeItemQuantity(item.id, -1)}
-                            className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition"
+                            className="w-8 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition"
                             title="Decrease quantity"
                           >
                             <Minus className="w-3.5 h-3.5" />
@@ -738,21 +738,21 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           <button
                             type="button"
                             onClick={() => changeItemQuantity(item.id, 1)}
-                            className="w-8 h-8 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition"
+                            className="w-8 h-full flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition"
                             title="Increase quantity"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
-                        {/* Right: Buy / Remove Toggle Button (Fixed Width w-20 to prevent layout shift) */}
+                        {/* Right: Buy / Remove Toggle Button (Height matched to h-8 with quantity stepper) */}
                         <button
                           type="button"
                           onClick={() => toggleNeeded(item.id)}
-                          className={`w-20 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 shrink-0 shadow-2xs ${
+                          className={`h-8 w-20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 shrink-0 shadow-2xs border ${
                             item.isNeeded
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200'
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-emerald-600/20'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
                           }`}
                           title={item.isNeeded ? 'Remove from shopping list' : 'Mark to buy on shopping list'}
                         >
