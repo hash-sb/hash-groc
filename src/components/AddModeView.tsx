@@ -694,15 +694,27 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           }}
                           title={!isLockedItems ? 'Click to edit item & prices' : undefined}
                         >
-                          <span
-                            className={`text-sm tracking-tight block truncate ${
-                              item.isNeeded
-                                ? 'font-bold text-slate-900'
-                                : 'font-medium text-slate-600'
-                            } ${!isLockedItems ? 'group-hover:text-emerald-700' : ''}`}
-                          >
-                            {item.name}
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className={`text-sm tracking-tight truncate ${
+                                item.isNeeded
+                                  ? 'font-bold text-slate-900'
+                                  : 'font-medium text-slate-600'
+                              } ${!isLockedItems ? 'group-hover:text-emerald-700' : ''}`}
+                            >
+                              {item.name}
+                            </span>
+
+                            {/* Weekly Recurring Icon (shown on All Items & To Buy tabs) */}
+                            {item.isWeekly && (activeTab === 'all' || activeTab === 'needed') && (
+                              <span
+                                title="Weekly recurring staple"
+                                className="inline-flex items-center text-teal-600 shrink-0"
+                              >
+                                <Repeat className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Middle: Quantity Stepper ([-] [ qty unit ] [+]) */}
