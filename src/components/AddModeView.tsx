@@ -19,6 +19,7 @@ import {
 import type { ShoppingItem } from '../types'
 import { COMMON_UNITS } from '../types'
 import { useShopping } from '../context/ShoppingContext'
+import { WeeklyManagerModal } from './WeeklyManagerModal'
 
 interface AddModeViewProps {
   onOpenCreateModal: () => void
@@ -40,6 +41,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     restoreDefaultList,
     selectWeeklyItems,
     toggleWeeklyItem,
+    saveCurrentNeededAsWeekly,
   } = useShopping()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -49,6 +51,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
   const [quickUnit, setQuickUnit] = useState<string>('pieces')
   const [templateSavedFeedback, setTemplateSavedFeedback] = useState(false)
+  const [isWeeklyManagerOpen, setIsWeeklyManagerOpen] = useState(false)
   const [weeklyBannerMessage, setWeeklyBannerMessage] = useState<{
     text: string
     count: number
@@ -279,15 +282,28 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => handleSelectWeekly(false)}
-          className="px-3.5 py-1.5 bg-white text-emerald-800 hover:bg-emerald-50 active:scale-95 text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1 shrink-0 cursor-pointer"
-          title="Select all weekly staples and review To Buy list"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Select Weekly</span>
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsWeeklyManagerOpen(true)}
+            className="px-2.5 sm:px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 cursor-pointer"
+            title="Open Rapid Weekly Staples Checklist"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Manage Staples</span>
+            <span className="sm:hidden">Manage</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectWeekly(false)}
+            className="px-3.5 py-1.5 bg-white text-emerald-800 hover:bg-emerald-50 active:scale-95 text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1 shrink-0 cursor-pointer"
+            title="Select all weekly staples and review To Buy list"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Select Weekly</span>
+          </button>
+        </div>
       </div>
 
       {/* Dismissible Feedback Banner */}
@@ -467,11 +483,54 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
                   <button
                     type="button"
+                    onClick={() => {
+                      setIsWeeklyManagerOpen(true)
+                      setShowOptionsPopover(false)
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Manage Staples Checklist</span>
+                    </div>
+                    <span className="text-[10px] text-teal-700 font-bold">
+                      {weeklyCount} staples
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (neededCount === 0) {
+                        alert('Your "To Buy" list is currently empty. Mark items first.')
+                        return
+                      }
+                      const count = await saveCurrentNeededAsWeekly(false)
+                      setShowOptionsPopover(false)
+                      setWeeklyBannerMessage({
+                        text: `Saved your ${neededCount} active items as weekly staples! (Total: ${count})`,
+                        count,
+                      })
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition flex items-center justify-between cursor-pointer"
+                    title="Save current trip's items as your weekly staples"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Set "To Buy" as Weekly</span>
+                    </div>
+                    <span className="text-[10px] text-emerald-700 font-bold">
+                      {neededCount} items
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={async () => {
                       await handleSelectWeekly(false)
                       setShowOptionsPopover(false)
                     }}
-                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 transition flex items-center justify-between cursor-pointer"
+                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-1.5">
                       <Repeat className="w-3.5 h-3.5 text-teal-600" />
@@ -497,7 +556,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                     className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-slate-500" />
+                      <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
                       <span>Start Fresh (Weekly Only)</span>
                     </div>
                     <span className="text-[10px] text-slate-500 font-bold">
@@ -571,6 +630,32 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         </div>
       </div>
 
+      {/* Weekly Tab Helper Bar */}
+      {activeTab === 'weekly' && (
+        <div className="mb-3 p-3 bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-2xl flex items-center justify-between gap-2 shadow-2xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <Repeat className="w-4 h-4 text-teal-600 shrink-0" />
+            <div className="min-w-0 text-xs text-teal-950 font-semibold truncate">
+              {weeklyCount > 0 ? (
+                <span>
+                  {weeklyCount} recurring staples • Tap <strong>Unstaple</strong> to remove
+                </span>
+              ) : (
+                <span>No weekly staples designated yet</span>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsWeeklyManagerOpen(true)}
+            className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add / Manage</span>
+          </button>
+        </div>
+      )}
+
       {/* 3. Categorized Items List */}
       {categorizedGroups.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-200 p-6">
@@ -586,9 +671,21 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             {activeTab === 'needed'
               ? 'Tap "Select Weekly" above or browse "All Items" to pick items for your trip.'
               : activeTab === 'weekly'
-              ? 'Click the "Weekly" badge next to any item in All Items to include it in your weekly routine.'
+              ? 'Quickly pick staples using the Rapid Checklist, or mark items in All Items.'
               : 'Try clearing your search query.'}
           </p>
+          {activeTab === 'weekly' && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setIsWeeklyManagerOpen(true)}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Open Rapid Staples Checklist</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -647,27 +744,44 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                               {item.name}
                             </span>
 
-                            {/* Weekly Staple Badge / Quick Toggle */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleWeeklyItem(item.id)
-                              }}
-                              title={
-                                item.isWeekly
-                                  ? 'Weekly staple (click to unmark)'
-                                  : 'Click to mark as weekly staple'
-                              }
-                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold transition flex items-center gap-0.5 shrink-0 cursor-pointer ${
-                                item.isWeekly
-                                  ? 'bg-teal-100 text-teal-800 hover:bg-teal-200'
-                                  : 'opacity-0 group-hover:opacity-70 hover:!opacity-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
-                              }`}
-                            >
-                              <Repeat className="w-2.5 h-2.5" />
-                              <span>Weekly</span>
-                            </button>
+                            {/* Weekly Staple Badge / Fast Toggle Button */}
+                            {activeTab === 'weekly' ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  toggleWeeklyItem(item.id)
+                                }}
+                                title="Remove from weekly staples"
+                                className="text-[10px] px-2 py-0.5 rounded-md font-bold transition flex items-center gap-1 shrink-0 bg-teal-100 text-teal-800 hover:bg-rose-100 hover:text-rose-700 cursor-pointer group/wtag shadow-2xs"
+                              >
+                                <Repeat className="w-2.5 h-2.5 text-teal-600 group-hover/wtag:hidden" />
+                                <X className="w-2.5 h-2.5 text-rose-600 hidden group-hover/wtag:inline" />
+                                <span className="group-hover/wtag:hidden">Weekly</span>
+                                <span className="hidden group-hover/wtag:inline">Unstaple</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  toggleWeeklyItem(item.id)
+                                }}
+                                title={
+                                  item.isWeekly
+                                    ? 'Weekly staple (tap to unmark)'
+                                    : 'Tap to mark as weekly staple'
+                                }
+                                className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold transition flex items-center gap-0.5 shrink-0 cursor-pointer ${
+                                  item.isWeekly
+                                    ? 'bg-teal-100 text-teal-800 hover:bg-teal-200 shadow-2xs'
+                                    : 'text-slate-400 hover:text-teal-700 hover:bg-teal-50 border border-slate-200 hover:border-teal-300'
+                                }`}
+                              >
+                                <Repeat className="w-2.5 h-2.5" />
+                                <span>{item.isWeekly ? 'Weekly' : '+ Weekly'}</span>
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -731,6 +845,12 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           })}
         </div>
       )}
+
+      {/* Rapid Weekly Staples Manager Modal */}
+      <WeeklyManagerModal
+        isOpen={isWeeklyManagerOpen}
+        onClose={() => setIsWeeklyManagerOpen(false)}
+      />
     </div>
   )
 }

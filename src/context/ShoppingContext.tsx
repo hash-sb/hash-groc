@@ -46,6 +46,9 @@ interface ShoppingContextType {
   toggleInCart: (id: string) => Promise<void>
   selectWeeklyItems: (resetOthers?: boolean) => Promise<number>
   toggleWeeklyItem: (itemId: string) => Promise<void>
+  saveCurrentNeededAsWeekly: (replaceExisting?: boolean) => Promise<number>
+  bulkSetWeekly: (itemIds: string[], isWeekly: boolean) => Promise<void>
+  clearAllWeekly: () => Promise<void>
   updateItemShopDetail: (
     itemId: string,
     shopId: string,
@@ -724,6 +727,85 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }
 
+  const saveCurrentNeededAsWeekly = async (replaceExisting: boolean = false): Promise<number> => {
+    let count = 0
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+        if (item.isNeeded) {
+          count++
+          if (!item.isWeekly) {
+            batch.update(itemRef, { isWeekly: true, updatedAt: Date.now() })
+          }
+        } else if (replaceExisting && item.isWeekly) {
+          batch.update(itemRef, { isWeekly: false, updatedAt: Date.now() })
+        } else if (item.isWeekly) {
+          count++
+        }
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) => {
+        if (item.isNeeded) {
+          count++
+          return { ...item, isWeekly: true, updatedAt: Date.now() }
+        }
+        if (replaceExisting && item.isWeekly) {
+          return { ...item, isWeekly: false, updatedAt: Date.now() }
+        }
+        if (item.isWeekly) {
+          count++
+        }
+        return item
+      })
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+    return count
+  }
+
+  const bulkSetWeekly = async (itemIds: string[], isWeekly: boolean): Promise<void> => {
+    const idSet = new Set(itemIds)
+    if (idSet.size === 0) return
+
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        if (idSet.has(item.id) && item.isWeekly !== isWeekly) {
+          const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+          batch.update(itemRef, { isWeekly, updatedAt: Date.now() })
+        }
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) =>
+        idSet.has(item.id) ? { ...item, isWeekly, updatedAt: Date.now() } : item
+      )
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
+  const clearAllWeekly = async (): Promise<void> => {
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        if (item.isWeekly) {
+          const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+          batch.update(itemRef, { isWeekly: false, updatedAt: Date.now() })
+        }
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) =>
+        item.isWeekly ? { ...item, isWeekly: false, updatedAt: Date.now() } : item
+      )
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
   const resetToSampleData = async () => {
     if (isConfigured && db) {
       const batch = writeBatch(db)
@@ -772,6 +854,9 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       toggleInCart,
       selectWeeklyItems,
       toggleWeeklyItem,
+      saveCurrentNeededAsWeekly,
+      bulkSetWeekly,
+      clearAllWeekly,
       updateItemShopDetail,
       clearCart,
       addCategory,
