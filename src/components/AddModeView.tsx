@@ -40,7 +40,6 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     saveCurrentAsDefault,
     restoreDefaultList,
     selectWeeklyItems,
-    toggleWeeklyItem,
     saveCurrentNeededAsWeekly,
   } = useShopping()
 
@@ -638,7 +637,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             <div className="min-w-0 text-xs text-teal-950 font-semibold truncate">
               {weeklyCount > 0 ? (
                 <span>
-                  {weeklyCount} recurring staples • Tap <strong>Unstaple</strong> to remove
+                  {weeklyCount} recurring staples • Use "Manage" to configure
                 </span>
               ) : (
                 <span>No weekly staples designated yet</span>
@@ -650,8 +649,8 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             onClick={() => setIsWeeklyManagerOpen(true)}
             className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add / Manage</span>
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Manage Staples</span>
           </button>
         </div>
       )}
@@ -733,56 +732,15 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           }}
                           title={!isLockedItems ? 'Click to edit item & prices' : undefined}
                         >
-                          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
-                            <span
-                              className={`text-sm tracking-tight truncate ${
-                                item.isNeeded
-                                  ? 'font-bold text-slate-900'
-                                  : 'font-medium text-slate-600'
-                              } ${!isLockedItems ? 'group-hover:text-emerald-700' : ''}`}
-                            >
-                              {item.name}
-                            </span>
-
-                            {/* Weekly Staple Badge / Fast Toggle Button */}
-                            {activeTab === 'weekly' ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  toggleWeeklyItem(item.id)
-                                }}
-                                title="Remove from weekly staples"
-                                className="text-[10px] px-2 py-0.5 rounded-md font-bold transition flex items-center gap-1 shrink-0 bg-teal-100 text-teal-800 hover:bg-rose-100 hover:text-rose-700 cursor-pointer group/wtag shadow-2xs"
-                              >
-                                <Repeat className="w-2.5 h-2.5 text-teal-600 group-hover/wtag:hidden" />
-                                <X className="w-2.5 h-2.5 text-rose-600 hidden group-hover/wtag:inline" />
-                                <span className="group-hover/wtag:hidden">Weekly</span>
-                                <span className="hidden group-hover/wtag:inline">Unstaple</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  toggleWeeklyItem(item.id)
-                                }}
-                                title={
-                                  item.isWeekly
-                                    ? 'Weekly staple (tap to unmark)'
-                                    : 'Tap to mark as weekly staple'
-                                }
-                                className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold transition flex items-center gap-0.5 shrink-0 cursor-pointer ${
-                                  item.isWeekly
-                                    ? 'bg-teal-100 text-teal-800 hover:bg-teal-200 shadow-2xs'
-                                    : 'text-slate-400 hover:text-teal-700 hover:bg-teal-50 border border-slate-200 hover:border-teal-300'
-                                }`}
-                              >
-                                <Repeat className="w-2.5 h-2.5" />
-                                <span>{item.isWeekly ? 'Weekly' : '+ Weekly'}</span>
-                              </button>
-                            )}
-                          </div>
+                          <span
+                            className={`text-sm tracking-tight block truncate ${
+                              item.isNeeded
+                                ? 'font-bold text-slate-900'
+                                : 'font-medium text-slate-600'
+                            } ${!isLockedItems ? 'group-hover:text-emerald-700' : ''}`}
+                          >
+                            {item.name}
+                          </span>
                         </div>
 
                         {/* Middle: Quantity Stepper ([-] [ qty unit ] [+]) */}
