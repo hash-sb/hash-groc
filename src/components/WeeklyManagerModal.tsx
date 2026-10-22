@@ -118,7 +118,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+      <div className="relative bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-teal-50 via-emerald-50 to-teal-50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -134,8 +134,15 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
                   {weeklyCount} / {totalCount}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
-                Tap any item to quickly toggle it as a recurring weekly staple
+              <p className="text-xs text-slate-500 min-h-[18px]">
+                {feedbackMsg ? (
+                  <span className="text-teal-700 font-bold flex items-center gap-1 animate-in fade-in">
+                    <Sparkles className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <span>{feedbackMsg}</span>
+                  </span>
+                ) : (
+                  <span>Tap any item to quickly toggle it as a recurring weekly staple</span>
+                )}
               </p>
             </div>
           </div>
@@ -149,23 +156,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
           </button>
         </div>
 
-        {/* Feedback Message Banner */}
-        {feedbackMsg && (
-          <div className="bg-teal-600 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shrink-0 animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
-              <span>{feedbackMsg}</span>
-            </div>
-            <button
-              onClick={() => setFeedbackMsg(null)}
-              className="text-teal-200 hover:text-white"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* 1-Click Fast Action Bar */}
+        {/* 1-Click Fast Action Bar (No layout shift!) */}
         <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             {/* Quick Button: Copy To Buy list to weekly staples */}
@@ -395,6 +386,16 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
             })
           )}
         </div>
+
+        {/* Floating Toast Notification (Zero Layout Shift) */}
+        {feedbackMsg && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150 pointer-events-none max-w-[90%]">
+            <div className="bg-slate-900/95 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-2xl backdrop-blur-xs flex items-center gap-2 border border-slate-700 whitespace-nowrap">
+              <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+              <span>{feedbackMsg}</span>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
