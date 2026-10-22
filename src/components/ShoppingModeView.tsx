@@ -556,13 +556,31 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   // Feature 2: Next pending aisle for runner navigation
   const nextPendingAisle = locationGroups.find((g) => g.pickedCount < g.totalCount)
 
-  // Feature 5: Multi-store stop sequencing
-  const currentStopIndex = visibleShops.findIndex((s) => s.id === currentShop.id)
-  const nextShop =
-    currentStopIndex !== -1 && currentStopIndex < visibleShops.length - 1
-      ? visibleShops[currentStopIndex + 1]
-      : null
-  const nextShopItemCount = nextShop ? getShopItemCount(nextShop.id) : 0
+  // Count items still needed to be picked at a specific shop (excluding items already in cart at current stop)
+  const getShopPendingItemCount = (shopId: string) => {
+    return allNeededItems.filter((item) => {
+      // Items currently in cart at the active stop are about to be checked out / purchased
+      if (item.inCart) return false
+      const detail = item.shops[shopId]
+      const isCarried = detail ? detail.available : true
+      if (!isCarried) return false
+      if (saveMode) return isCheapestAtStore(item, shopId, shops)
+      return true
+    }).length
+  }
+
+  // Feature 5: Multi-store stop sequencing (Finding the next shop that actually has items to pick)
+  const currentShopIndex = shops.findIndex((s) => s.id === currentShop.id)
+  const shopsAfterCurrentWithItems = shops
+    .slice(currentShopIndex + 1)
+    .filter((s) => getShopPendingItemCount(s.id) > 0)
+  const shopsBeforeCurrentWithItems = shops
+    .slice(0, Math.max(0, currentShopIndex))
+    .filter((s) => getShopPendingItemCount(s.id) > 0)
+
+  // Next shop with items: first check sequence ahead, then wrap around if earlier stops still have items
+  const nextShop = shopsAfterCurrentWithItems[0] || shopsBeforeCurrentWithItems[0] || null
+  const nextShopItemCount = nextShop ? getShopPendingItemCount(nextShop.id) : 0
 
   const handleFinishTrip = () => {
     confetti({
@@ -1385,44 +1403,52 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             <div className="space-y-2">
-              {nextShop && (
+              {nextShop ? (
+                <>
+                  <button
+                    onClick={async () => {
+                      await clearCart(true)
+                      setShowTripSummary(false)
+                      setSelectedShopId(nextShop.id)
+                      triggerHaptic(40)
+                      confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } })
+                    }}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <span>Complete Stop & Continue to {nextShop.name}</span>
+                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">
+                      {nextShopItemCount} {nextShopItemCount === 1 ? 'item' : 'items'}
+                    </span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      await clearCart(true)
+                      setShowTripSummary(false)
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                  >
+                    Mark Purchased & End Trip Here
+                  </button>
+                </>
+              ) : (
                 <button
                   onClick={async () => {
                     await clearCart(true)
                     setShowTripSummary(false)
-                    setSelectedShopId(nextShop.id)
-                    triggerHaptic(40)
-                    confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } })
+                    confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } })
                   }}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <span>Complete Stop & Start Stop {currentStopIndex + 2}: {nextShop.name}</span>
-                  {nextShopItemCount > 0 && (
-                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">
-                      {nextShopItemCount} items
-                    </span>
-                  )}
-                  <ArrowRight className="w-4 h-4 ml-1" />
+                  <PartyPopper className="w-4 h-4" />
+                  <span>Mark Purchased & Finish Entire Trip (All Done!)</span>
                 </button>
               )}
 
               <button
-                onClick={async () => {
-                  await clearCart(true)
-                  setShowTripSummary(false)
-                }}
-                className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition ${
-                  nextShop
-                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                }`}
-              >
-                {nextShop ? 'Mark Purchased & End Trip Here' : 'Mark Purchased & Clear from List'}
-              </button>
-
-              <button
                 onClick={() => setShowTripSummary(false)}
-                className="w-full py-2 px-4 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition"
+                className="w-full py-2 px-4 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition cursor-pointer"
               >
                 Keep On List / Close
               </button>
