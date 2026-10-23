@@ -480,7 +480,13 @@ export function getOptimalStorePackage(
   let rawCandidates: StorePackageOption[] = []
 
   if (Array.isArray(detail.packageOptions) && detail.packageOptions.length > 0) {
-    rawCandidates = [...detail.packageOptions]
+    rawCandidates = detail.packageOptions.filter(
+      (opt) =>
+        typeof opt.price === 'number' &&
+        opt.price > 0 &&
+        typeof opt.packageSize === 'number' &&
+        opt.packageSize > 0
+    )
   } else if (
     typeof detail.packageSize === 'number' &&
     detail.packageSize > 0 &&

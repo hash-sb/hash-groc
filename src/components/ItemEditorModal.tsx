@@ -14,7 +14,6 @@ import {
   MapPin,
   AlertTriangle,
   Sparkles,
-  Edit2,
   Repeat,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
@@ -143,6 +142,64 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     e.preventDefault()
     if (!name.trim()) return
 
+    // Clean up empty/incomplete packageOptions
+    const cleanedShopDetails: Record<string, ItemShopDetail> = {}
+    for (const [sId, detail] of Object.entries(shopDetails)) {
+      if (detail.packageOptions && detail.packageOptions.length > 0) {
+        const validOptions = detail.packageOptions
+          .filter((opt) => {
+            const p = typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price))
+            const s =
+              typeof opt.packageSize === 'number'
+                ? opt.packageSize
+                : parseFloat(String(opt.packageSize))
+            return !isNaN(p) && p > 0 && !isNaN(s) && s > 0
+          })
+          .map((opt) => {
+            const p = typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price))
+            const s =
+              typeof opt.packageSize === 'number'
+                ? opt.packageSize
+                : parseFloat(String(opt.packageSize))
+            return {
+              ...opt,
+              price: p,
+              packageSize: s,
+              unitPrice: Number((p / s).toFixed(4)),
+            }
+          })
+
+        if (validOptions.length >= 2) {
+          cleanedShopDetails[sId] = {
+            ...detail,
+            packageOptions: validOptions,
+            price: validOptions[0].price,
+            packageSize: validOptions[0].packageSize,
+            packageUnit: validOptions[0].packageUnit,
+            unitPrice: validOptions[0].unitPrice,
+            unitSize: validOptions[0].label || detail.unitSize,
+          }
+        } else if (validOptions.length === 1) {
+          cleanedShopDetails[sId] = {
+            ...detail,
+            packageOptions: undefined,
+            price: validOptions[0].price,
+            packageSize: validOptions[0].packageSize,
+            packageUnit: validOptions[0].packageUnit,
+            unitPrice: validOptions[0].unitPrice,
+            unitSize: validOptions[0].label || detail.unitSize,
+          }
+        } else {
+          cleanedShopDetails[sId] = {
+            ...detail,
+            packageOptions: undefined,
+          }
+        }
+      } else {
+        cleanedShopDetails[sId] = detail
+      }
+    }
+
     const payload = {
       name: name.trim(),
       category,
@@ -152,7 +209,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       isNeeded,
       isWeekly,
       inCart: item ? item.inCart : false,
-      shops: shopDetails,
+      shops: cleanedShopDetails,
     }
 
     if (item) {
@@ -280,80 +337,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     ]
   }, [unit])
 
-  // New Package Option Input State
-  const [isAddingSizeOption, setIsAddingSizeOption] = useState(false)
-  const [newSizeLabel, setNewSizeLabel] = useState('')
-  const [newSizeVal, setNewSizeVal] = useState('')
-  const [newSizeUnit, setNewSizeUnit] = useState('oz')
-  const [newSizePrice, setNewSizePrice] = useState('')
-
-  // Editing Existing Package Option State
-  const [editingOptionId, setEditingOptionId] = useState<string | null>(null)
-  const [editSizeLabel, setEditSizeLabel] = useState('')
-  const [editSizeVal, setEditSizeVal] = useState('')
-  const [editSizeUnit, setEditSizeUnit] = useState('oz')
-  const [editSizePrice, setEditSizePrice] = useState('')
-
-  useEffect(() => {
-    setIsAddingSizeOption(false)
-    setEditingOptionId(null)
-    setNewSizeLabel('')
-    setNewSizeVal('')
-    setNewSizePrice('')
-    setEditSizeLabel('')
-    setEditSizeVal('')
-    setEditSizePrice('')
-  }, [activeTabShopId])
-
-  const startEditingOption = (opt: StorePackageOption) => {
-    setEditingOptionId(opt.id)
-    setEditSizeLabel(opt.label || '')
-    setEditSizeVal(opt.packageSize.toString())
-    setEditSizeUnit(opt.packageUnit)
-    setEditSizePrice(opt.price.toString())
-  }
-
-  const handleSaveEditedOption = (shopId: string) => {
-    if (!editingOptionId) return
-    const size = parseFloat(editSizeVal)
-    const price = parseFloat(editSizePrice)
-    if (isNaN(size) || size <= 0 || isNaN(price) || price <= 0) return
-
-    setShopDetails((prev) => {
-      const existing = prev[shopId]
-      if (!existing || !existing.packageOptions) return prev
-
-      const updatedOptions = existing.packageOptions.map((opt) => {
-        if (opt.id === editingOptionId) {
-          return {
-            ...opt,
-            label: editSizeLabel.trim() || undefined,
-            packageSize: size,
-            packageUnit: editSizeUnit,
-            price,
-            unitPrice: Number((price / size).toFixed(4)),
-          }
-        }
-        return opt
-      })
-
-      return {
-        ...prev,
-        [shopId]: {
-          ...existing,
-          packageOptions: updatedOptions,
-        },
-      }
-    })
-
-    setEditingOptionId(null)
-  }
-
-  const handleAddPackageOption = (shopId: string) => {
-    const size = parseFloat(newSizeVal)
-    const price = parseFloat(newSizePrice)
-    if (isNaN(size) || size <= 0 || isNaN(price) || price <= 0) return
-
+  // Handle Adding an Alternative Size row
+  const handleAddAlternativeSize = (shopId: string) => {
     setShopDetails((prev) => {
       const existing = prev[shopId] || {
         available: true,
@@ -361,36 +346,42 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         location: '',
       }
 
-      const existingOptions = existing.packageOptions ? [...existing.packageOptions] : []
+      let existingOptions = existing.packageOptions ? [...existing.packageOptions] : []
 
-      // If existingOptions is empty and primary size/price exists, include primary as option #1
-      if (
-        existingOptions.length === 0 &&
-        typeof existing.packageSize === 'number' &&
-        existing.packageSize > 0 &&
-        typeof existing.price === 'number' &&
-        existing.price > 0
-      ) {
+      // If existingOptions is empty or has only 1 item, wrap existing single size as Option #1
+      if (existingOptions.length === 0) {
+        const primarySize =
+          typeof existing.packageSize === 'number' && existing.packageSize > 0
+            ? existing.packageSize
+            : (Number(quantity) || 1)
+        const primaryUnit = existing.packageUnit || unit || 'oz'
+        const primaryPrice =
+          typeof existing.price === 'number' && existing.price > 0 ? existing.price : null
+
         existingOptions.push({
-          id: 'primary-' + Date.now(),
-          label: existing.unitSize || `${existing.packageSize} ${existing.packageUnit || unit}`,
-          packageSize: existing.packageSize,
-          packageUnit: existing.packageUnit || unit,
-          price: existing.price,
-          unitPrice: existing.unitPrice,
+          id: 'opt-primary-' + Date.now(),
+          label: existing.unitSize || undefined,
+          packageSize: primarySize,
+          packageUnit: primaryUnit,
+          price: (primaryPrice ?? '') as unknown as number,
+          unitPrice:
+            primaryPrice && primarySize > 0
+              ? Number((primaryPrice / primarySize).toFixed(4))
+              : null,
         })
       }
 
-      const newOpt: StorePackageOption = {
-        id: 'opt-' + Date.now(),
-        label: newSizeLabel.trim() || undefined,
-        packageSize: size,
-        packageUnit: newSizeUnit || unit,
-        price,
-        unitPrice: Number((price / size).toFixed(4)),
-      }
+      const defaultUnit =
+        existingOptions[0]?.packageUnit || existing.packageUnit || unit || 'oz'
 
-      existingOptions.push(newOpt)
+      existingOptions.push({
+        id: 'opt-alt-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        label: undefined,
+        packageSize: '' as unknown as number,
+        packageUnit: defaultUnit,
+        price: '' as unknown as number,
+        unitPrice: null,
+      })
 
       return {
         ...prev,
@@ -400,38 +391,111 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         },
       }
     })
-
-    setNewSizeLabel('')
-    setNewSizeVal('')
-    setNewSizePrice('')
-    setIsAddingSizeOption(false)
   }
 
-  const handleRemovePackageOption = (shopId: string, optionId: string) => {
+  // Handle live inline editing of any package size option (Price, Package Size, Unit, or Label)
+  const handleUpdateOption = (
+    shopId: string,
+    optionIndex: number,
+    patch: Partial<StorePackageOption>
+  ) => {
+    setShopDetails((prev) => {
+      const existing = prev[shopId] || {
+        available: true,
+        price: null,
+        location: '',
+      }
+      const currentOptions = existing.packageOptions ? [...existing.packageOptions] : []
+      if (optionIndex < 0 || optionIndex >= currentOptions.length) return prev
+
+      const oldOpt = currentOptions[optionIndex]
+      const updatedOpt: StorePackageOption = { ...oldOpt, ...patch }
+
+      const numPrice =
+        typeof updatedOpt.price === 'number' ? updatedOpt.price : parseFloat(String(updatedOpt.price))
+      const numSize =
+        typeof updatedOpt.packageSize === 'number'
+          ? updatedOpt.packageSize
+          : parseFloat(String(updatedOpt.packageSize))
+
+      if (!isNaN(numPrice) && numPrice > 0 && !isNaN(numSize) && numSize > 0) {
+        updatedOpt.unitPrice = Number((numPrice / numSize).toFixed(4))
+      } else {
+        updatedOpt.unitPrice = null
+      }
+
+      currentOptions[optionIndex] = updatedOpt
+
+      // If updating option 0 (primary), also keep the shop's top-level fields in sync
+      const shopPatch: Partial<ItemShopDetail> = {
+        packageOptions: currentOptions,
+      }
+      if (optionIndex === 0) {
+        shopPatch.price = !isNaN(numPrice) && numPrice > 0 ? numPrice : null
+        shopPatch.packageSize = !isNaN(numSize) && numSize > 0 ? numSize : null
+        shopPatch.packageUnit = updatedOpt.packageUnit
+        shopPatch.unitPrice = updatedOpt.unitPrice
+        if (updatedOpt.label !== undefined) {
+          shopPatch.unitSize = updatedOpt.label || undefined
+        }
+      }
+
+      return {
+        ...prev,
+        [shopId]: {
+          ...existing,
+          ...shopPatch,
+        },
+      }
+    })
+  }
+
+  // Handle removing a package size option
+  const handleRemovePackageOption = (shopId: string, target: number | string) => {
     setShopDetails((prev) => {
       const existing = prev[shopId]
       if (!existing || !existing.packageOptions) return prev
-      const updated = existing.packageOptions.filter((o) => o.id !== optionId)
-      if (updated.length <= 1) {
-        const remaining = updated[0]
+
+      const updatedOptions = existing.packageOptions.filter((o, idx) =>
+        typeof target === 'number' ? idx !== target : o.id !== target
+      )
+
+      if (updatedOptions.length <= 1) {
+        const remaining = updatedOptions[0]
+        const remPrice =
+          remaining && typeof remaining.price === 'number' && remaining.price > 0
+            ? remaining.price
+            : typeof existing.price === 'number' && existing.price > 0
+            ? existing.price
+            : null
+        const remSize =
+          remaining && typeof remaining.packageSize === 'number' && remaining.packageSize > 0
+            ? remaining.packageSize
+            : typeof existing.packageSize === 'number' && existing.packageSize > 0
+            ? existing.packageSize
+            : null
+        const remUnit = remaining?.packageUnit || existing.packageUnit || unit || 'oz'
+        const remUnitPrice = remPrice && remSize ? Number((remPrice / remSize).toFixed(4)) : null
+
         return {
           ...prev,
           [shopId]: {
             ...existing,
-            price: remaining ? remaining.price : existing.price,
-            packageSize: remaining ? remaining.packageSize : existing.packageSize,
-            packageUnit: remaining ? remaining.packageUnit : existing.packageUnit,
-            unitPrice: remaining ? remaining.unitPrice : existing.unitPrice,
+            price: remPrice,
+            packageSize: remSize,
+            packageUnit: remUnit,
+            unitPrice: remUnitPrice,
             unitSize: remaining?.label || existing.unitSize,
             packageOptions: undefined,
           },
         }
       }
+
       return {
         ...prev,
         [shopId]: {
           ...existing,
-          packageOptions: updated,
+          packageOptions: updatedOptions,
         },
       }
     })
@@ -833,13 +897,10 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                           )}
                         </div>
 
-                        {!hasMultipleSizes && !isAddingSizeOption && (
+                        {!hasMultipleSizes && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setIsAddingSizeOption(true)
-                              setNewSizeUnit(currentShopDetail.packageUnit || unit || 'oz')
-                            }}
+                            onClick={() => handleAddAlternativeSize(activeShop.id)}
                             className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition"
                           >
                             <Plus className="w-3.5 h-3.5" />
@@ -850,365 +911,245 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
                       {/* Single Size Mode */}
                       {!hasMultipleSizes ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {/* Price Input */}
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">
-                              Shelf Price at {activeShop.name} ($)
-                            </label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">$</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                placeholder="e.g. 4.99"
-                                value={
-                                  currentShopDetail.price !== null && currentShopDetail.price !== undefined
-                                    ? currentShopDetail.price
-                                    : ''
-                                }
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? null : parseFloat(e.target.value)
-                                  handleShopDetailChange(activeShop.id, { price: val })
-                                }}
-                                className="w-full pl-7 pr-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
-                              />
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Price Input */}
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Shelf Price at {activeShop.name} ($)
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="e.g. 4.99"
+                                  value={
+                                    currentShopDetail.price !== null && currentShopDetail.price !== undefined
+                                      ? currentShopDetail.price
+                                      : ''
+                                  }
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? null : parseFloat(e.target.value)
+                                    handleShopDetailChange(activeShop.id, { price: val })
+                                  }}
+                                  className="w-full pl-7 pr-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
+                                />
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Package Size for Unit Price Comparison */}
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                              <span>Package Size</span>
-                              {currentShopDetail.unitPrice && (
-                                <span className="text-[11px] font-mono text-indigo-700 font-bold">
-                                  {formatUnitPrice(currentShopDetail.unitPrice, currentShopDetail.packageUnit)}
-                                </span>
-                              )}
-                            </label>
-                            <div className="flex gap-1.5">
-                              <input
-                                type="number"
-                                step="any"
-                                placeholder="e.g. 32 or 16"
-                                value={
-                                  currentShopDetail.packageSize !== null &&
-                                  currentShopDetail.packageSize !== undefined
-                                    ? currentShopDetail.packageSize
-                                    : ''
-                                }
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? null : parseFloat(e.target.value)
-                                  handleShopDetailChange(activeShop.id, { packageSize: val })
-                                }}
-                                className="w-2/3 px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
-                              />
-                              <select
-                                value={currentShopDetail.packageUnit || 'oz'}
-                                onChange={(e) =>
-                                  handleShopDetailChange(activeShop.id, { packageUnit: e.target.value })
-                                }
-                                className="w-1/3 px-2 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
-                              >
-                                {organizedPackageUnitGroups.map((grp) => (
-                                  <optgroup key={grp.label} label={grp.label}>
-                                    {grp.units.map((pu) => (
-                                      <option key={pu} value={pu}>
-                                        {pu}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                ))}
-                              </select>
+                            {/* Package Size for Unit Price Comparison */}
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                                <span>Package Size</span>
+                                {currentShopDetail.unitPrice && (
+                                  <span className="text-[11px] font-mono text-indigo-700 font-bold">
+                                    {formatUnitPrice(currentShopDetail.unitPrice, currentShopDetail.packageUnit)}
+                                  </span>
+                                )}
+                              </label>
+                              <div className="flex gap-1.5">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  placeholder="e.g. 32 or 16"
+                                  value={
+                                    currentShopDetail.packageSize !== null &&
+                                    currentShopDetail.packageSize !== undefined
+                                      ? currentShopDetail.packageSize
+                                      : ''
+                                  }
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? null : parseFloat(e.target.value)
+                                    handleShopDetailChange(activeShop.id, { packageSize: val })
+                                  }}
+                                  className="w-2/3 px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                                />
+                                <select
+                                  value={currentShopDetail.packageUnit || unit || 'oz'}
+                                  onChange={(e) =>
+                                    handleShopDetailChange(activeShop.id, { packageUnit: e.target.value })
+                                  }
+                                  className="w-1/3 px-2 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                                >
+                                  {organizedPackageUnitGroups.map((grp) => (
+                                    <optgroup key={grp.label} label={grp.label}>
+                                      {grp.units.map((pu) => (
+                                        <option key={pu} value={pu}>
+                                          {pu}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        /* Multi-Size Mode */
-                        <div className="space-y-2">
+                        /* Multi-Size Mode: Direct inline editable fields without needing an edit button */
+                        <div className="space-y-3">
                           <div className="text-[11px] text-slate-500">
-                            Multiple package sizes are tracked at {activeShop.name}. The app automatically optimizes between them based on your household demand:
+                            Multiple sizes tracked at {activeShop.name}. Edit any price or size directly below:
                           </div>
 
-                          <div className="space-y-1.5">
-                            {currentShopDetail.packageOptions!.map((opt) => {
-                              const isOptimal = optimalStorePackageResult?.bestOption.id === opt.id
-                              const isEditingThis = editingOptionId === opt.id
+                          {currentShopDetail.packageOptions!.map((opt, idx) => {
+                            const isOptimal = optimalStorePackageResult?.bestOption.id === opt.id
+                            const optPriceNum =
+                              typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price))
+                            const optSizeNum =
+                              typeof opt.packageSize === 'number'
+                                ? opt.packageSize
+                                : parseFloat(String(opt.packageSize))
+                            const optUnitPrice =
+                              typeof opt.unitPrice === 'number' && opt.unitPrice > 0
+                                ? opt.unitPrice
+                                : !isNaN(optPriceNum) && optPriceNum > 0 && !isNaN(optSizeNum) && optSizeNum > 0
+                                ? Number((optPriceNum / optSizeNum).toFixed(4))
+                                : null
 
-                              if (isEditingThis) {
-                                return (
-                                  <div
-                                    key={opt.id}
-                                    className="p-3 bg-white border-2 border-indigo-500 rounded-xl space-y-2.5 shadow-xs animate-in fade-in"
-                                  >
-                                    <div className="flex items-center justify-between text-xs font-bold text-indigo-950">
-                                      <span>Edit Alternative Size & Price</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => setEditingOptionId(null)}
-                                        className="text-slate-400 hover:text-slate-600 p-0.5 rounded"
-                                        title="Cancel editing"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                      <div>
-                                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                                          Size Label (opt)
-                                        </label>
-                                        <input
-                                          type="text"
-                                          placeholder="e.g. Small / Family"
-                                          value={editSizeLabel}
-                                          onChange={(e) => setEditSizeLabel(e.target.value)}
-                                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                                          Package Size *
-                                        </label>
-                                        <input
-                                          type="number"
-                                          step="any"
-                                          placeholder="e.g. 16 or 40"
-                                          value={editSizeVal}
-                                          onChange={(e) => setEditSizeVal(e.target.value)}
-                                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                                          Unit *
-                                        </label>
-                                        <select
-                                          value={editSizeUnit}
-                                          onChange={(e) => setEditSizeUnit(e.target.value)}
-                                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-semibold bg-white"
-                                        >
-                                          {organizedPackageUnitGroups.map((grp) => (
-                                            <optgroup key={grp.label} label={grp.label}>
-                                              {grp.units.map((u) => (
-                                                <option key={u} value={u}>
-                                                  {u}
-                                                </option>
-                                              ))}
-                                            </optgroup>
-                                          ))}
-                                        </select>
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                                          Price ($) *
-                                        </label>
-                                        <input
-                                          type="number"
-                                          step="0.01"
-                                          placeholder="e.g. 1.99"
-                                          value={editSizePrice}
-                                          onChange={(e) => setEditSizePrice(e.target.value)}
-                                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-end gap-1.5 pt-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => setEditingOptionId(null)}
-                                        className="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
-                                      >
-                                        Cancel
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSaveEditedOption(activeShop.id)}
-                                        disabled={!editSizeVal || !editSizePrice}
-                                        className="px-3 py-1 bg-indigo-600 disabled:opacity-50 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition flex items-center gap-1 shadow-2xs"
-                                      >
-                                        <Check className="w-3.5 h-3.5" />
-                                        <span>Save Changes</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                )
-                              }
-
-                              return (
-                                <div
-                                  key={opt.id}
-                                  className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition ${
-                                    isOptimal
-                                      ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 shadow-2xs'
-                                      : 'bg-white border-slate-200 text-slate-800'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    {isOptimal ? (
-                                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-                                    ) : (
-                                      <div className="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0 ml-0.5" />
+                            return (
+                              <div
+                                key={opt.id || `opt-${idx}`}
+                                className={`p-3 rounded-xl border transition-all space-y-2.5 ${
+                                  isOptimal
+                                    ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
+                                    : 'bg-white border-slate-200 shadow-2xs'
+                                }`}
+                              >
+                                {/* Header: Title, Badges & Remove Button */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold text-slate-800">
+                                      {idx === 0 ? 'Primary Size' : `Alternative Size ${idx + 1}`}
+                                    </span>
+                                    {isOptimal && (
+                                      <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
+                                        Best Value
+                                      </span>
                                     )}
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="font-bold">
-                                          {opt.label ? opt.label : `${opt.packageSize} ${opt.packageUnit}`}
-                                        </span>
-                                        {opt.label && (
-                                          <span className="text-[10px] text-slate-500 font-normal">
-                                            ({opt.packageSize} {opt.packageUnit})
-                                          </span>
-                                        )}
-                                        {isOptimal && (
-                                          <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
-                                            Best Value
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                                        <span className="font-bold text-slate-900">{formatPrice(opt.price)}</span>
-                                        {opt.unitPrice && (
-                                          <span className="font-mono text-slate-600">
-                                            ({formatUnitPrice(opt.unitPrice, opt.packageUnit)})
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
+                                    {optUnitPrice && (
+                                      <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                        {formatUnitPrice(optUnitPrice, opt.packageUnit || unit || 'oz')}
+                                      </span>
+                                    )}
                                   </div>
 
-                                  <div className="flex items-center gap-1 shrink-0">
+                                  {/* Remove Button */}
+                                  {currentShopDetail.packageOptions!.length > 1 && (
                                     <button
                                       type="button"
-                                      onClick={() => startEditingOption(opt)}
-                                      className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
-                                      title="Edit this size and price"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemovePackageOption(activeShop.id, opt.id)}
-                                      className="p-1.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                      onClick={() => handleRemovePackageOption(activeShop.id, idx)}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
                                       title="Remove this size option"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
+                                  )}
+                                </div>
+
+                                {/* 3 Inline Editable Fields: Shelf Price ($) | Package Size + Unit */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {/* Field 1: Shelf Price */}
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                                      Shelf Price ($)
+                                    </label>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">$</span>
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="e.g. 4.99"
+                                        value={
+                                          typeof opt.price === 'number' && !isNaN(opt.price)
+                                            ? opt.price
+                                            : ''
+                                        }
+                                        onChange={(e) => {
+                                          const val =
+                                            e.target.value === ''
+                                              ? (null as unknown as number)
+                                              : parseFloat(e.target.value)
+                                          handleUpdateOption(activeShop.id, idx, { price: val })
+                                        }}
+                                        className="w-full pl-7 pr-3 py-1.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Fields 2 & 3: Package Size & Unit */}
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                                      Package Size & Unit
+                                    </label>
+                                    <div className="flex gap-1.5">
+                                      <input
+                                        type="number"
+                                        step="any"
+                                        placeholder="e.g. 32"
+                                        value={
+                                          typeof opt.packageSize === 'number' && !isNaN(opt.packageSize)
+                                            ? opt.packageSize
+                                            : ''
+                                        }
+                                        onChange={(e) => {
+                                          const val =
+                                            e.target.value === ''
+                                              ? (null as unknown as number)
+                                              : parseFloat(e.target.value)
+                                          handleUpdateOption(activeShop.id, idx, { packageSize: val })
+                                        }}
+                                        className="w-2/3 px-3 py-1.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                                      />
+                                      <select
+                                        value={opt.packageUnit || unit || 'oz'}
+                                        onChange={(e) =>
+                                          handleUpdateOption(activeShop.id, idx, { packageUnit: e.target.value })
+                                        }
+                                        className="w-1/3 px-2 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                                      >
+                                        {organizedPackageUnitGroups.map((grp) => (
+                                          <optgroup key={grp.label} label={grp.label}>
+                                            {grp.units.map((pu) => (
+                                              <option key={pu} value={pu}>
+                                                {pu}
+                                              </option>
+                                            ))}
+                                          </optgroup>
+                                        ))}
+                                      </select>
+                                    </div>
                                   </div>
                                 </div>
-                              )
-                            })}
-                          </div>
 
-                          {!isAddingSizeOption && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setNewSizeUnit(currentShopDetail.packageUnit || unit || 'oz')
-                                setIsAddingSizeOption(true)
-                              }}
-                              className="w-full py-1.5 px-3 rounded-lg border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/50 text-xs font-bold flex items-center justify-center gap-1 transition"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Add Another Size Option</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
+                                {/* Optional Description / Label */}
+                                <div>
+                                  <input
+                                    type="text"
+                                    placeholder="Size label (optional, e.g. Family Size, Small, 2-pack)"
+                                    value={opt.label || ''}
+                                    onChange={(e) =>
+                                      handleUpdateOption(activeShop.id, idx, {
+                                        label: e.target.value || undefined,
+                                      })
+                                    }
+                                    className="w-full px-3 py-1 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs bg-white text-slate-600 placeholder:text-slate-400"
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
 
-                      {/* Inline Form to Add a New Size Option */}
-                      {isAddingSizeOption && (
-                        <div className="p-3 bg-white border border-indigo-200 rounded-xl space-y-2.5 animate-in fade-in shadow-xs">
-                          <div className="text-xs font-bold text-indigo-900 flex items-center gap-1">
-                            <Plus className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>Add Alternative Package Size</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                                Size Label (opt)
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="e.g. Small / Family"
-                                value={newSizeLabel}
-                                onChange={(e) => setNewSizeLabel(e.target.value)}
-                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                                Package Size *
-                              </label>
-                              <input
-                                type="number"
-                                step="any"
-                                placeholder="e.g. 16 or 40"
-                                value={newSizeVal}
-                                onChange={(e) => setNewSizeVal(e.target.value)}
-                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                                Unit *
-                              </label>
-                              <select
-                                value={newSizeUnit}
-                                onChange={(e) => setNewSizeUnit(e.target.value)}
-                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-semibold bg-white"
-                              >
-                                {organizedPackageUnitGroups.map((grp) => (
-                                  <optgroup key={grp.label} label={grp.label}>
-                                    {grp.units.map((u) => (
-                                      <option key={u} value={u}>
-                                        {u}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                                Price ($) *
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                placeholder="e.g. 1.99"
-                                value={newSizePrice}
-                                onChange={(e) => setNewSizePrice(e.target.value)}
-                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-end gap-1.5 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => setIsAddingSizeOption(false)}
-                              className="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleAddPackageOption(activeShop.id)}
-                              disabled={!newSizeVal || !newSizePrice}
-                              className="px-3 py-1 bg-indigo-600 disabled:opacity-50 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition"
-                            >
-                              Save Size Option
-                            </button>
-                          </div>
+                          {/* Button to add another size option */}
+                          <button
+                            type="button"
+                            onClick={() => handleAddAlternativeSize(activeShop.id)}
+                            className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                          >
+                            <Plus className="w-4 h-4 text-indigo-600" />
+                            <span>Add Another Size Option</span>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1541,21 +1482,23 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                       </div>
                     </div>
 
-                    {/* Store Packaging Note */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Packaging Description (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 2-pack 28 oz jars"
-                        value={currentShopDetail.unitSize || ''}
-                        onChange={(e) =>
-                          handleShopDetailChange(activeShop.id, { unitSize: e.target.value })
-                        }
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm bg-white"
-                      />
-                    </div>
+                    {/* Store Packaging Note (single-size mode) */}
+                    {!hasMultipleSizes && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Packaging Description (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 2-pack 28 oz jars"
+                          value={currentShopDetail.unitSize || ''}
+                          onChange={(e) =>
+                            handleShopDetailChange(activeShop.id, { unitSize: e.target.value })
+                          }
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm bg-white"
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
