@@ -501,6 +501,48 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     })
   }
 
+  // Unified field updater for any size option (handles single or multi-size transparently)
+  const handleUpdateOptionField = (
+    idx: number,
+    patch: Partial<StorePackageOption>
+  ) => {
+    if (hasMultipleSizes) {
+      handleUpdateOption(activeShop.id, idx, patch)
+    } else {
+      const shopPatch: Partial<ItemShopDetail> = {}
+      if (patch.price !== undefined) {
+        shopPatch.price = patch.price
+      }
+      if (patch.packageSize !== undefined) {
+        shopPatch.packageSize = patch.packageSize
+      }
+      if (patch.packageUnit !== undefined) {
+        shopPatch.packageUnit = patch.packageUnit
+      }
+      if (patch.label !== undefined) {
+        shopPatch.unitSize = patch.label
+      }
+      handleShopDetailChange(activeShop.id, shopPatch)
+    }
+  }
+
+  // Unified options list to render size cards with identical framing in 1-size or multi-size
+  const renderedOptions: StorePackageOption[] = useMemo(() => {
+    if (hasMultipleSizes) {
+      return currentShopDetail.packageOptions!
+    }
+    return [
+      {
+        id: 'primary',
+        label: currentShopDetail.unitSize,
+        packageSize: (currentShopDetail.packageSize ?? '') as unknown as number,
+        packageUnit: currentShopDetail.packageUnit || unit || 'oz',
+        price: (currentShopDetail.price ?? '') as unknown as number,
+        unitPrice: currentShopDetail.unitPrice,
+      },
+    ]
+  }, [hasMultipleSizes, currentShopDetail, unit])
+
   // Aisle / Location combobox state & ref
   const [isAisleDropdownOpen, setIsAisleDropdownOpen] = useState(false)
   const aisleDropdownRef = useRef<HTMLDivElement>(null)
@@ -892,265 +934,172 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                           </span>
                           {hasMultipleSizes && (
                             <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-full">
-                              {currentShopDetail.packageOptions!.length} sizes tracked
+                              {renderedOptions.length} sizes tracked
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Single Size Mode */}
-                      {!hasMultipleSizes ? (
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {/* Price Input */}
-                            <div>
-                              <label className="block text-xs font-bold text-slate-700 mb-1">
-                                Shelf Price at {activeShop.name} ($)
-                              </label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">$</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="e.g. 4.99"
-                                  value={
-                                    currentShopDetail.price !== null && currentShopDetail.price !== undefined
-                                      ? currentShopDetail.price
-                                      : ''
-                                  }
-                                  onChange={(e) => {
-                                    const val = e.target.value === '' ? null : parseFloat(e.target.value)
-                                    handleShopDetailChange(activeShop.id, { price: val })
-                                  }}
-                                  className="w-full pl-7 pr-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
-                                />
-                              </div>
-                            </div>
+                      {/* Unified list of size cards (identical layout for 1-size or multi-size) */}
+                      <div className="space-y-3">
+                        {renderedOptions.map((opt, idx) => {
+                          const isOptimal = hasMultipleSizes && optimalStorePackageResult?.bestOption.id === opt.id
+                          const optPriceNum =
+                            typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price))
+                          const optSizeNum =
+                            typeof opt.packageSize === 'number'
+                              ? opt.packageSize
+                              : parseFloat(String(opt.packageSize))
+                          const optUnitPrice =
+                            typeof opt.unitPrice === 'number' && opt.unitPrice > 0
+                              ? opt.unitPrice
+                              : !isNaN(optPriceNum) && optPriceNum > 0 && !isNaN(optSizeNum) && optSizeNum > 0
+                              ? Number((optPriceNum / optSizeNum).toFixed(4))
+                              : null
 
-                            {/* Package Size for Unit Price Comparison */}
-                            <div>
-                              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                                <span>Package Size</span>
-                                {currentShopDetail.unitPrice && (
-                                  <span className="text-[11px] font-mono text-indigo-700 font-bold">
-                                    {formatUnitPrice(currentShopDetail.unitPrice, currentShopDetail.packageUnit)}
+                          return (
+                            <div
+                              key={opt.id || `opt-${idx}`}
+                              className={`p-3 rounded-xl border transition-all space-y-2.5 ${
+                                isOptimal
+                                  ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
+                                  : 'bg-white border-slate-200 shadow-2xs'
+                              }`}
+                            >
+                              {/* Header: Title, Badges & Remove Button */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-slate-800">
+                                    {idx === 0 ? 'Primary Size' : `Alternative Size ${idx + 1}`}
                                   </span>
-                                )}
-                              </label>
-                              <div className="flex gap-1.5">
-                                <input
-                                  type="number"
-                                  step="any"
-                                  placeholder="e.g. 32 or 16"
-                                  value={
-                                    currentShopDetail.packageSize !== null &&
-                                    currentShopDetail.packageSize !== undefined
-                                      ? currentShopDetail.packageSize
-                                      : ''
-                                  }
-                                  onChange={(e) => {
-                                    const val = e.target.value === '' ? null : parseFloat(e.target.value)
-                                    handleShopDetailChange(activeShop.id, { packageSize: val })
-                                  }}
-                                  className="w-2/3 px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
-                                />
-                                <select
-                                  value={currentShopDetail.packageUnit || unit || 'oz'}
-                                  onChange={(e) =>
-                                    handleShopDetailChange(activeShop.id, { packageUnit: e.target.value })
-                                  }
-                                  className="w-1/3 px-2 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
-                                >
-                                  {organizedPackageUnitGroups.map((grp) => (
-                                    <optgroup key={grp.label} label={grp.label}>
-                                      {grp.units.map((pu) => (
-                                        <option key={pu} value={pu}>
-                                          {pu}
-                                        </option>
-                                      ))}
-                                    </optgroup>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Add Alternative Size button below first and only price */}
-                          <button
-                            type="button"
-                            onClick={() => handleAddAlternativeSize(activeShop.id)}
-                            className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition"
-                          >
-                            <Plus className="w-4 h-4 text-indigo-600" />
-                            <span>Add Alternative Size</span>
-                          </button>
-                        </div>
-                      ) : (
-                        /* Multi-Size Mode: Direct inline editable fields without needing an edit button */
-                        <div className="space-y-3">
-                          <div className="text-[11px] text-slate-500">
-                            Multiple sizes tracked at {activeShop.name}. Edit any price or size directly below:
-                          </div>
-
-                          {currentShopDetail.packageOptions!.map((opt, idx) => {
-                            const isOptimal = optimalStorePackageResult?.bestOption.id === opt.id
-                            const optPriceNum =
-                              typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price))
-                            const optSizeNum =
-                              typeof opt.packageSize === 'number'
-                                ? opt.packageSize
-                                : parseFloat(String(opt.packageSize))
-                            const optUnitPrice =
-                              typeof opt.unitPrice === 'number' && opt.unitPrice > 0
-                                ? opt.unitPrice
-                                : !isNaN(optPriceNum) && optPriceNum > 0 && !isNaN(optSizeNum) && optSizeNum > 0
-                                ? Number((optPriceNum / optSizeNum).toFixed(4))
-                                : null
-
-                            return (
-                              <div
-                                key={opt.id || `opt-${idx}`}
-                                className={`p-3 rounded-xl border transition-all space-y-2.5 ${
-                                  isOptimal
-                                    ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
-                                    : 'bg-white border-slate-200 shadow-2xs'
-                                }`}
-                              >
-                                {/* Header: Title, Badges & Remove Button */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-xs font-bold text-slate-800">
-                                      {idx === 0 ? 'Primary Size' : `Alternative Size ${idx + 1}`}
+                                  {isOptimal && (
+                                    <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
+                                      Best Value
                                     </span>
-                                    {isOptimal && (
-                                      <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
-                                        Best Value
-                                      </span>
-                                    )}
-                                    {optUnitPrice && (
-                                      <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                                        {formatUnitPrice(optUnitPrice, opt.packageUnit || unit || 'oz')}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* Remove Button */}
-                                  {currentShopDetail.packageOptions!.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemovePackageOption(activeShop.id, idx)}
-                                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                      title="Remove this size option"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                  )}
+                                  {optUnitPrice && (
+                                    <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                      {formatUnitPrice(optUnitPrice, opt.packageUnit || unit || 'oz')}
+                                    </span>
                                   )}
                                 </div>
 
-                                {/* 3 Inline Editable Fields: Shelf Price ($) | Package Size + Unit */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  {/* Field 1: Shelf Price */}
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                                      Shelf Price ($)
-                                    </label>
-                                    <div className="relative">
-                                      <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">$</span>
-                                      <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="e.g. 4.99"
-                                        value={
-                                          typeof opt.price === 'number' && !isNaN(opt.price)
-                                            ? opt.price
-                                            : ''
-                                        }
-                                        onChange={(e) => {
-                                          const val =
-                                            e.target.value === ''
-                                              ? (null as unknown as number)
-                                              : parseFloat(e.target.value)
-                                          handleUpdateOption(activeShop.id, idx, { price: val })
-                                        }}
-                                        className="w-full pl-7 pr-3 py-1.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
-                                      />
-                                    </div>
-                                  </div>
+                                {/* Remove Button (for alternative sizes) */}
+                                {hasMultipleSizes && idx > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePackageOption(activeShop.id, idx)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                    title="Remove this size option"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
 
-                                  {/* Fields 2 & 3: Package Size & Unit */}
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                                      Package Size & Unit
-                                    </label>
-                                    <div className="flex gap-1.5">
-                                      <input
-                                        type="number"
-                                        step="any"
-                                        placeholder="e.g. 32"
-                                        value={
-                                          typeof opt.packageSize === 'number' && !isNaN(opt.packageSize)
-                                            ? opt.packageSize
-                                            : ''
-                                        }
-                                        onChange={(e) => {
-                                          const val =
-                                            e.target.value === ''
-                                              ? (null as unknown as number)
-                                              : parseFloat(e.target.value)
-                                          handleUpdateOption(activeShop.id, idx, { packageSize: val })
-                                        }}
-                                        className="w-2/3 px-3 py-1.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
-                                      />
-                                      <select
-                                        value={opt.packageUnit || unit || 'oz'}
-                                        onChange={(e) =>
-                                          handleUpdateOption(activeShop.id, idx, { packageUnit: e.target.value })
-                                        }
-                                        className="w-1/3 px-2 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
-                                      >
-                                        {organizedPackageUnitGroups.map((grp) => (
-                                          <optgroup key={grp.label} label={grp.label}>
-                                            {grp.units.map((pu) => (
-                                              <option key={pu} value={pu}>
-                                                {pu}
-                                              </option>
-                                            ))}
-                                          </optgroup>
-                                        ))}
-                                      </select>
-                                    </div>
+                              {/* 3 Inline Editable Fields: Shelf Price ($) | Package Size + Unit */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {/* Field 1: Shelf Price */}
+                                <div>
+                                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                                    Shelf Price ($)
+                                  </label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">$</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="e.g. 4.99"
+                                      value={
+                                        typeof opt.price === 'number' && !isNaN(opt.price)
+                                          ? opt.price
+                                          : ''
+                                      }
+                                      onChange={(e) => {
+                                        const val =
+                                          e.target.value === ''
+                                            ? (null as unknown as number)
+                                            : parseFloat(e.target.value)
+                                        handleUpdateOptionField(idx, { price: val })
+                                      }}
+                                      className="w-full pl-7 pr-3 py-1.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
+                                    />
                                   </div>
                                 </div>
 
-                                {/* Optional Description / Label */}
+                                {/* Fields 2 & 3: Package Size & Unit */}
                                 <div>
-                                  <input
-                                    type="text"
-                                    placeholder="Size label (optional, e.g. Family Size, Small, 2-pack)"
-                                    value={opt.label || ''}
-                                    onChange={(e) =>
-                                      handleUpdateOption(activeShop.id, idx, {
-                                        label: e.target.value || undefined,
-                                      })
-                                    }
-                                    className="w-full px-3 py-1 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs bg-white text-slate-600 placeholder:text-slate-400"
-                                  />
+                                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                                    Package Size & Unit
+                                  </label>
+                                  <div className="flex gap-1.5">
+                                    <input
+                                      type="number"
+                                      step="any"
+                                      placeholder="e.g. 32"
+                                      value={
+                                        typeof opt.packageSize === 'number' && !isNaN(opt.packageSize)
+                                          ? opt.packageSize
+                                          : ''
+                                      }
+                                      onChange={(e) => {
+                                        const val =
+                                          e.target.value === ''
+                                            ? (null as unknown as number)
+                                            : parseFloat(e.target.value)
+                                        handleUpdateOptionField(idx, { packageSize: val })
+                                      }}
+                                      className="w-2/3 px-3 py-1.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                                    />
+                                    <select
+                                      value={opt.packageUnit || unit || 'oz'}
+                                      onChange={(e) =>
+                                        handleUpdateOptionField(idx, { packageUnit: e.target.value })
+                                      }
+                                      className="w-1/3 px-2 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                                    >
+                                      {organizedPackageUnitGroups.map((grp) => (
+                                        <optgroup key={grp.label} label={grp.label}>
+                                          {grp.units.map((pu) => (
+                                            <option key={pu} value={pu}>
+                                              {pu}
+                                            </option>
+                                          ))}
+                                        </optgroup>
+                                      ))}
+                                    </select>
+                                  </div>
                                 </div>
                               </div>
-                            )
-                          })}
 
-                          {/* Button to add another size option */}
-                          <button
-                            type="button"
-                            onClick={() => handleAddAlternativeSize(activeShop.id)}
-                            className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition"
-                          >
-                            <Plus className="w-4 h-4 text-indigo-600" />
-                            <span>Add Another Size Option</span>
-                          </button>
-                        </div>
-                      )}
+                              {/* Optional Description / Label */}
+                              <div>
+                                <input
+                                  type="text"
+                                  placeholder="Size label (optional, e.g. Family Size, Small, 2-pack)"
+                                  value={opt.label || ''}
+                                  onChange={(e) =>
+                                    handleUpdateOptionField(idx, {
+                                      label: e.target.value || undefined,
+                                    })
+                                  }
+                                  className="w-full px-3 py-1 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs bg-white text-slate-600 placeholder:text-slate-400"
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+
+                        {/* Add Alternative Size button: always placed directly below cards */}
+                        <button
+                          type="button"
+                          onClick={() => handleAddAlternativeSize(activeShop.id)}
+                          className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                        >
+                          <Plus className="w-4 h-4 text-indigo-600" />
+                          <span>{hasMultipleSizes ? 'Add Another Size Option' : 'Add Alternative Size'}</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* Live Target Demand vs Store Pack Conversion Card */}
@@ -1480,24 +1429,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                         )}
                       </div>
                     </div>
-
-                    {/* Store Packaging Note (single-size mode) */}
-                    {!hasMultipleSizes && (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Packaging Description (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. 2-pack 28 oz jars"
-                          value={currentShopDetail.unitSize || ''}
-                          onChange={(e) =>
-                            handleShopDetailChange(activeShop.id, { unitSize: e.target.value })
-                          }
-                          className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm bg-white"
-                        />
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
