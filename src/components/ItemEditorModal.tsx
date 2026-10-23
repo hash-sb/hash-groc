@@ -337,8 +337,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     ]
   }, [unit])
 
+  // Focus tracking for newly added alternative size
+  const [focusOptionId, setFocusOptionId] = useState<string | null>(null)
+  const priceInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
   // Handle Adding an Alternative Size row
   const handleAddAlternativeSize = (shopId: string) => {
+    const newOptionId = 'opt-alt-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)
+
     setShopDetails((prev) => {
       const existing = prev[shopId] || {
         available: true,
@@ -375,7 +381,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         existingOptions[0]?.packageUnit || existing.packageUnit || unit || 'oz'
 
       existingOptions.push({
-        id: 'opt-alt-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        id: newOptionId,
         label: undefined,
         packageSize: '' as unknown as number,
         packageUnit: defaultUnit,
@@ -391,6 +397,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         },
       }
     })
+
+    setFocusOptionId(newOptionId)
   }
 
   // Handle live inline editing of any package size option (Price, Package Size, Unit, or Label)
@@ -543,6 +551,18 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     ]
   }, [hasMultipleSizes, currentShopDetail, unit])
 
+  // Focus newly added alternative size shelf price box
+  useEffect(() => {
+    if (focusOptionId && priceInputRefs.current[focusOptionId]) {
+      const el = priceInputRefs.current[focusOptionId]
+      if (el) {
+        el.focus()
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+      setFocusOptionId(null)
+    }
+  }, [focusOptionId, renderedOptions])
+
   // Aisle / Location combobox state & ref
   const [isAisleDropdownOpen, setIsAisleDropdownOpen] = useState(false)
   const aisleDropdownRef = useRef<HTMLDivElement>(null)
@@ -551,6 +571,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     setIsAisleDropdownOpen(false)
     setIsAddingNewAisle(false)
     setNewAisleInput('')
+    setFocusOptionId(null)
   }, [activeTabShopId])
 
   useEffect(() => {
@@ -1007,6 +1028,15 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                   <div className="relative">
                                     <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">$</span>
                                     <input
+                                      ref={(el) => {
+                                        if (opt.id) {
+                                          priceInputRefs.current[opt.id] = el
+                                        }
+                                        if (el && focusOptionId === opt.id) {
+                                          el.focus()
+                                          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                                        }
+                                      }}
                                       type="number"
                                       step="0.01"
                                       placeholder="e.g. 4.99"
