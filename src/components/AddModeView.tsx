@@ -709,7 +709,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                             {item.isWeekly && (activeTab === 'all' || activeTab === 'needed') && (
                               <span
                                 title="Weekly recurring staple"
-                                className="inline-flex items-center text-teal-600 shrink-0"
+                                className="inline-flex items-center text-blue-600 shrink-0"
                               >
                                 <Repeat className="w-3.5 h-3.5" />
                               </span>
