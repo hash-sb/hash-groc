@@ -789,14 +789,9 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
               <div className="flex items-center gap-2.5">
                 <ShoppingCart className="w-4 h-4 text-emerald-600 shrink-0" />
-                <div>
-                  <div className="text-xs font-bold text-emerald-950">
-                    Add to Shopping List
-                  </div>
-                  <div className="text-[11px] text-emerald-700">
-                    Include in active To-Buy list
-                  </div>
-                </div>
+                <span className="text-xs font-bold text-emerald-950">
+                  Add to Shopping List
+                </span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -810,17 +805,12 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             </div>
 
             {/* Weekly Recurring Staple Switch */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/70 border border-blue-200">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-teal-50/70 border border-teal-200">
               <div className="flex items-center gap-2.5">
-                <Repeat className="w-4 h-4 text-blue-600 shrink-0" />
-                <div>
-                  <div className="text-xs font-bold text-blue-950">
-                    Weekly Household Staple
-                  </div>
-                  <div className="text-[11px] text-blue-700">
-                    Auto-include in 1-click weekly essentials
-                  </div>
-                </div>
+                <Repeat className="w-4 h-4 text-teal-600 shrink-0" />
+                <span className="text-xs font-bold text-teal-950">
+                  Weekly Household Staple
+                </span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -829,7 +819,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                   onChange={(e) => setIsWeekly(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
               </label>
             </div>
           </div>
