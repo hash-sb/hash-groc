@@ -896,22 +896,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                             </span>
                           )}
                         </div>
-
-                        {!hasMultipleSizes && (
-                          <button
-                            type="button"
-                            onClick={() => handleAddAlternativeSize(activeShop.id)}
-                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Alternative Size</span>
-                          </button>
-                        )}
                       </div>
 
                       {/* Single Size Mode */}
                       {!hasMultipleSizes ? (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {/* Price Input */}
                             <div>
@@ -985,6 +974,16 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                               </div>
                             </div>
                           </div>
+
+                          {/* Add Alternative Size button below first and only price */}
+                          <button
+                            type="button"
+                            onClick={() => handleAddAlternativeSize(activeShop.id)}
+                            className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                          >
+                            <Plus className="w-4 h-4 text-indigo-600" />
+                            <span>Add Alternative Size</span>
+                          </button>
                         </div>
                       ) : (
                         /* Multi-Size Mode: Direct inline editable fields without needing an edit button */
