@@ -785,42 +785,45 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
               />
             </div>
 
-            {/* Need to Buy Switch */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
-              <div className="flex items-center gap-2.5">
-                <ShoppingCart className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="text-xs font-bold text-emerald-950">
-                  Add to Shopping List
-                </span>
+            {/* Shopping List & Weekly Staple Toggles on the same row */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+              {/* Need to Buy Switch */}
+              <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShoppingCart className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-bold text-emerald-950 leading-tight">
+                    Add to Shopping List
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-1.5 sm:ml-2">
+                  <input
+                    type="checkbox"
+                    checked={isNeeded}
+                    onChange={(e) => setIsNeeded(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 sm:w-10 h-5 sm:h-5.5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 sm:after:h-4.5 after:w-4 sm:after:w-4.5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isNeeded}
-                  onChange={(e) => setIsNeeded(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-              </label>
-            </div>
 
-            {/* Weekly Recurring Staple Switch */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/70 border border-blue-200">
-              <div className="flex items-center gap-2.5">
-                <Repeat className="w-4 h-4 text-blue-600 shrink-0" />
-                <span className="text-xs font-bold text-blue-950">
-                  Weekly Household Staple
-                </span>
+              {/* Weekly Recurring Staple Switch */}
+              <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-blue-50/70 border border-blue-200 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Repeat className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-bold text-blue-950 leading-tight">
+                    Weekly Household Staple
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-1.5 sm:ml-2">
+                  <input
+                    type="checkbox"
+                    checked={isWeekly}
+                    onChange={(e) => setIsWeekly(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 sm:w-10 h-5 sm:h-5.5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 sm:after:h-4.5 after:w-4 sm:after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isWeekly}
-                  onChange={(e) => setIsWeekly(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
             </div>
           </div>
 
