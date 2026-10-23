@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Sparkles,
   Repeat,
+  ShoppingCart,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -786,12 +787,15 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
             {/* Need to Buy Switch */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
-              <div>
-                <div className="text-xs font-bold text-emerald-900">
-                  Add to Active Shopping List?
-                </div>
-                <div className="text-[11px] text-emerald-700">
-                  Turn on to have this item appear in Shopping Mode right now
+              <div className="flex items-center gap-2.5">
+                <ShoppingCart className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-emerald-950">
+                    Add to Shopping List
+                  </div>
+                  <div className="text-[11px] text-emerald-700">
+                    Include in active To-Buy list
+                  </div>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -807,13 +811,15 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
             {/* Weekly Recurring Staple Switch */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/70 border border-blue-200">
-              <div>
-                <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                  <Repeat className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Weekly Household Staple?</span>
-                </div>
-                <div className="text-[11px] text-blue-700">
-                  Include this item automatically when selecting weekly essentials with one click
+              <div className="flex items-center gap-2.5">
+                <Repeat className="w-4 h-4 text-blue-600 shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-blue-950">
+                    Weekly Household Staple
+                  </div>
+                  <div className="text-[11px] text-blue-700">
+                    Auto-include in 1-click weekly essentials
+                  </div>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
