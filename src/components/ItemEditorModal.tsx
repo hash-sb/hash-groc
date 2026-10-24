@@ -446,11 +446,35 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
       currentOptions[optionIndex] = updatedOpt
 
-      // If updating option 0 (primary), also keep the shop's top-level fields in sync
+      // Keep the shop's top-level fields in sync with the best value option
       const shopPatch: Partial<ItemShopDetail> = {
         packageOptions: currentOptions,
       }
-      if (optionIndex === 0) {
+      const validOpts = currentOptions.filter(
+        (o) => {
+          const p = typeof o.price === 'number' ? o.price : parseFloat(String(o.price))
+          const s = typeof o.packageSize === 'number' ? o.packageSize : parseFloat(String(o.packageSize))
+          return !isNaN(p) && p > 0 && !isNaN(s) && s > 0
+        }
+      )
+      if (validOpts.length > 0) {
+        const sorted = [...validOpts].sort((a, b) => {
+          const uA = getNormalizedUnitPrice(a.unitPrice, a.packageUnit)
+          const uB = getNormalizedUnitPrice(b.unitPrice, b.packageUnit)
+          if (typeof uA === 'number' && typeof uB === 'number' && uA > 0 && uB > 0) {
+            if (Math.abs(uA - uB) > 0.0001) return uA - uB
+          }
+          return a.price - b.price
+        })
+        const best = sorted[0]
+        shopPatch.price = best.price
+        shopPatch.packageSize = best.packageSize
+        shopPatch.packageUnit = best.packageUnit
+        shopPatch.unitPrice = best.unitPrice
+        if (best.label !== undefined) {
+          shopPatch.unitSize = best.label || undefined
+        }
+      } else if (optionIndex === 0) {
         shopPatch.price = !isNaN(numPrice) && numPrice > 0 ? numPrice : null
         shopPatch.packageSize = !isNaN(numSize) && numSize > 0 ? numSize : null
         shopPatch.packageUnit = updatedOpt.packageUnit
@@ -511,10 +535,38 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         }
       }
 
+      const validOpts = updatedOptions.filter(
+        (o) => {
+          const p = typeof o.price === 'number' ? o.price : parseFloat(String(o.price))
+          const s = typeof o.packageSize === 'number' ? o.packageSize : parseFloat(String(o.packageSize))
+          return !isNaN(p) && p > 0 && !isNaN(s) && s > 0
+        }
+      )
+      let bestPatch: Partial<ItemShopDetail> = {}
+      if (validOpts.length > 0) {
+        const sorted = [...validOpts].sort((a, b) => {
+          const uA = getNormalizedUnitPrice(a.unitPrice, a.packageUnit)
+          const uB = getNormalizedUnitPrice(b.unitPrice, b.packageUnit)
+          if (typeof uA === 'number' && typeof uB === 'number' && uA > 0 && uB > 0) {
+            if (Math.abs(uA - uB) > 0.0001) return uA - uB
+          }
+          return a.price - b.price
+        })
+        const best = sorted[0]
+        bestPatch = {
+          price: best.price,
+          packageSize: best.packageSize,
+          packageUnit: best.packageUnit,
+          unitPrice: best.unitPrice,
+          unitSize: best.label || undefined,
+        }
+      }
+
       return {
         ...prev,
         [shopId]: {
           ...existing,
+          ...bestPatch,
           packageOptions: updatedOptions,
         },
       }

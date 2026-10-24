@@ -1299,9 +1299,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                     <TrendingDown className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-rose-600'}`} />
                                     <span>
                                       {comp.cheapestShop.name}:{' '}
-                                      {comp.cheapestUnitPrice &&
-                                      ((item.quantity || 1) <= 1 ||
-                                        (comp.currentUnitPrice && comp.cheapestUnitPrice < comp.currentUnitPrice))
+                                      {comp.cheapestUnitPrice
                                         ? formatUnitPrice(
                                             comp.cheapestUnitPrice,
                                             comp.cheapestPackageUnit || item.shops[comp.cheapestShop.id]?.packageUnit

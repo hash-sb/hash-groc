@@ -493,7 +493,8 @@ export function getNormalizedUnitPrice(
   unitPrice: number | null | undefined,
   unit: string | null | undefined
 ): number | null {
-  if (unitPrice === null || unitPrice === undefined || isNaN(unitPrice) || !unit) return null
+  if (unitPrice === null || unitPrice === undefined || isNaN(unitPrice)) return null
+  if (!unit) return unitPrice
   const u = unit.toLowerCase().trim()
   if (WEIGHT_TO_OZ[u]) {
     return unitPrice / WEIGHT_TO_OZ[u]
@@ -638,14 +639,15 @@ export function getOptimalStorePackage(
         ? Number((opt.price / opt.packageSize).toFixed(4))
         : null
 
-    const normUnitPrice = getNormalizedUnitPrice(computedUnitPrice, opt.packageUnit)
+    const effectiveOptUnit = opt.packageUnit || detail.packageUnit || targetUnit || ''
+    const normUnitPrice = getNormalizedUnitPrice(computedUnitPrice, effectiveOptUnit)
     const cost = opt.price * packs
 
     return {
       id: opt.id,
       label: opt.label,
       packageSize: opt.packageSize,
-      packageUnit: opt.packageUnit,
+      packageUnit: effectiveOptUnit,
       price: opt.price,
       unitPrice: computedUnitPrice,
       packsNeeded: packs,
@@ -766,13 +768,14 @@ export function compareShopPrices(
   const currentPrice =
     currentDetail?.available && currentBestOpt && currentBestOpt.price > 0
       ? currentBestOpt.price
-      : currentDetail?.available && typeof currentDetail.price === 'number'
+      : currentDetail?.available && typeof currentDetail.price === 'number' && currentDetail.price > 0
       ? currentDetail.price
       : null
   const currentFulfillmentCost =
     currentPrice !== null ? currentPrice * currentPacksNeeded : null
   const currentUnitPrice = currentBestOpt?.unitPrice || currentDetail?.unitPrice || null
-  const currentPackageUnit = currentBestOpt?.packageUnit || currentDetail?.packageUnit || null
+  const currentPackageUnit =
+    currentBestOpt?.packageUnit || currentDetail?.packageUnit || item.unit || null
 
   let cheapestShop: Shop | null = null
   let cheapestCompVal: number | null = null
@@ -782,9 +785,6 @@ export function compareShopPrices(
   let cheapestUnitPrice: number | null = null
   let cheapestPackageUnit: string | null = null
   let cheapestNormUnitPrice: number | null = null
-
-  const isGenericOrSingleDemand =
-    (item.quantity || 1) <= 1 || isPackageWrapperUnit(item.unit)
 
   const allStorePrices: PriceComparison['allStorePrices'] = []
 
@@ -818,33 +818,35 @@ export function compareShopPrices(
 
       if (cheapestShop === null) {
         isBetter = true
-      } else if (
-        isGenericOrSingleDemand &&
-        typeof normUnitPrice === 'number' &&
-        normUnitPrice > 0 &&
-        typeof cheapestNormUnitPrice === 'number' &&
-        cheapestNormUnitPrice > 0
-      ) {
-        // When demand is generic (e.g. 1 pack / 1 roll), prioritize the best unit value ($/roll, $/oz)
-        if (normUnitPrice < cheapestNormUnitPrice - 0.0001) {
-          isBetter = true
-        } else if (
-          Math.abs(normUnitPrice - cheapestNormUnitPrice) <= 0.0001 &&
-          fulfillmentCost < (cheapestFulfillmentCost ?? Infinity)
-        ) {
-          isBetter = true
-        }
       } else {
-        // Standard demand fulfillment cost comparison
-        const compVal = fulfillmentCost
-        if (cheapestCompVal === null || compVal < cheapestCompVal - 0.001) {
-          isBetter = true
-        } else if (
-          Math.abs(compVal - (cheapestCompVal ?? 0)) <= 0.001 &&
+        const hasCandidateNorm = typeof normUnitPrice === 'number' && normUnitPrice > 0
+        const hasCheapestNorm = typeof cheapestNormUnitPrice === 'number' && cheapestNormUnitPrice > 0
+
+        if (
+          hasCandidateNorm &&
+          hasCheapestNorm &&
           typeof normUnitPrice === 'number' &&
           typeof cheapestNormUnitPrice === 'number'
         ) {
-          if (normUnitPrice < cheapestNormUnitPrice) {
+          // When both stores have normalized unit prices, the best unit value ($/roll, $/oz, $/piece) strictly wins
+          if (normUnitPrice < cheapestNormUnitPrice - 0.0001) {
+            isBetter = true
+          } else if (
+            Math.abs(normUnitPrice - cheapestNormUnitPrice) <= 0.0001 &&
+            fulfillmentCost < (cheapestFulfillmentCost ?? Infinity) - 0.001
+          ) {
+            isBetter = true
+          }
+        } else if (hasCandidateNorm && !hasCheapestNorm) {
+          // Store with verified package size & unit price takes priority over uncalibrated store
+          isBetter = true
+        } else if (!hasCandidateNorm && hasCheapestNorm) {
+          // Uncalibrated store cannot beat a store with a verified unit price
+          isBetter = false
+        } else {
+          // Neither store has unit prices: standard fulfillment cost / price comparison
+          const compVal = fulfillmentCost
+          if (cheapestCompVal === null || compVal < cheapestCompVal - 0.001) {
             isBetter = true
           }
         }
@@ -882,41 +884,59 @@ export function compareShopPrices(
   let isCheaperElsewhere = false
   let savingsAmount = 0
 
-  const currentNormUnit = getNormalizedUnitPrice(currentUnitPrice, currentPackageUnit)
+  const currentEffectiveUnit = currentPackageUnit || currentDetail?.packageUnit || item.unit
+  const currentNormUnit = getNormalizedUnitPrice(currentUnitPrice, currentEffectiveUnit)
 
-  if (
-    cheapestShop &&
-    cheapestShop.id !== currentShopId &&
+  const hasCurrentAvailable =
     currentDetail?.available &&
-    typeof currentDetail?.price === 'number' &&
-    currentDetail.price > 0
-  ) {
+    ((typeof currentPrice === 'number' && currentPrice > 0) ||
+      (typeof currentDetail?.price === 'number' && currentDetail.price > 0))
+
+  if (cheapestShop && cheapestShop.id !== currentShopId && hasCurrentAvailable) {
+    const hasCurrentNorm = typeof currentNormUnit === 'number' && currentNormUnit > 0
+    const hasCheapestNorm = typeof cheapestNormUnitPrice === 'number' && cheapestNormUnitPrice > 0
+
     if (
-      isGenericOrSingleDemand &&
+      hasCurrentNorm &&
+      hasCheapestNorm &&
       typeof currentNormUnit === 'number' &&
-      currentNormUnit > 0 &&
-      typeof cheapestNormUnitPrice === 'number' &&
-      cheapestNormUnitPrice > 0
+      typeof cheapestNormUnitPrice === 'number'
     ) {
-      if (currentNormUnit > cheapestNormUnitPrice + 0.0001) {
+      // Both stores have normalized unit prices: ONLY cheaper elsewhere if competitor's unit price is strictly lower
+      if (cheapestNormUnitPrice < currentNormUnit - 0.0001) {
         isCheaperElsewhere = true
         savingsAmount = Number((currentNormUnit - cheapestNormUnitPrice).toFixed(4))
       }
-    } else if (
-      currentFulfillmentCost !== null &&
-      cheapestFulfillmentCost !== null &&
-      currentFulfillmentCost > cheapestFulfillmentCost
-    ) {
-      isCheaperElsewhere = true
-      savingsAmount = Math.max(0, currentFulfillmentCost - cheapestFulfillmentCost)
+    } else if (!hasCurrentNorm && !hasCheapestNorm) {
+      // Neither has normalized unit prices: compare fulfillment costs
+      if (
+        currentFulfillmentCost !== null &&
+        cheapestFulfillmentCost !== null &&
+        cheapestFulfillmentCost < currentFulfillmentCost - 0.001
+      ) {
+        isCheaperElsewhere = true
+        savingsAmount = Number((currentFulfillmentCost - cheapestFulfillmentCost).toFixed(2))
+      }
+    } else if (hasCurrentNorm && !hasCheapestNorm) {
+      // Current store has calibrated unit price, but competitor does not:
+      // Competitor cannot claim to be cheaper on uncalibrated grounds
+      isCheaperElsewhere = false
+    } else {
+      // Competitor has calibrated unit price, current store is uncalibrated:
+      if (
+        currentFulfillmentCost !== null &&
+        cheapestFulfillmentCost !== null &&
+        cheapestFulfillmentCost < currentFulfillmentCost - 0.001
+      ) {
+        isCheaperElsewhere = true
+        savingsAmount = Number((currentFulfillmentCost - cheapestFulfillmentCost).toFixed(2))
+      }
     }
   }
 
   const isBestPriceHere =
     !isCheaperElsewhere &&
-    currentDetail?.available &&
-    typeof currentDetail?.price === 'number' &&
-    currentDetail.price > 0 &&
+    Boolean(hasCurrentAvailable) &&
     allStorePrices.filter((p) => p.available && p.price > 0).length > 1
 
   return {
@@ -1086,13 +1106,20 @@ export function isCheapestAtStore(
   shops: Shop[]
 ): boolean {
   const targetDetail = item.shops[targetShopId]
-  if (!targetDetail || !targetDetail.available || targetDetail.price === null || targetDetail.price <= 0) {
+  if (!targetDetail || !targetDetail.available) {
+    return false
+  }
+
+  const optResult = getOptimalStorePackage(item, targetShopId)
+  const bestOpt = optResult.bestOption
+  const effectivePrice = bestOpt.price > 0 ? bestOpt.price : (targetDetail.price || 0)
+  if (effectivePrice <= 0) {
     return false
   }
 
   // Compare against all other shops carrying this item
   const comp = compareShopPrices(item, targetShopId, shops)
-  // If no other shop carries it or this is best price / cheapest shop:
+  // If this store is not cheaper elsewhere, it holds the best deal (or tied best deal)
   if (!comp.isCheaperElsewhere) {
     return true
   }
