@@ -56,6 +56,7 @@ export interface PriceComparison {
     location: string
     hasMultipleSizes?: boolean
     bestOptionLabel?: string
+    allOptions?: EvaluatedPackageOption[]
   }>
 }
 
@@ -551,13 +552,28 @@ export function getOptimalStorePackage(
   let rawCandidates: StorePackageOption[] = []
 
   if (Array.isArray(detail.packageOptions) && detail.packageOptions.length > 0) {
-    rawCandidates = detail.packageOptions.filter(
-      (opt) =>
-        typeof opt.price === 'number' &&
-        opt.price > 0 &&
-        typeof opt.packageSize === 'number' &&
-        opt.packageSize > 0
-    )
+    rawCandidates = detail.packageOptions
+      .map((opt) => {
+        const p = typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price))
+        const s =
+          typeof opt.packageSize === 'number'
+            ? opt.packageSize
+            : parseFloat(String(opt.packageSize))
+        return {
+          ...opt,
+          price: p,
+          packageSize: s,
+          unitPrice:
+            typeof opt.unitPrice === 'number' && opt.unitPrice > 0
+              ? opt.unitPrice
+              : !isNaN(p) && p > 0 && !isNaN(s) && s > 0
+              ? Number((p / s).toFixed(4))
+              : null,
+        }
+      })
+      .filter(
+        (opt) => !isNaN(opt.price) && opt.price > 0 && !isNaN(opt.packageSize) && opt.packageSize > 0
+      )
   } else if (
     typeof detail.packageSize === 'number' &&
     detail.packageSize > 0 &&
@@ -795,6 +811,7 @@ export function compareShopPrices(
         location: detail.location || '',
         hasMultipleSizes: optResult.hasMultipleOptions,
         bestOptionLabel: bestOpt.label,
+        allOptions: optResult.allOptions,
       })
 
       let isBetter = false
@@ -856,6 +873,7 @@ export function compareShopPrices(
         location: detail.location || '',
         hasMultipleSizes: optResult.hasMultipleOptions,
         bestOptionLabel: bestOpt.label,
+        allOptions: optResult.allOptions,
       })
     }
   }

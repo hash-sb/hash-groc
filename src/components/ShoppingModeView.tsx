@@ -40,7 +40,7 @@ import {
   compareShopPrices,
   formatPrice,
   formatUnitPrice,
-  getPacksNeeded,
+  getOptimalStorePackage,
   groupItemsByShopLocation,
   isCheapestAtStore,
   compareShelfSizes,
@@ -290,17 +290,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const pendingItems = availableItems.filter((item) => !item.inCart)
   const cartItems = availableItems.filter((item) => item.inCart)
 
-  // Running Totals Calculation (uses store-specific packs needed)
+  // Running Totals Calculation (uses store-specific optimal package fulfillment)
   const cartTotal = cartItems.reduce((sum, item) => {
-    const packs = getPacksNeeded(item, currentShop?.id)
-    const price = item.shops[currentShop?.id]?.price || 0
-    return sum + price * packs
+    const optResult = getOptimalStorePackage(item, currentShop?.id)
+    return sum + (optResult.bestOption.fulfillmentCost || 0)
   }, 0)
 
   const remainingTotal = pendingItems.reduce((sum, item) => {
-    const packs = getPacksNeeded(item, currentShop?.id)
-    const price = item.shops[currentShop?.id]?.price || 0
-    return sum + price * packs
+    const optResult = getOptimalStorePackage(item, currentShop?.id)
+    return sum + (optResult.bestOption.fulfillmentCost || 0)
   }, 0)
 
   const tripEstimatedTotal = cartTotal + remainingTotal
@@ -411,17 +409,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   }
 
   const openPriceCalculator = (item: ShoppingItem) => {
+    const optResult = getOptimalStorePackage(item, currentShop.id)
+    const bestOpt = optResult.bestOption
     const detail = item.shops[currentShop.id]
-    const currentPrice = detail?.price
-    const currentPkgSize = detail?.packageSize
-    const currentPkgUnit = detail?.packageUnit || item.unit || 'oz'
+    const currentPrice = bestOpt.price > 0 ? bestOpt.price : detail?.price
+    const currentPkgSize = bestOpt.packageSize || detail?.packageSize
+    const currentPkgUnit = bestOpt.packageUnit || detail?.packageUnit || item.unit || 'oz'
     const isWeightUnit = ['lb', 'lbs', 'oz', 'kg'].includes(item.unit?.toLowerCase())
 
     setCalcModalItem(item)
     setCalcShelfPrice(currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
     setCalcWeight(item.quantity ? item.quantity.toString() : '1')
     setCalcPricePerUnit(
-      detail?.unitPrice?.toString() ||
+      bestOpt.unitPrice?.toString() ||
+        detail?.unitPrice?.toString() ||
         (currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
     )
     setCalcWeightUnit(isWeightUnit ? item.unit : 'lb')
@@ -586,8 +587,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const handleSaveReceiptAndCheckout = async () => {
     if (cartItems.length > 0) {
       const purchasedItems: PurchasedItemRecord[] = cartItems.map((item) => {
-        const packs = getPacksNeeded(item, currentShop.id)
-        const price = item.shops[currentShop.id]?.price || 0
+        const optResult = getOptimalStorePackage(item, currentShop.id)
+        const bestOpt = optResult.bestOption
+        const packs = bestOpt.packsNeeded
+        const price = bestOpt.price > 0 ? bestOpt.price : (item.shops[currentShop.id]?.price || 0)
         return {
           itemId: item.id,
           name: item.name,
@@ -1179,9 +1182,13 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       const isPicked = item.inCart
                       const comp = compareShopPrices(item, currentShop.id, shops)
                       const shopDetail = item.shops[currentShop.id]
-                      const itemUnitPrice = shopDetail?.price || null
-                      const packsNeeded = getPacksNeeded(item, currentShop.id)
+                      const optResult = getOptimalStorePackage(item, currentShop.id)
+                      const bestOpt = optResult.bestOption
+                      const itemUnitPrice = bestOpt.price > 0 ? bestOpt.price : (shopDetail?.price || null)
+                      const packsNeeded = bestOpt.packsNeeded
                       const totalItemPrice = itemUnitPrice !== null ? itemUnitPrice * packsNeeded : null
+                      const displaySize = bestOpt.packageSize || shopDetail?.packageSize
+                      const displayUnit = bestOpt.packageUnit || shopDetail?.packageUnit || item.unit
 
                       return (
                         <div
@@ -1224,9 +1231,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                       : 'bg-slate-100 text-slate-700'
                                   }`}
                                 >
-                                  {shopDetail?.packageSize && (shopDetail.packageSize !== item.quantity || shopDetail.packageUnit !== item.unit) ? (
+                                  {displaySize && (displaySize !== item.quantity || displayUnit !== item.unit) ? (
                                     <span>
-                                      {packsNeeded} {packsNeeded === 1 ? 'pack' : 'packs'} ({shopDetail.packageSize} {shopDetail.packageUnit || item.unit})
+                                      {packsNeeded} {packsNeeded === 1 ? 'pack' : 'packs'} ({displaySize} {displayUnit})
+                                      {bestOpt.label ? ` • ${bestOpt.label}` : ''}
                                     </span>
                                   ) : (
                                     <span>

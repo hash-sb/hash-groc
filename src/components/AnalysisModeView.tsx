@@ -9,6 +9,7 @@ import {
   Check,
   Edit2,
   Wallet,
+  Layers,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { SpendingHistoryView } from './SpendingHistoryView'
@@ -17,7 +18,7 @@ import {
   compareShopPrices,
   formatPrice,
   formatUnitPrice,
-  getPacksNeeded,
+  getOptimalStorePackage,
   isCheapestAtStore,
 } from '../utils/pricing'
 
@@ -81,13 +82,16 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
         optimalCount++
       }
 
-      // Add to each individual store basket based on store-specific packs needed
+      // Add to each individual store basket based on optimal package fulfillment
       shops.forEach((shop) => {
         const detail = item.shops[shop.id]
-        if (detail && detail.available && typeof detail.price === 'number' && detail.price > 0) {
-          const packs = getPacksNeeded(item, shop.id)
-          storeTotals[shop.id].total += detail.price * packs
-          storeTotals[shop.id].itemCount++
+        if (detail && detail.available) {
+          const optResult = getOptimalStorePackage(item, shop.id)
+          const bestOpt = optResult.bestOption
+          if (bestOpt.price > 0) {
+            storeTotals[shop.id].total += bestOpt.fulfillmentCost
+            storeTotals[shop.id].itemCount++
+          }
         }
       })
     })
@@ -106,8 +110,11 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
       if (cheapestAtThisStore.length > 0) {
         text += `*${s.name} (${cheapestAtThisStore.length} best deals):*\n`
         cheapestAtThisStore.forEach((i) => {
-          const p = i.shops[s.id]?.price
-          text += ` • ${i.name} (${i.quantity} ${i.unit}) - ${formatPrice(p)}\n`
+          const optResult = getOptimalStorePackage(i, s.id)
+          const bestOpt = optResult.bestOption
+          const p = bestOpt.price > 0 ? bestOpt.price : (i.shops[s.id]?.price || 0)
+          const sizeLabel = bestOpt.label || `${bestOpt.packageSize} ${bestOpt.packageUnit || i.unit}`
+          text += ` • ${i.name} (${sizeLabel}) - ${formatPrice(p)}\n`
         })
         text += `\n`
       }
@@ -357,16 +364,21 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                       {shops.map((shop) => {
                         const detail = item.shops[shop.id]
                         const isCarried = detail?.available ?? true
-                        const price = detail?.price ?? null
-                        const unitPrice = detail?.unitPrice ?? null
+                        const optResult = getOptimalStorePackage(item, shop.id)
+                        const bestOpt = optResult.bestOption
+                        const allOpts = optResult.allOptions
+                        const hasMultiple = optResult.hasMultipleOptions
+                        const price = bestOpt.price > 0 ? bestOpt.price : (detail?.price ?? null)
+                        const unitPrice = bestOpt.unitPrice ?? detail?.unitPrice ?? null
+                        const packageSize = bestOpt.packageSize || detail?.packageSize
+                        const packageUnit = bestOpt.packageUnit || detail?.packageUnit
+                        const packs = bestOpt.packsNeeded
+                        const fulfillmentCost = price !== null ? price * packs : null
                         const isCheapest =
                           isCarried &&
                           price !== null &&
                           price > 0 &&
                           isCheapestAtStore(item, shop.id, shops)
-
-                        const packs = getPacksNeeded(item, shop.id)
-                        const fulfillmentCost = price !== null ? price * packs : null
 
                         return (
                           <td
@@ -381,8 +393,8 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                           >
                             {isCarried ? (
                               price !== null && price > 0 ? (
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center gap-1.5">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <span
                                       className={`text-sm font-black font-mono ${
                                         isCheapest ? 'text-emerald-800' : 'text-slate-800'
@@ -398,12 +410,19 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                                         <span>Best</span>
                                       </span>
                                     )}
+
+                                    {hasMultiple && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800">
+                                        <Layers className="w-2.5 h-2.5" />
+                                        <span>{allOpts.length} sizes</span>
+                                      </span>
+                                    )}
                                   </div>
 
                                   {/* Pack breakdown if packs > 1 or package size differs */}
-                                  {detail.packageSize ? (
-                                    <div className="text-[10px] text-slate-500 font-medium">
-                                      {packs > 1 ? `${packs} × ${formatPrice(price)} ` : ''}({detail.packageSize} {detail.packageUnit || item.unit})
+                                  {packageSize ? (
+                                    <div className="text-[10px] text-slate-600 font-medium">
+                                      {packs > 1 ? `${packs} × ${formatPrice(price)} ` : ''}({packageSize} {packageUnit || item.unit}){bestOpt.label ? ` • ${bestOpt.label}` : ''}
                                     </div>
                                   ) : packs > 1 ? (
                                     <div className="text-[10px] text-slate-500 font-medium">
@@ -415,7 +434,37 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                                   {unitPrice && (
                                     <div className="text-[10px] text-indigo-700 font-mono font-medium flex items-center gap-0.5">
                                       <Scale className="w-2.5 h-2.5" />
-                                      <span>{formatUnitPrice(unitPrice, detail.packageUnit)}</span>
+                                      <span>{formatUnitPrice(unitPrice, packageUnit)}</span>
+                                    </div>
+                                  )}
+
+                                  {/* All tracked sizes breakdown if multiple sizes exist */}
+                                  {hasMultiple && (
+                                    <div className="mt-1.5 pt-1.5 border-t border-slate-100 space-y-0.5">
+                                      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                        All sizes tracked:
+                                      </div>
+                                      <div className="flex flex-col gap-0.5">
+                                        {allOpts.map((opt, i) => (
+                                          <div
+                                            key={opt.id || i}
+                                            className={`text-[9px] px-1.5 py-0.5 rounded flex items-center justify-between gap-1 ${
+                                              opt.id === bestOpt.id
+                                                ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-200'
+                                                : 'bg-slate-50 text-slate-600'
+                                            }`}
+                                            title={`${opt.label ? `${opt.label}: ` : ''}${opt.packageSize} ${opt.packageUnit} @ ${formatPrice(opt.price)} (${formatUnitPrice(opt.unitPrice, opt.packageUnit)})`}
+                                          >
+                                            <span className="truncate">
+                                              {opt.label || `${opt.packageSize} ${opt.packageUnit}`}
+                                            </span>
+                                            <span className="font-mono shrink-0">
+                                              {formatPrice(opt.price)}
+                                              {opt.unitPrice ? ` (${formatUnitPrice(opt.unitPrice, opt.packageUnit)})` : ''}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
                                   )}
 

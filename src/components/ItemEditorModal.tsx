@@ -24,6 +24,7 @@ import {
   formatPrice,
   getPacksNeeded,
   getOptimalStorePackage,
+  getNormalizedUnitPrice,
   getUnitFamily,
   checkUnitCompatibility,
   UNIT_GROUPS,
@@ -171,14 +172,24 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           })
 
         if (validOptions.length >= 2) {
+          const sorted = [...validOptions].sort((a, b) => {
+            const uA = getNormalizedUnitPrice(a.unitPrice, a.packageUnit)
+            const uB = getNormalizedUnitPrice(b.unitPrice, b.packageUnit)
+            if (typeof uA === 'number' && typeof uB === 'number' && uA > 0 && uB > 0) {
+              if (Math.abs(uA - uB) > 0.0001) return uA - uB
+            }
+            return a.price - b.price
+          })
+          const best = sorted[0] || validOptions[0]
+
           cleanedShopDetails[sId] = {
             ...detail,
             packageOptions: validOptions,
-            price: validOptions[0].price,
-            packageSize: validOptions[0].packageSize,
-            packageUnit: validOptions[0].packageUnit,
-            unitPrice: validOptions[0].unitPrice,
-            unitSize: validOptions[0].label || detail.unitSize,
+            price: best.price,
+            packageSize: best.packageSize,
+            packageUnit: best.packageUnit,
+            unitPrice: best.unitPrice,
+            unitSize: best.label || detail.unitSize,
           }
         } else if (validOptions.length === 1) {
           cleanedShopDetails[sId] = {
