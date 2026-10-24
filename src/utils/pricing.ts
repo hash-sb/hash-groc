@@ -16,6 +16,7 @@ export interface EvaluatedPackageOption {
 
 export interface OptimalStorePackageResult {
   bestOption: EvaluatedPackageOption
+  selectedOption: EvaluatedPackageOption
   allOptions: EvaluatedPackageOption[]
   hasMultipleOptions: boolean
   savingsVsOther?: number
@@ -32,6 +33,7 @@ export interface PriceComparison {
   currentUnitPrice: number | null
   currentPackageUnit: string | null
   currentBestPackageOption?: EvaluatedPackageOption
+  currentSelectedPackageOption?: EvaluatedPackageOption
   hasMultipleSizesAtStore?: boolean
   storeSavingsVsOtherSize?: number
   otherStoreSizeLabel?: string
@@ -544,6 +546,7 @@ export function getOptimalStorePackage(
   if (!detail) {
     return {
       bestOption: defaultOption,
+      selectedOption: defaultOption,
       allOptions: [defaultOption],
       hasMultipleOptions: false,
     }
@@ -596,6 +599,7 @@ export function getOptimalStorePackage(
   if (rawCandidates.length === 0) {
     return {
       bestOption: defaultOption,
+      selectedOption: defaultOption,
       allOptions: [defaultOption],
       hasMultipleOptions: false,
     }
@@ -682,6 +686,9 @@ export function getOptimalStorePackage(
 
   evaluated[0].isOptimal = true
   const bestOption = evaluated[0]
+  const selectedOption =
+    (detail.selectedOptionId && evaluated.find((o) => o.id === detail.selectedOptionId)) ||
+    bestOption
 
   if (lowestCash && lowestCash.id !== bestOption.id) {
     const cashOpt = evaluated.find((o) => o.id === lowestCash.id)
@@ -716,6 +723,7 @@ export function getOptimalStorePackage(
 
   return {
     bestOption,
+    selectedOption,
     allOptions: evaluated,
     hasMultipleOptions: evaluated.length > 1,
     savingsVsOther,
@@ -764,18 +772,19 @@ export function compareShopPrices(
   const currentDetail = item.shops[currentShopId]
   const currentOptResult = currentShopId ? getOptimalStorePackage(item, currentShopId) : null
   const currentBestOpt = currentOptResult?.bestOption
-  const currentPacksNeeded = currentBestOpt ? currentBestOpt.packsNeeded : (item.quantity || 1)
+  const currentActiveOpt = currentOptResult?.selectedOption || currentBestOpt
+  const currentPacksNeeded = currentActiveOpt ? currentActiveOpt.packsNeeded : (item.quantity || 1)
   const currentPrice =
-    currentDetail?.available && currentBestOpt && currentBestOpt.price > 0
-      ? currentBestOpt.price
+    currentDetail?.available && currentActiveOpt && currentActiveOpt.price > 0
+      ? currentActiveOpt.price
       : currentDetail?.available && typeof currentDetail.price === 'number' && currentDetail.price > 0
       ? currentDetail.price
       : null
   const currentFulfillmentCost =
     currentPrice !== null ? currentPrice * currentPacksNeeded : null
-  const currentUnitPrice = currentBestOpt?.unitPrice || currentDetail?.unitPrice || null
+  const currentUnitPrice = currentActiveOpt?.unitPrice || currentDetail?.unitPrice || null
   const currentPackageUnit =
-    currentBestOpt?.packageUnit || currentDetail?.packageUnit || item.unit || null
+    currentActiveOpt?.packageUnit || currentDetail?.packageUnit || item.unit || null
 
   let cheapestShop: Shop | null = null
   let cheapestCompVal: number | null = null
@@ -946,6 +955,7 @@ export function compareShopPrices(
     currentUnitPrice,
     currentPackageUnit,
     currentBestPackageOption: currentBestOpt,
+    currentSelectedPackageOption: currentActiveOpt,
     hasMultipleSizesAtStore: currentOptResult?.hasMultipleOptions || false,
     storeSavingsVsOtherSize: currentOptResult?.savingsVsOther,
     otherStoreSizeLabel: currentOptResult?.otherOptionLabel,

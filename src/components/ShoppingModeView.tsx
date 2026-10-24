@@ -44,6 +44,7 @@ import {
   groupItemsByShopLocation,
   isCheapestAtStore,
   compareShelfSizes,
+  type EvaluatedPackageOption,
 } from '../utils/pricing'
 
 interface ShoppingModeViewProps {
@@ -226,6 +227,38 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [compareUnitB, setCompareUnitB] = useState<string>('oz')
   const [comparePriceB, setComparePriceB] = useState<string>('')
 
+  // Feature: Interactive Package Size Picker & Quick Quantity
+  const [sizePickerItem, setSizePickerItem] = useState<{
+    item: ShoppingItem
+    options: EvaluatedPackageOption[]
+    bestOptId: string
+    activeOptId: string
+  } | null>(null)
+
+  const [quickQuantityItem, setQuickQuantityItem] = useState<{
+    item: ShoppingItem
+    currentQty: number
+  } | null>(null)
+
+  const handleSelectPackageOption = async (item: ShoppingItem, optionId: string) => {
+    triggerHaptic(15)
+    await updateItemShopDetail(item.id, currentShop.id, {
+      selectedOptionId: optionId,
+    })
+  }
+
+  const handleUpdateItemQuantity = async (item: ShoppingItem, newPacks: number) => {
+    if (newPacks < 1) return
+    triggerHaptic(15)
+    await updateItemShopDetail(item.id, currentShop.id, {
+      storeQuantity: newPacks,
+    })
+    const shopDetail = item.shops[currentShop.id]
+    if (!shopDetail?.packageOptions || shopDetail.packageOptions.length === 0) {
+      await updateItem(item.id, { quantity: newPacks })
+    }
+  }
+
   // All needed items on active shopping list
   const allNeededItems = items.filter((item) => item.isNeeded)
 
@@ -293,12 +326,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   // Running Totals Calculation (uses store-specific optimal package fulfillment)
   const cartTotal = cartItems.reduce((sum, item) => {
     const optResult = getOptimalStorePackage(item, currentShop?.id)
-    return sum + (optResult.bestOption.fulfillmentCost || 0)
+    return sum + (optResult.selectedOption.fulfillmentCost || 0)
   }, 0)
 
   const remainingTotal = pendingItems.reduce((sum, item) => {
     const optResult = getOptimalStorePackage(item, currentShop?.id)
-    return sum + (optResult.bestOption.fulfillmentCost || 0)
+    return sum + (optResult.selectedOption.fulfillmentCost || 0)
   }, 0)
 
   const tripEstimatedTotal = cartTotal + remainingTotal
@@ -410,18 +443,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   const openPriceCalculator = (item: ShoppingItem) => {
     const optResult = getOptimalStorePackage(item, currentShop.id)
-    const bestOpt = optResult.bestOption
+    const activeOpt = optResult.selectedOption
     const detail = item.shops[currentShop.id]
-    const currentPrice = bestOpt.price > 0 ? bestOpt.price : detail?.price
-    const currentPkgSize = bestOpt.packageSize || detail?.packageSize
-    const currentPkgUnit = bestOpt.packageUnit || detail?.packageUnit || item.unit || 'oz'
+    const currentPrice = activeOpt.price > 0 ? activeOpt.price : detail?.price
+    const currentPkgSize = activeOpt.packageSize || detail?.packageSize
+    const currentPkgUnit = activeOpt.packageUnit || detail?.packageUnit || item.unit || 'oz'
     const isWeightUnit = ['lb', 'lbs', 'oz', 'kg'].includes(item.unit?.toLowerCase())
 
     setCalcModalItem(item)
     setCalcShelfPrice(currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
     setCalcWeight(item.quantity ? item.quantity.toString() : '1')
     setCalcPricePerUnit(
-      bestOpt.unitPrice?.toString() ||
+      activeOpt.unitPrice?.toString() ||
         detail?.unitPrice?.toString() ||
         (currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
     )
@@ -588,15 +621,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     if (cartItems.length > 0) {
       const purchasedItems: PurchasedItemRecord[] = cartItems.map((item) => {
         const optResult = getOptimalStorePackage(item, currentShop.id)
-        const bestOpt = optResult.bestOption
-        const packs = bestOpt.packsNeeded
-        const price = bestOpt.price > 0 ? bestOpt.price : (item.shops[currentShop.id]?.price || 0)
+        const activeOpt = optResult.selectedOption
+        const packs = activeOpt.packsNeeded
+        const price = activeOpt.price > 0 ? activeOpt.price : (item.shops[currentShop.id]?.price || 0)
         return {
           itemId: item.id,
           name: item.name,
           category: item.category,
           quantity: item.quantity,
-          unit: item.unit,
+          unit: activeOpt.packageUnit || item.unit,
           packs,
           price,
           totalPrice: Number((price * packs).toFixed(2)),
@@ -1184,11 +1217,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       const shopDetail = item.shops[currentShop.id]
                       const optResult = getOptimalStorePackage(item, currentShop.id)
                       const bestOpt = optResult.bestOption
-                      const itemUnitPrice = bestOpt.price > 0 ? bestOpt.price : (shopDetail?.price || null)
-                      const packsNeeded = bestOpt.packsNeeded
+                      const activeOpt = optResult.selectedOption
+                      const itemUnitPrice = activeOpt.price > 0 ? activeOpt.price : (shopDetail?.price || null)
+                      const packsNeeded = activeOpt.packsNeeded
                       const totalItemPrice = itemUnitPrice !== null ? itemUnitPrice * packsNeeded : null
-                      const displaySize = bestOpt.packageSize || shopDetail?.packageSize
-                      const displayUnit = bestOpt.packageUnit || shopDetail?.packageUnit || item.unit
+                      const displaySize = activeOpt.packageSize || shopDetail?.packageSize
+                      const displayUnit = activeOpt.packageUnit || shopDetail?.packageUnit || item.unit
 
                       return (
                         <div
@@ -1203,7 +1237,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                           <div className="flex items-start gap-3 min-w-0 flex-1">
                             <button
                               onClick={() => handleToggleInCart(item.id)}
-                              className="transition shrink-0 mt-0.5"
+                              className="transition shrink-0 mt-0.5 cursor-pointer"
                               title={isPicked ? 'Mark as unpicked' : 'Mark as picked into cart'}
                             >
                               {isPicked ? (
@@ -1214,6 +1248,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             </button>
 
                             <div className="min-w-0 flex-1">
+                              {/* Row 1: Item Name, Best Price badge, Cheaper elsewhere tag, Action icons */}
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span
                                   className={`text-sm tracking-tight ${
@@ -1223,24 +1258,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   }`}
                                 >
                                   {item.name}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md ${
-                                    isPicked
-                                      ? 'bg-slate-200/60 text-slate-400'
-                                      : 'bg-slate-100 text-slate-700'
-                                  }`}
-                                >
-                                  {displaySize && (displaySize !== item.quantity || displayUnit !== item.unit) ? (
-                                    <span>
-                                      {packsNeeded} {packsNeeded === 1 ? 'pack' : 'packs'} ({displaySize} {displayUnit})
-                                      {bestOpt.label ? ` • ${bestOpt.label}` : ''}
-                                    </span>
-                                  ) : (
-                                    <span>
-                                      {packsNeeded} {item.unit}
-                                    </span>
-                                  )}
                                 </span>
 
                                 {/* Inline Price Comparison Micro-Chips */}
@@ -1254,32 +1271,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   >
                                     <Sparkles className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-emerald-600'}`} />
                                     <span>Best Price</span>
-                                  </span>
-                                )}
-
-                                {/* In-Store Multi-Size Savings Badge */}
-                                {comp.hasMultipleSizesAtStore && (
-                                  <span
-                                    className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md transition ${
-                                      isPicked
-                                        ? 'bg-slate-100 text-slate-400 line-through'
-                                        : 'bg-indigo-100/80 text-indigo-800'
-                                    }`}
-                                    title={`Multiple sizes at this store: optimal size gives best unit value${
-                                      comp.storeSavingsVsOtherSize
-                                        ? ` (saves ${formatPrice(comp.storeSavingsVsOtherSize)} vs ${comp.otherStoreSizeLabel})`
-                                        : ''
-                                    }`}
-                                  >
-                                    <Layers className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-indigo-600'}`} />
-                                    <span>
-                                      Best Size
-                                      {comp.currentBestPackageOption?.label
-                                        ? `: ${comp.currentBestPackageOption.label}`
-                                        : comp.storeSavingsVsOtherSize
-                                        ? `: -${formatPrice(comp.storeSavingsVsOtherSize)}`
-                                        : ''}
-                                    </span>
                                   </span>
                                 )}
 
@@ -1309,29 +1300,116 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   </span>
                                 )}
 
-                                <button
-                                  onClick={() => onEditItem(item, currentShop.id)}
-                                  className="text-slate-400 hover:text-emerald-700 p-0.5 rounded transition"
-                                  title="Edit item / aisles"
-                                >
-                                  <Edit2 className="w-3 h-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    triggerHaptic(15)
-                                    setOutOfStockItem(item)
-                                  }}
-                                  className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition"
-                                  title="Out of stock? Shift to another store stop or exclude"
-                                >
-                                  <PackageX className="w-3 h-3" />
-                                </button>
+                                <div className="inline-flex items-center gap-0.5 ml-auto sm:ml-0">
+                                  <button
+                                    onClick={() => onEditItem(item, currentShop.id)}
+                                    className="text-slate-400 hover:text-emerald-700 p-0.5 rounded transition cursor-pointer"
+                                    title="Edit item / aisles"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      triggerHaptic(15)
+                                      setOutOfStockItem(item)
+                                    }}
+                                    className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition cursor-pointer"
+                                    title="Out of stock? Shift to another store stop or exclude"
+                                  >
+                                    <PackageX className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Row 2: In-Store Shopping Controls (Quantity Stepper + Size Selector) */}
+                              <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                                {/* Quantity Stepper */}
+                                <div className="inline-flex items-center bg-slate-100 hover:bg-slate-200/60 rounded-lg p-0.5 border border-slate-200/90 transition shadow-2xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateItemQuantity(item, packsNeeded - 1)}
+                                    disabled={packsNeeded <= 1}
+                                    className={`w-6 h-6 flex items-center justify-center rounded-md transition ${
+                                      packsNeeded <= 1
+                                        ? 'text-slate-300 cursor-not-allowed'
+                                        : 'text-slate-700 hover:text-slate-900 hover:bg-white active:scale-90 shadow-2xs cursor-pointer'
+                                    }`}
+                                    title="Decrease quantity"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setQuickQuantityItem({ item, currentQty: packsNeeded })}
+                                    className="px-2 py-0.5 text-xs font-black font-mono text-slate-800 hover:bg-white/80 rounded transition cursor-pointer"
+                                    title="Tap to change quantity"
+                                  >
+                                    {packsNeeded}{' '}
+                                    <span className="font-normal font-sans text-slate-600 text-[11px]">
+                                      {displaySize ? (packsNeeded === 1 ? 'pack' : 'packs') : item.unit}
+                                    </span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateItemQuantity(item, packsNeeded + 1)}
+                                    className="w-6 h-6 flex items-center justify-center rounded-md text-slate-700 hover:text-slate-900 hover:bg-white active:scale-90 transition shadow-2xs cursor-pointer"
+                                    title="Increase quantity"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+
+                                {/* Size Selector Button */}
+                                {optResult.hasMultipleOptions ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setSizePickerItem({
+                                        item,
+                                        options: optResult.allOptions,
+                                        bestOptId: bestOpt.id,
+                                        activeOptId: activeOpt.id,
+                                      })
+                                    }
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition shadow-2xs cursor-pointer active:scale-95 ${
+                                      isPicked
+                                        ? 'bg-slate-100 text-slate-500 border-slate-200'
+                                        : activeOpt.id === bestOpt.id
+                                        ? 'bg-indigo-50/90 hover:bg-indigo-100 text-indigo-900 border-indigo-200'
+                                        : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200'
+                                    }`}
+                                    title="Tap to switch package size at this store"
+                                  >
+                                    <Layers className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                    <span>{activeOpt.label || `${activeOpt.packageSize} ${activeOpt.packageUnit}`}</span>
+                                    <span className="font-mono opacity-90 font-extrabold">{formatPrice(activeOpt.price)}</span>
+                                    {activeOpt.id === bestOpt.id ? (
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-600 text-white tracking-tight uppercase">
+                                        Best Price
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-200 text-amber-900">
+                                        Selected
+                                      </span>
+                                    )}
+                                    <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />
+                                  </button>
+                                ) : displaySize && (displaySize !== item.quantity || displayUnit !== item.unit) ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/60">
+                                    <span>
+                                      {displaySize} {displayUnit}
+                                    </span>
+                                    {activeOpt.label ? <span className="text-slate-400">• {activeOpt.label}</span> : null}
+                                  </span>
+                                ) : null}
                               </div>
 
                               {item.notes && (
                                 <p
-                                  className={`text-xs mt-0.5 italic ${
+                                  className={`text-xs mt-1 italic ${
                                     isPicked ? 'text-slate-400 line-through' : 'text-slate-500'
                                   }`}
                                 >
@@ -1346,7 +1424,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             <button
                               type="button"
                               onClick={() => openPriceCalculator(item)}
-                              className="group flex flex-col items-end px-2.5 py-1 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 active:scale-95 transition text-right shadow-2xs"
+                              className="group flex flex-col items-end px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 active:scale-95 transition text-right shadow-2xs cursor-pointer"
                               title="Tap to update price or calculate produce scale weight"
                             >
                               {/* Top line: Total cost */}
@@ -1363,15 +1441,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
                               {/* Second line: Price per item when packsNeeded > 1 */}
                               {packsNeeded > 1 && itemUnitPrice !== null && (
-                                <div className="text-[10px] text-slate-400 font-medium">
+                                <div className="text-[10px] text-slate-500 font-medium">
                                   ({packsNeeded} × {formatPrice(itemUnitPrice)})
                                 </div>
                               )}
 
                               {/* Normalized package unit price if present */}
-                              {shopDetail?.unitPrice && (
-                                <div className="text-[9px] text-indigo-700 font-mono">
-                                  {formatUnitPrice(shopDetail.unitPrice, shopDetail.packageUnit)}
+                              {(activeOpt.unitPrice || shopDetail?.unitPrice) && (
+                                <div className="text-[9px] text-indigo-700 font-mono font-medium">
+                                  {formatUnitPrice(activeOpt.unitPrice || shopDetail?.unitPrice, activeOpt.packageUnit || shopDetail?.packageUnit)}
                                 </div>
                               )}
                             </button>
@@ -2023,6 +2101,243 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Size Picker Modal Sheet */}
+      {sizePickerItem && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in duration-150"
+          onClick={() => setSizePickerItem(null)}
+        >
+          <div
+            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-5 space-y-4 max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-indigo-600" />
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Pick Package Size
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {sizePickerItem.item.name} at <span className="font-bold text-slate-700">{currentShop.name}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSizePickerItem(null)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-[11px] font-semibold text-slate-600 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-100 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>The best unit price is selected by default for maximum grocery savings.</span>
+            </div>
+
+            <div className="space-y-2">
+              {sizePickerItem.options.map((opt) => {
+                const isSelected = opt.id === sizePickerItem.activeOptId
+                const isBestValue = opt.id === sizePickerItem.bestOptId
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={async () => {
+                      await handleSelectPackageOption(sizePickerItem.item, opt.id)
+                      setSizePickerItem(null)
+                    }}
+                    className={`w-full p-3.5 rounded-xl text-left transition flex items-center justify-between gap-3 cursor-pointer border ${
+                      isSelected
+                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-950 shadow-xs'
+                        : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-900">
+                          {opt.label || `${opt.packageSize} ${opt.packageUnit}`}
+                        </span>
+                        {isBestValue && (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-black bg-emerald-600 text-white shadow-2xs">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            Best Price
+                          </span>
+                        )}
+                        {opt.isLowestCashOutlay && !isBestValue && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            Lowest Upfront Cash
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600 font-mono">
+                        <span className="font-extrabold text-slate-900 text-sm">
+                          {formatPrice(opt.price)}
+                        </span>
+                        {opt.unitPrice && (
+                          <span className="text-indigo-700 font-medium">
+                            ({formatUnitPrice(opt.unitPrice, opt.packageUnit)})
+                          </span>
+                        )}
+                        {opt.packageSize > 0 && (
+                          <span className="text-slate-400 font-sans text-[11px]">
+                            {opt.packageSize} {opt.packageUnit}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      {isSelected ? (
+                        <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full border-2 border-slate-200 hover:border-slate-300" />
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setSizePickerItem(null)}
+                className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Quantity Picker Modal */}
+      {quickQuantityItem && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150"
+          onClick={() => setQuickQuantityItem(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {quickQuantityItem.item.name}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Set purchase quantity at <span className="font-bold text-slate-700">{currentShop.name}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickQuantityItem(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                Quick Presets
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 2, 3, 4, 5, 6, 8, 10].map((qty) => (
+                  <button
+                    key={qty}
+                    type="button"
+                    onClick={async () => {
+                      await handleUpdateItemQuantity(quickQuantityItem.item, qty)
+                      setQuickQuantityItem(null)
+                    }}
+                    className={`py-2 rounded-xl text-sm font-bold font-mono transition cursor-pointer ${
+                      quickQuantityItem.currentQty === qty
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                    }`}
+                  >
+                    {qty}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Stepper Input */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                Custom Quantity
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuickQuantityItem((prev) =>
+                      prev ? { ...prev, currentQty: Math.max(1, prev.currentQty - 1) } : null
+                    )
+                  }
+                  disabled={quickQuantityItem.currentQty <= 1}
+                  className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 cursor-pointer"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  value={quickQuantityItem.currentQty}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10)
+                    if (!isNaN(val) && val >= 1) {
+                      setQuickQuantityItem((prev) => (prev ? { ...prev, currentQty: val } : null))
+                    }
+                  }}
+                  className="w-full text-center text-lg font-black font-mono py-2 rounded-xl border border-slate-200 focus:outline-emerald-600"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuickQuantityItem((prev) =>
+                      prev ? { ...prev, currentQty: prev.currentQty + 1 } : null
+                    )
+                  }
+                  className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setQuickQuantityItem(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleUpdateItemQuantity(quickQuantityItem.item, quickQuantityItem.currentQty)
+                  setQuickQuantityItem(null)
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-sm cursor-pointer"
+              >
+                Apply Quantity
+              </button>
+            </div>
           </div>
         </div>
       )}

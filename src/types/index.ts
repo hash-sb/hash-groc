@@ -27,6 +27,7 @@ export interface ItemShopDetail {
   unitPrice?: number | null // Computed price per packageUnit (e.g. $0.18 / oz)
   storeQuantity?: number | null // Optional manual override for number of packages to buy at this store
   packageOptions?: StorePackageOption[] // Multiple package sizes/variants available at this store
+  selectedOptionId?: string // User-selected package size option for this store (defaults to best value)
   notes?: string
 }
 
