@@ -11,6 +11,7 @@ export interface EvaluatedPackageOption {
   fulfillmentCost: number
   normalizedUnitPrice?: number | null
   isOptimal: boolean
+  isLowestCashOutlay?: boolean
 }
 
 export interface OptimalStorePackageResult {
@@ -19,6 +20,9 @@ export interface OptimalStorePackageResult {
   hasMultipleOptions: boolean
   savingsVsOther?: number
   otherOptionLabel?: string
+  unitSavingsVsOther?: number
+  unitSavingsPercent?: number
+  lowestCashOption?: EvaluatedPackageOption
 }
 
 export interface PriceComparison {
@@ -36,6 +40,7 @@ export interface PriceComparison {
   cheapestPacksNeeded: number
   cheapestFulfillmentCost: number | null
   cheapestUnitPrice: number | null
+  cheapestPackageUnit: string | null
   isCheaperElsewhere: boolean
   isBestPriceHere: boolean
   savingsAmount: number
@@ -108,6 +113,12 @@ export const COUNT_TO_ITEMS: Record<string, number> = {
   count: 1,
   ea: 1,
   each: 1,
+  roll: 1,
+  rolls: 1,
+  sheet: 1,
+  sheets: 1,
+  unit: 1,
+  units: 1,
   pair: 2,
   pairs: 2,
   dozen: 12,
@@ -132,8 +143,6 @@ export const CONTAINER_NORMALIZATION: Record<string, string> = {
   jars: 'jar',
   tub: 'tub',
   tubs: 'tub',
-  roll: 'roll',
-  rolls: 'roll',
   loaf: 'loaf',
   loaves: 'loaf',
   bunch: 'bunch',
@@ -143,6 +152,38 @@ export const CONTAINER_NORMALIZATION: Record<string, string> = {
   pk: 'pack',
   pack: 'pack',
   packs: 'pack',
+}
+
+/**
+ * Generic packaging wrappers (e.g. 'pack', 'box', 'bag') that encapsulate
+ * product contents measured in discrete counts, weights, or volumes.
+ */
+export const PACKAGE_WRAPPER_UNITS = new Set([
+  'pack',
+  'packs',
+  'pk',
+  'pkg',
+  'package',
+  'packages',
+  'box',
+  'boxes',
+  'bag',
+  'bags',
+  'case',
+  'cases',
+  'carton',
+  'cartons',
+  'container',
+  'containers',
+  'bundle',
+  'bundles',
+  'item',
+  'items',
+])
+
+export function isPackageWrapperUnit(unit?: string | null): boolean {
+  if (!unit) return false
+  return PACKAGE_WRAPPER_UNITS.has(unit.toLowerCase().trim())
 }
 
 export interface UnitOptionGroup {
@@ -166,25 +207,24 @@ export const UNIT_GROUPS: UnitOptionGroup[] = [
   {
     label: 'Discrete Count',
     family: 'count',
-    units: ['pieces', 'ct', 'dozens', 'pairs', 'items'],
+    units: ['rolls', 'pieces', 'ct', 'sheets', 'items', 'dozens', 'pairs'],
   },
   {
     label: 'Containers & Packaging',
     family: 'container',
     units: [
+      'packs',
+      'boxes',
       'bottles',
       'cans',
-      'boxes',
       'bags',
       'jars',
       'cartons',
       'tubs',
-      'rolls',
       'bars',
       'loaves',
       'bunches',
       'heads',
-      'packs',
     ],
   },
 ]
@@ -211,6 +251,11 @@ export function areUnitsCompatible(unitA?: string | null, unitB?: string | null)
   const normB = unitB.toLowerCase().trim()
   if (normA === normB) return true
 
+  // Generic packaging wrappers (e.g. 1 pack containing 12 rolls or 16 oz) are compatible
+  if (isPackageWrapperUnit(normA) || isPackageWrapperUnit(normB)) {
+    return true
+  }
+
   const familyA = getUnitFamily(normA)
   const familyB = getUnitFamily(normB)
 
@@ -230,6 +275,7 @@ export interface UnitCompatibilityResult {
   convertedAmount: number | null
   message: string
   isConversion: boolean
+  isPackageWrapper?: boolean
 }
 
 /**
@@ -267,6 +313,31 @@ export function checkUnitCompatibility(
       convertedAmount: amount,
       message: `Matching unit (${normFrom})`,
       isConversion: false,
+    }
+  }
+
+  // Generic packaging wrapper handling (e.g. "1 pack" of paper towels containing 12 rolls)
+  if (isPackageWrapperUnit(normFrom)) {
+    return {
+      isCompatible: true,
+      fromFamily: 'container',
+      toFamily,
+      convertedAmount: amount,
+      message: `${amount} ${fromUnit} of packaged product (${toUnit})`,
+      isConversion: false,
+      isPackageWrapper: true,
+    }
+  }
+
+  if (isPackageWrapperUnit(normTo)) {
+    return {
+      isCompatible: true,
+      fromFamily,
+      toFamily: 'container',
+      convertedAmount: amount,
+      message: `${amount} ${fromUnit} packaged as store item`,
+      isConversion: false,
+      isPackageWrapper: true,
     }
   }
 
@@ -529,10 +600,15 @@ export function getOptimalStorePackage(
         if (
           !targetUnit ||
           normTarget === normOpt ||
+          isPackageWrapperUnit(normTarget) ||
           (CONTAINER_NORMALIZATION[normTarget] &&
             CONTAINER_NORMALIZATION[normTarget] === CONTAINER_NORMALIZATION[normOpt])
         ) {
-          packs = Math.max(1, Math.ceil(targetAmount / opt.packageSize))
+          if (targetAmount <= 1 || isPackageWrapperUnit(normTarget)) {
+            packs = 1
+          } else {
+            packs = Math.max(1, Math.ceil(targetAmount / opt.packageSize))
+          }
         } else {
           packs = Math.max(1, Math.round(targetAmount))
         }
@@ -563,33 +639,61 @@ export function getOptimalStorePackage(
     }
   })
 
-  // Sort candidates by fulfillment cost (primary), then normalized unit price (secondary)
+  // Identify the option with lowest immediate cash outlay
+  const lowestCash = [...evaluated].sort((a, b) => a.fulfillmentCost - b.fulfillmentCost)[0]
+
+  // For multi-size package options, "Best Value / Optimal" is the option with the
+  // lowest normalized unit price ($/roll, $/oz, $/piece, $/ct).
+  // If unit prices are equal or missing, the lowest fulfillment cost wins.
   evaluated.sort((a, b) => {
+    const unitA = a.normalizedUnitPrice
+    const unitB = b.normalizedUnitPrice
+    const hasUnitA = typeof unitA === 'number' && unitA > 0
+    const hasUnitB = typeof unitB === 'number' && unitB > 0
+
+    if (hasUnitA && hasUnitB && Math.abs(unitA - unitB) > 0.0001) {
+      return unitA - unitB
+    }
+
     if (Math.abs(a.fulfillmentCost - b.fulfillmentCost) > 0.001) {
       return a.fulfillmentCost - b.fulfillmentCost
     }
-    if (
-      typeof a.normalizedUnitPrice === 'number' &&
-      typeof b.normalizedUnitPrice === 'number'
-    ) {
-      return a.normalizedUnitPrice - b.normalizedUnitPrice
-    }
+
     return 0
   })
 
   evaluated[0].isOptimal = true
   const bestOption = evaluated[0]
 
+  if (lowestCash && lowestCash.id !== bestOption.id) {
+    const cashOpt = evaluated.find((o) => o.id === lowestCash.id)
+    if (cashOpt) cashOpt.isLowestCashOutlay = true
+  }
+
   let savingsVsOther: number | undefined
   let otherOptionLabel: string | undefined
+  let unitSavingsVsOther: number | undefined
+  let unitSavingsPercent: number | undefined
 
   if (evaluated.length > 1) {
     const worst = evaluated[evaluated.length - 1]
+    const worstUnit = worst.normalizedUnitPrice
+    const bestUnit = bestOption.normalizedUnitPrice
+
+    if (
+      typeof worstUnit === 'number' &&
+      typeof bestUnit === 'number' &&
+      worstUnit > bestUnit + 0.0001
+    ) {
+      unitSavingsVsOther = Number((worstUnit - bestUnit).toFixed(4))
+      unitSavingsPercent = Math.round(((worstUnit - bestUnit) / worstUnit) * 100)
+    }
+
     const diff = worst.fulfillmentCost - bestOption.fulfillmentCost
     if (diff > 0.005) {
       savingsVsOther = Number(diff.toFixed(2))
-      otherOptionLabel = worst.label || `${worst.packageSize} ${worst.packageUnit}`
     }
+    otherOptionLabel = worst.label || `${worst.packageSize} ${worst.packageUnit}`
   }
 
   return {
@@ -598,6 +702,9 @@ export function getOptimalStorePackage(
     hasMultipleOptions: evaluated.length > 1,
     savingsVsOther,
     otherOptionLabel,
+    unitSavingsVsOther,
+    unitSavingsPercent,
+    lowestCashOption: lowestCash && lowestCash.id !== bestOption.id ? lowestCash : undefined,
   }
 }
 
@@ -658,6 +765,10 @@ export function compareShopPrices(
   let cheapestFulfillmentCost: number | null = null
   let cheapestUnitPrice: number | null = null
   let cheapestPackageUnit: string | null = null
+  let cheapestNormUnitPrice: number | null = null
+
+  const isGenericOrSingleDemand =
+    (item.quantity || 1) <= 1 || isPackageWrapperUnit(item.unit)
 
   const allStorePrices: PriceComparison['allStorePrices'] = []
 
@@ -670,6 +781,7 @@ export function compareShopPrices(
 
     if (detail && detail.available && effectivePrice > 0) {
       const fulfillmentCost = effectivePrice * packsNeeded
+      const normUnitPrice = bestOpt.normalizedUnitPrice ?? null
 
       allStorePrices.push({
         shop,
@@ -685,37 +797,51 @@ export function compareShopPrices(
         bestOptionLabel: bestOpt.label,
       })
 
-      // The comparison value is the total fulfillment cost to satisfy the needed amount.
-      // If two stores have equal fulfillment cost, normalized unit price breaks ties.
-      const compVal = fulfillmentCost
+      let isBetter = false
 
-      if (cheapestCompVal === null || compVal < cheapestCompVal) {
-        cheapestCompVal = compVal
+      if (cheapestShop === null) {
+        isBetter = true
+      } else if (
+        isGenericOrSingleDemand &&
+        typeof normUnitPrice === 'number' &&
+        normUnitPrice > 0 &&
+        typeof cheapestNormUnitPrice === 'number' &&
+        cheapestNormUnitPrice > 0
+      ) {
+        // When demand is generic (e.g. 1 pack / 1 roll), prioritize the best unit value ($/roll, $/oz)
+        if (normUnitPrice < cheapestNormUnitPrice - 0.0001) {
+          isBetter = true
+        } else if (
+          Math.abs(normUnitPrice - cheapestNormUnitPrice) <= 0.0001 &&
+          fulfillmentCost < (cheapestFulfillmentCost ?? Infinity)
+        ) {
+          isBetter = true
+        }
+      } else {
+        // Standard demand fulfillment cost comparison
+        const compVal = fulfillmentCost
+        if (cheapestCompVal === null || compVal < cheapestCompVal - 0.001) {
+          isBetter = true
+        } else if (
+          Math.abs(compVal - (cheapestCompVal ?? 0)) <= 0.001 &&
+          typeof normUnitPrice === 'number' &&
+          typeof cheapestNormUnitPrice === 'number'
+        ) {
+          if (normUnitPrice < cheapestNormUnitPrice) {
+            isBetter = true
+          }
+        }
+      }
+
+      if (isBetter) {
+        cheapestCompVal = fulfillmentCost
         cheapestShop = shop
         cheapestPrice = effectivePrice
         cheapestPacksNeeded = packsNeeded
         cheapestFulfillmentCost = fulfillmentCost
         cheapestUnitPrice = bestOpt.unitPrice || null
         cheapestPackageUnit = bestOpt.packageUnit || null
-      } else if (compVal === cheapestCompVal && bestOpt.unitPrice && cheapestUnitPrice) {
-        // Tie-breaker: better normalized unit price (fair comparison across oz vs lb, etc.)
-        const normCurrent = getNormalizedUnitPrice(bestOpt.unitPrice, bestOpt.packageUnit)
-        const normCheapest = getNormalizedUnitPrice(cheapestUnitPrice, cheapestPackageUnit)
-        if (normCurrent !== null && normCheapest !== null && normCurrent < normCheapest) {
-          cheapestShop = shop
-          cheapestPrice = effectivePrice
-          cheapestPacksNeeded = packsNeeded
-          cheapestFulfillmentCost = fulfillmentCost
-          cheapestUnitPrice = bestOpt.unitPrice
-          cheapestPackageUnit = bestOpt.packageUnit || null
-        } else if (bestOpt.unitPrice < cheapestUnitPrice) {
-          cheapestShop = shop
-          cheapestPrice = effectivePrice
-          cheapestPacksNeeded = packsNeeded
-          cheapestFulfillmentCost = fulfillmentCost
-          cheapestUnitPrice = bestOpt.unitPrice
-          cheapestPackageUnit = bestOpt.packageUnit || null
-        }
+        cheapestNormUnitPrice = normUnitPrice
       }
     } else if (detail) {
       allStorePrices.push({
@@ -738,22 +864,41 @@ export function compareShopPrices(
   let isCheaperElsewhere = false
   let savingsAmount = 0
 
+  const currentNormUnit = getNormalizedUnitPrice(currentUnitPrice, currentPackageUnit)
+
   if (
-    currentFulfillmentCost !== null &&
-    cheapestFulfillmentCost !== null &&
     cheapestShop &&
-    cheapestShop.id !== currentShopId
+    cheapestShop.id !== currentShopId &&
+    currentDetail?.available &&
+    typeof currentDetail?.price === 'number' &&
+    currentDetail.price > 0
   ) {
-    if (currentFulfillmentCost > cheapestFulfillmentCost) {
+    if (
+      isGenericOrSingleDemand &&
+      typeof currentNormUnit === 'number' &&
+      currentNormUnit > 0 &&
+      typeof cheapestNormUnitPrice === 'number' &&
+      cheapestNormUnitPrice > 0
+    ) {
+      if (currentNormUnit > cheapestNormUnitPrice + 0.0001) {
+        isCheaperElsewhere = true
+        savingsAmount = Number((currentNormUnit - cheapestNormUnitPrice).toFixed(4))
+      }
+    } else if (
+      currentFulfillmentCost !== null &&
+      cheapestFulfillmentCost !== null &&
+      currentFulfillmentCost > cheapestFulfillmentCost
+    ) {
       isCheaperElsewhere = true
       savingsAmount = Math.max(0, currentFulfillmentCost - cheapestFulfillmentCost)
     }
   }
 
   const isBestPriceHere =
-    currentFulfillmentCost !== null &&
-    cheapestFulfillmentCost !== null &&
-    currentFulfillmentCost <= cheapestFulfillmentCost &&
+    !isCheaperElsewhere &&
+    currentDetail?.available &&
+    typeof currentDetail?.price === 'number' &&
+    currentDetail.price > 0 &&
     allStorePrices.filter((p) => p.available && p.price > 0).length > 1
 
   return {
@@ -771,6 +916,7 @@ export function compareShopPrices(
     cheapestPacksNeeded,
     cheapestFulfillmentCost,
     cheapestUnitPrice,
+    cheapestPackageUnit,
     isCheaperElsewhere,
     isBestPriceHere,
     savingsAmount,
@@ -845,18 +991,41 @@ export function compareShelfSizes(
   let savingsPercent = 0
   let summary = ''
 
-  if (Math.abs(costA - costB) < 0.005) {
-    if (
-      normUnitPriceA !== null &&
-      normUnitPriceB !== null &&
-      Math.abs(normUnitPriceA - normUnitPriceB) > 0.0001
-    ) {
-      winner = normUnitPriceA < normUnitPriceB ? 'A' : 'B'
-      summary = `Both total $${costA.toFixed(2)}, but Size ${winner} has a lower unit price.`
+  if (
+    normUnitPriceA !== null &&
+    normUnitPriceB !== null &&
+    normUnitPriceA > 0 &&
+    normUnitPriceB > 0
+  ) {
+    if (Math.abs(normUnitPriceA - normUnitPriceB) > 0.0001) {
+      if (normUnitPriceA < normUnitPriceB) {
+        winner = 'A'
+        const unitDiff = normUnitPriceB - normUnitPriceA
+        savingsAmount = Number(unitDiff.toFixed(2))
+        savingsPercent = Math.round((unitDiff / normUnitPriceB) * 100)
+        summary = `Size A is the best value! Unit price is ${savingsPercent}% lower (${formatUnitPrice(normUnitPriceA, sizeA.unit)} vs ${formatUnitPrice(normUnitPriceB, sizeB.unit)}).`
+      } else {
+        winner = 'B'
+        const unitDiff = normUnitPriceA - normUnitPriceB
+        savingsAmount = Number(unitDiff.toFixed(2))
+        savingsPercent = Math.round((unitDiff / normUnitPriceA) * 100)
+        summary = `Size B is the best value! Unit price is ${savingsPercent}% lower (${formatUnitPrice(normUnitPriceB, sizeB.unit)} vs ${formatUnitPrice(normUnitPriceA, sizeA.unit)}).`
+      }
     } else {
-      winner = 'TIE'
-      summary = `Both sizes cost the exact same ($${costA.toFixed(2)}) to fulfill your need.`
+      if (costA < costB) {
+        winner = 'A'
+        summary = `Both have identical unit price, but Size A costs less out-of-pocket ($${costA.toFixed(2)} vs $${costB.toFixed(2)}).`
+      } else if (costB < costA) {
+        winner = 'B'
+        summary = `Both have identical unit price, but Size B costs less out-of-pocket ($${costB.toFixed(2)} vs $${costA.toFixed(2)}).`
+      } else {
+        winner = 'TIE'
+        summary = `Both sizes cost the exact same ($${costA.toFixed(2)}) and have identical unit price.`
+      }
     }
+  } else if (Math.abs(costA - costB) < 0.005) {
+    winner = 'TIE'
+    summary = `Both sizes cost the exact same ($${costA.toFixed(2)}) to fulfill your need.`
   } else if (costA < costB) {
     winner = 'A'
     savingsAmount = Number((costB - costA).toFixed(2))

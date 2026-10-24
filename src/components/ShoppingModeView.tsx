@@ -1250,17 +1250,28 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 )}
 
                                 {/* In-Store Multi-Size Savings Badge */}
-                                {comp.hasMultipleSizesAtStore && comp.storeSavingsVsOtherSize && (
+                                {comp.hasMultipleSizesAtStore && (
                                   <span
                                     className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md transition ${
                                       isPicked
                                         ? 'bg-slate-100 text-slate-400 line-through'
                                         : 'bg-indigo-100/80 text-indigo-800'
                                     }`}
-                                    title={`Multiple sizes at this store: this optimal size saves ${formatPrice(comp.storeSavingsVsOtherSize)} vs ${comp.otherStoreSizeLabel}`}
+                                    title={`Multiple sizes at this store: optimal size gives best unit value${
+                                      comp.storeSavingsVsOtherSize
+                                        ? ` (saves ${formatPrice(comp.storeSavingsVsOtherSize)} vs ${comp.otherStoreSizeLabel})`
+                                        : ''
+                                    }`}
                                   >
                                     <Layers className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-indigo-600'}`} />
-                                    <span>Best Size: -{formatPrice(comp.storeSavingsVsOtherSize)}</span>
+                                    <span>
+                                      Best Size
+                                      {comp.currentBestPackageOption?.label
+                                        ? `: ${comp.currentBestPackageOption.label}`
+                                        : comp.storeSavingsVsOtherSize
+                                        ? `: -${formatPrice(comp.storeSavingsVsOtherSize)}`
+                                        : ''}
+                                    </span>
                                   </span>
                                 )}
 
@@ -1271,15 +1282,23 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                         ? 'bg-slate-100 text-slate-400 line-through'
                                         : 'bg-rose-100/70 text-rose-800'
                                     }`}
-                                    title={`Cheaper at ${comp.cheapestShop.name}: ${formatPrice(comp.cheapestFulfillmentCost)} for ${comp.cheapestPacksNeeded} ${comp.cheapestPacksNeeded === 1 ? 'pack' : 'packs'}${
+                                    title={`Cheaper at ${comp.cheapestShop.name}: ${
                                       comp.cheapestUnitPrice
-                                        ? ` (${formatUnitPrice(comp.cheapestUnitPrice, item.shops[comp.cheapestShop.id]?.packageUnit)})`
-                                        : ''
+                                        ? `${formatUnitPrice(comp.cheapestUnitPrice, comp.cheapestPackageUnit || item.shops[comp.cheapestShop.id]?.packageUnit)}`
+                                        : formatPrice(comp.cheapestFulfillmentCost)
                                     }`}
                                   >
                                     <TrendingDown className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-rose-600'}`} />
                                     <span>
-                                      {comp.cheapestShop.name}: {formatPrice(comp.cheapestFulfillmentCost || comp.cheapestPrice)}
+                                      {comp.cheapestShop.name}:{' '}
+                                      {comp.cheapestUnitPrice &&
+                                      ((item.quantity || 1) <= 1 ||
+                                        (comp.currentUnitPrice && comp.cheapestUnitPrice < comp.currentUnitPrice))
+                                        ? formatUnitPrice(
+                                            comp.cheapestUnitPrice,
+                                            comp.cheapestPackageUnit || item.shops[comp.cheapestShop.id]?.packageUnit
+                                          )
+                                        : formatPrice(comp.cheapestFulfillmentCost || comp.cheapestPrice)}
                                     </span>
                                   </span>
                                 )}

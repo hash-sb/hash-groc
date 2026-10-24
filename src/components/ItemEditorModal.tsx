@@ -990,10 +990,17 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                   {idx === 0 ? 'Primary Size' : `Alternative Size ${idx + 1}`}
                                 </span>
                                 {isOptimal && (
-                                  <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
-                                    Best Value
+                                  <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-2xs">
+                                    🏆 Best Value
                                   </span>
                                 )}
+                                {hasMultipleSizes &&
+                                  optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
+                                  !isOptimal && (
+                                    <span className="bg-slate-100 text-slate-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-slate-200">
+                                      Lowest Out-of-Pocket
+                                    </span>
+                                  )}
                                 {optUnitPrice && (
                                   <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
                                     {formatUnitPrice(optUnitPrice, opt.packageUnit || unit || 'oz')}
@@ -1176,25 +1183,42 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
                           {/* Multi-Size Optimization Note */}
                           {optimalStorePackageResult && optimalStorePackageResult.hasMultipleOptions && (
-                            <div className="p-2 rounded-lg bg-indigo-100/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-1.5 mt-0.5">
-                              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
-                              <div>
-                                <span className="font-bold">Multi-Size Optimization: </span>
+                            <div className="p-2.5 rounded-xl bg-indigo-100/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-2 mt-0.5">
+                              <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                              <div className="space-y-0.5">
+                                <span className="font-bold">Multi-Size Value Optimization: </span>
                                 <span>
                                   Option{' '}
                                   <strong>
                                     {optimalStorePackageResult.bestOption.label ||
                                       `${optimalStorePackageResult.bestOption.packageSize} ${optimalStorePackageResult.bestOption.packageUnit}`}
                                   </strong>{' '}
-                                  was selected as the cheapest way to fulfill your demand.
+                                  selected as <strong>Best Value</strong>
+                                  {optimalStorePackageResult.bestOption.unitPrice
+                                    ? ` (${formatUnitPrice(optimalStorePackageResult.bestOption.unitPrice, optimalStorePackageResult.bestOption.packageUnit)})`
+                                    : ''}.
                                 </span>
-                                {optimalStorePackageResult.savingsVsOther &&
-                                  optimalStorePackageResult.savingsVsOther > 0 && (
-                                    <span className="block font-bold text-emerald-800 mt-0.5">
-                                      🎉 Saves {formatPrice(optimalStorePackageResult.savingsVsOther)}{' '}
-                                      compared to {optimalStorePackageResult.otherOptionLabel}!
-                                    </span>
-                                  )}
+                                {optimalStorePackageResult.unitSavingsPercent &&
+                                optimalStorePackageResult.unitSavingsPercent > 0 ? (
+                                  <span className="block font-bold text-emerald-800">
+                                    🎉 Saves {optimalStorePackageResult.unitSavingsPercent}%
+                                    {optimalStorePackageResult.unitSavingsVsOther
+                                      ? ` (${formatPrice(optimalStorePackageResult.unitSavingsVsOther)} / ${optimalStorePackageResult.bestOption.packageUnit})`
+                                      : ''}{' '}
+                                    compared to {optimalStorePackageResult.otherOptionLabel}!
+                                  </span>
+                                ) : optimalStorePackageResult.savingsVsOther &&
+                                  optimalStorePackageResult.savingsVsOther > 0 ? (
+                                  <span className="block font-bold text-emerald-800">
+                                    🎉 Saves {formatPrice(optimalStorePackageResult.savingsVsOther)}{' '}
+                                    compared to {optimalStorePackageResult.otherOptionLabel}!
+                                  </span>
+                                ) : null}
+                                {optimalStorePackageResult.lowestCashOption && (
+                                  <span className="block text-slate-600 font-medium pt-0.5">
+                                    💵 Lowest upfront cash: {optimalStorePackageResult.lowestCashOption.label || `${optimalStorePackageResult.lowestCashOption.packageSize} ${optimalStorePackageResult.lowestCashOption.packageUnit}`} at {formatPrice(optimalStorePackageResult.lowestCashOption.price)}.
+                                  </span>
+                                )}
                               </div>
                             </div>
                           )}
