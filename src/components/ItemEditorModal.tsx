@@ -1000,11 +1000,15 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                     {/* Top: Dot + Store Name + Best Badge */}
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            isAvailable ? 'bg-emerald-500' : 'bg-rose-400'
-                          }`}
-                        />
+                        {shop.icon ? (
+                          <span className="text-xs shrink-0 leading-none">{shop.icon}</span>
+                        ) : (
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              isAvailable ? 'bg-emerald-500' : 'bg-rose-400'
+                            }`}
+                          />
+                        )}
                         <span className="text-xs font-bold truncate">{shop.name}</span>
                       </div>
 
