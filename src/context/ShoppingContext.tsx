@@ -52,6 +52,7 @@ interface ShoppingContextType {
   unselectAllItems: () => Promise<void>
   resetAllItemCounts: () => Promise<void>
   resetAllItemDescriptions: () => Promise<void>
+  removeAllQuantityDescriptions: () => Promise<void>
   updateItemShopDetail: (
     itemId: string,
     shopId: string,
@@ -1117,6 +1118,66 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }
 
+  const removeAllQuantityDescriptions = async (): Promise<void> => {
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        let shopsChanged = false
+        const cleanedShops = { ...item.shops }
+        Object.keys(cleanedShops).forEach((sId) => {
+          const shop = { ...cleanedShops[sId] }
+          let shopModified = false
+          if (shop.unitSize) {
+            delete shop.unitSize
+            shopModified = true
+          }
+          if (Array.isArray(shop.packageOptions)) {
+            const cleanedOpts = shop.packageOptions.map((opt) => {
+              if (opt.label) {
+                shopModified = true
+                const { label: _label, ...rest } = opt
+                return rest
+              }
+              return opt
+            })
+            shop.packageOptions = cleanedOpts
+          }
+          if (shopModified) {
+            cleanedShops[sId] = shop
+            shopsChanged = true
+          }
+        })
+        const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+        const patch: Record<string, any> = { unit: '', updatedAt: Date.now() }
+        if (shopsChanged) {
+          patch.shops = cleanedShops
+        }
+        batch.update(itemRef, patch)
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) => {
+        const cleanedShops = { ...item.shops }
+        Object.keys(cleanedShops).forEach((sId) => {
+          const shop = { ...cleanedShops[sId] }
+          if (shop.unitSize) {
+            delete shop.unitSize
+          }
+          if (Array.isArray(shop.packageOptions)) {
+            shop.packageOptions = shop.packageOptions.map((opt) => {
+              const { label: _label, ...rest } = opt
+              return rest
+            })
+          }
+          cleanedShops[sId] = shop
+        })
+        return { ...item, unit: '', shops: cleanedShops, updatedAt: Date.now() }
+      })
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
   const resetToSampleData = async () => {
     if (isConfigured && db) {
       const batch = writeBatch(db)
@@ -1223,6 +1284,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       unselectAllItems,
       resetAllItemCounts,
       resetAllItemDescriptions,
+      removeAllQuantityDescriptions,
       updateItemShopDetail,
       clearCart,
       receipts,

@@ -17,6 +17,7 @@ import {
   X,
   Square,
   FileText,
+  Tag,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -46,6 +47,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     unselectAllItems,
     resetAllItemCounts,
     resetAllItemDescriptions,
+    removeAllQuantityDescriptions,
   } = useShopping()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -580,6 +582,31 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                     <div className="flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5 text-slate-500" />
                       <span>Reset Descriptions</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      Clear
+                    </span>
+                  </button>
+
+                  {/* 4. Remove All Quantity Descriptions */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Remove all quantity descriptions and size labels for all ${items.length} items?`
+                        )
+                      ) {
+                        await removeAllQuantityDescriptions()
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                    title="Remove all quantity descriptions and size labels"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Remove Qty Descriptions</span>
                     </div>
                     <span className="text-[10px] text-slate-500 font-bold">
                       Clear
