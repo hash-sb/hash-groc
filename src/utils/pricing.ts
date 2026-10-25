@@ -525,7 +525,7 @@ export function getOptimalStorePackage(
   // Fallback defaults if store has no data
   const defaultOption: EvaluatedPackageOption = {
     id: 'default',
-    label: 'Standard',
+    label: undefined,
     packageSize: detail?.packageSize || targetAmount,
     packageUnit: detail?.packageUnit || targetUnit,
     price: detail?.price || 0,
@@ -563,10 +563,21 @@ export function getOptimalStorePackage(
           typeof opt.packageSize === 'number'
             ? opt.packageSize
             : parseFloat(String(opt.packageSize))
+        const optUnit = opt.packageUnit || detail.packageUnit || targetUnit || ''
+        const sizeStr = `${s} ${optUnit}`.trim().toLowerCase()
+        const rawLabel = opt.label?.trim()
+        const isDistinct =
+          rawLabel &&
+          rawLabel.toLowerCase() !== 'standard' &&
+          rawLabel.toLowerCase() !== sizeStr &&
+          rawLabel.toLowerCase() !== `${s}`.toLowerCase()
+
         return {
           ...opt,
+          label: isDistinct ? rawLabel : undefined,
           price: p,
           packageSize: s,
+          packageUnit: optUnit,
           unitPrice:
             typeof opt.unitPrice === 'number' && opt.unitPrice > 0
               ? opt.unitPrice
@@ -584,10 +595,17 @@ export function getOptimalStorePackage(
     typeof detail.price === 'number' &&
     detail.price > 0
   ) {
+    const rawUnitSize = detail.unitSize?.trim()
+    const sizeStr = `${detail.packageSize} ${detail.packageUnit || targetUnit}`.trim().toLowerCase()
+    const isDistinctUnitSize =
+      rawUnitSize &&
+      rawUnitSize.toLowerCase() !== sizeStr &&
+      rawUnitSize.toLowerCase() !== `${detail.packageSize}`.toLowerCase()
+
     rawCandidates = [
       {
         id: 'primary',
-        label: detail.unitSize || `${detail.packageSize} ${detail.packageUnit || targetUnit}`,
+        label: isDistinctUnitSize ? rawUnitSize : undefined,
         packageSize: detail.packageSize,
         packageUnit: detail.packageUnit || targetUnit,
         price: detail.price,

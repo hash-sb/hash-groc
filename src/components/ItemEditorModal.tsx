@@ -12,6 +12,7 @@ import {
   MapPin,
   Repeat,
   ShoppingCart,
+  Tag,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -247,8 +248,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
               typeof opt.packageSize === 'number'
                 ? opt.packageSize
                 : parseFloat(String(opt.packageSize))
+            const rawLabel = opt.label?.trim()
+            const isRedundant =
+              rawLabel &&
+              (rawLabel.toLowerCase() === `${s} ${commonUnit}`.toLowerCase() ||
+                rawLabel.toLowerCase() === `${s}`.toLowerCase())
             return {
               ...opt,
+              label: rawLabel && !isRedundant ? rawLabel : undefined,
               price: p,
               packageSize: s,
               packageUnit: commonUnit,
@@ -1333,7 +1340,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                   <span className="text-xs text-slate-400 italic">—</span>
                                 )}
 
-                                {/* If label is not open, offer subtle '+ label' button (#1) */}
+                                {/* If label is not open, offer subtle tag icon button */}
                                 {!isLabelOpen && (
                                   <button
                                     type="button"
@@ -1343,10 +1350,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                         [optionKey]: true,
                                       }))
                                     }
-                                    className="text-[10px] text-slate-400 hover:text-indigo-600 font-medium px-1 py-0.5 rounded hover:bg-slate-100 transition shrink-0 ml-auto"
+                                    className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-100 transition shrink-0 ml-auto"
                                     title="Add custom label (e.g. Family Size, Club Pack)"
+                                    aria-label="Add custom label"
                                   >
-                                    + label
+                                    <Tag className="w-3.5 h-3.5" />
                                   </button>
                                 )}
                               </div>

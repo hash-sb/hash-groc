@@ -222,6 +222,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [quickQuantityItem, setQuickQuantityItem] = useState<{
     item: ShoppingItem
     currentQty: number
+    rawQty?: string
   } | null>(null)
 
   const handleSelectPackageOption = async (item: ShoppingItem, optionId: string) => {
@@ -232,7 +233,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   }
 
   const handleUpdateItemQuantity = async (item: ShoppingItem, newPacks: number) => {
-    if (newPacks < 1) return
+    if (isNaN(newPacks) || newPacks <= 0) return
     triggerHaptic(15)
     await updateItemShopDetail(item.id, currentShop.id, {
       storeQuantity: newPacks,
@@ -1017,13 +1018,23 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       const itemUnitPrice = activeOpt.price > 0 ? activeOpt.price : (shopDetail?.price || null)
                       const packsNeeded = activeOpt.packsNeeded
                       const totalItemPrice = itemUnitPrice !== null ? itemUnitPrice * packsNeeded : null
-                      const itemSizeText = activeOpt.label
-                        ? (activeOpt.packageSize ? `${activeOpt.packageSize} ${activeOpt.packageUnit} (${activeOpt.label})` : activeOpt.label)
-                        : activeOpt.packageSize
-                          ? `${activeOpt.packageSize} ${activeOpt.packageUnit}`
-                          : shopDetail?.packageSize
-                            ? `${shopDetail.packageSize} ${shopDetail.packageUnit || item.unit}`
-                            : `${item.quantity || 1} ${item.unit || ''}`.trim()
+                      const formattedSize = activeOpt.packageSize
+                        ? `${activeOpt.packageSize} ${activeOpt.packageUnit || ''}`.trim()
+                        : shopDetail?.packageSize
+                          ? `${shopDetail.packageSize} ${shopDetail.packageUnit || item.unit || ''}`.trim()
+                          : `${item.quantity || 1} ${item.unit || ''}`.trim()
+
+                      const rawLabel = activeOpt.label?.trim()
+                      const hasCustomLabel = Boolean(
+                        rawLabel &&
+                        rawLabel.toLowerCase() !== 'standard' &&
+                        rawLabel.toLowerCase() !== formattedSize.toLowerCase() &&
+                        rawLabel.toLowerCase() !== `${activeOpt.packageSize}`.toLowerCase()
+                      )
+
+                      const itemSizeText = hasCustomLabel
+                        ? (formattedSize ? `${formattedSize} (${rawLabel})` : rawLabel)
+                        : formattedSize
 
                       return (
                         <div
@@ -1099,7 +1110,13 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 {/* Packs count (number only, tap to change) */}
                                 <button
                                   type="button"
-                                  onClick={() => setQuickQuantityItem({ item, currentQty: packsNeeded })}
+                                  onClick={() =>
+                                    setQuickQuantityItem({
+                                      item,
+                                      currentQty: packsNeeded,
+                                      rawQty: String(Number(packsNeeded.toFixed(2))),
+                                    })
+                                  }
                                   className={`inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded-lg text-xs font-bold font-mono border transition cursor-pointer active:scale-95 ${
                                     isPicked
                                       ? 'bg-slate-100 text-slate-400 border-slate-200/60'
@@ -1107,7 +1124,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   }`}
                                   title="Tap to change quantity / packs needed"
                                 >
-                                  <span>{packsNeeded}</span>
+                                  <span>{Number(packsNeeded.toFixed(2))}</span>
                                 </button>
 
                                 {/* Quantity Size (Always show!) */}
@@ -1132,7 +1149,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                     title="Tap to switch package size"
                                   >
                                     <Layers className="w-3 h-3 text-indigo-600 shrink-0" />
-                                    <span>{activeOpt.label || `${activeOpt.packageSize} ${activeOpt.packageUnit}`}</span>
+                                    <span>
+                                      {hasCustomLabel && formattedSize
+                                        ? `${formattedSize} (${rawLabel})`
+                                        : (rawLabel || formattedSize)}
+                                    </span>
                                     <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0 ml-0.5" />
                                   </button>
                                 ) : (
@@ -1173,9 +1194,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 </span>
                               </div>
 
-                              {packsNeeded > 1 && itemUnitPrice !== null && (
+                              {packsNeeded !== 1 && itemUnitPrice !== null && (
                                 <div className="text-[10px] text-slate-400 font-medium">
-                                  ({packsNeeded} × {formatPrice(itemUnitPrice)})
+                                  ({Number(packsNeeded.toFixed(2))} × {formatPrice(itemUnitPrice)})
                                 </div>
                               )}
 
@@ -1711,7 +1732,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 Quick Presets
               </label>
               <div className="grid grid-cols-4 gap-2">
-                {[1, 2, 3, 4, 5, 6, 8, 10].map((qty) => (
+                {[0.5, 1, 1.5, 2, 2.5, 3, 4, 5].map((qty) => (
                   <button
                     key={qty}
                     type="button"
@@ -1734,29 +1755,43 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             {/* Custom Stepper Input */}
             <div>
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                Custom Quantity
+                Custom Quantity / Weight
               </label>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() =>
-                    setQuickQuantityItem((prev) =>
-                      prev ? { ...prev, currentQty: Math.max(1, prev.currentQty - 1) } : null
-                    )
+                    setQuickQuantityItem((prev) => {
+                      if (!prev) return null
+                      const delta = prev.currentQty <= 1 ? 0.25 : 1
+                      const nextVal = Math.max(0.05, Number((prev.currentQty - delta).toFixed(2)))
+                      return { ...prev, currentQty: nextVal, rawQty: String(nextVal) }
+                    })
                   }
-                  disabled={quickQuantityItem.currentQty <= 1}
+                  disabled={quickQuantityItem.currentQty <= 0.05}
                   className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 cursor-pointer"
+                  title="Decrease quantity"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
                 <input
-                  type="number"
-                  min="1"
-                  value={quickQuantityItem.currentQty}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="1.0"
+                  value={quickQuantityItem.rawQty ?? String(quickQuantityItem.currentQty)}
                   onChange={(e) => {
-                    const val = parseInt(e.target.value, 10)
-                    if (!isNaN(val) && val >= 1) {
-                      setQuickQuantityItem((prev) => (prev ? { ...prev, currentQty: val } : null))
+                    const raw = e.target.value
+                    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                      const parsed = parseFloat(raw)
+                      setQuickQuantityItem((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              rawQty: raw,
+                              currentQty: !isNaN(parsed) && parsed > 0 ? parsed : 0,
+                            }
+                          : null
+                      )
                     }
                   }}
                   className="w-full text-center text-lg font-black font-mono py-2 rounded-xl border border-slate-200 focus:outline-emerald-600"
@@ -1764,11 +1799,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 <button
                   type="button"
                   onClick={() =>
-                    setQuickQuantityItem((prev) =>
-                      prev ? { ...prev, currentQty: prev.currentQty + 1 } : null
-                    )
+                    setQuickQuantityItem((prev) => {
+                      if (!prev) return null
+                      const delta = prev.currentQty < 1 ? 0.25 : 1
+                      const nextVal = Number((prev.currentQty + delta).toFixed(2))
+                      return { ...prev, currentQty: nextVal, rawQty: String(nextVal) }
+                    })
                   }
                   className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                  title="Increase quantity"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -1786,7 +1825,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               <button
                 type="button"
                 onClick={async () => {
-                  await handleUpdateItemQuantity(quickQuantityItem.item, quickQuantityItem.currentQty)
+                  const parsed = parseFloat(quickQuantityItem.rawQty || String(quickQuantityItem.currentQty))
+                  const finalQty = !isNaN(parsed) && parsed > 0 ? parsed : quickQuantityItem.currentQty
+                  if (finalQty > 0) {
+                    await handleUpdateItemQuantity(quickQuantityItem.item, finalQty)
+                  }
                   setQuickQuantityItem(null)
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-sm cursor-pointer"
