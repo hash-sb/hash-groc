@@ -82,7 +82,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -144,7 +144,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -206,7 +206,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -252,7 +252,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -314,7 +314,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -360,7 +360,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -406,7 +406,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -866,7 +866,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1004,7 +1004,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1096,7 +1096,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1188,7 +1188,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1234,7 +1234,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1372,7 +1372,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1418,7 +1418,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1526,7 +1526,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1634,7 +1634,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -1772,7 +1772,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -2002,7 +2002,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -2064,7 +2064,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -2126,7 +2126,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -2188,7 +2188,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -2280,7 +2280,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -2434,7 +2434,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -2618,7 +2618,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -2710,7 +2710,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -3048,7 +3048,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
@@ -3922,7 +3922,7 @@ export const INITIAL_ITEMS: ShoppingItem[] = [
     "unit": "",
     "isNeeded": false,
     "inCart": false,
-    "isWeekly": true,
+    "isWeekly": false,
     "shops": {
       "aldi": {
         "available": true,
