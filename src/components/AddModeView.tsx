@@ -390,13 +390,14 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           <button
             onClick={() => setActiveTab('weekly')}
             title={`Weekly: Items consumed weekly (${weeklyCount} items)`}
+            aria-label="Weekly staples"
             className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
               activeTab === 'weekly'
                 ? 'bg-teal-700 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <span>Weekly</span>
+            <Repeat className="w-3.5 h-3.5" />
             <span
               className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
                 activeTab === 'weekly'
