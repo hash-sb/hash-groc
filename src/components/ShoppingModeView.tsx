@@ -13,7 +13,6 @@ import {
   PartyPopper,
   PackageOpen,
   ArrowRight,
-  ArrowLeft,
   DollarSign,
   Plus,
   Minus,
@@ -62,7 +61,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     setSelectedShopId,
     saveMode,
     setSaveMode,
-    moveShopOrder,
     items,
     updateItem,
     toggleInCart,
@@ -74,6 +72,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [showUnavailableDrawer, setShowUnavailableDrawer] = useState<boolean>(false)
   const [showTripSummary, setShowTripSummary] = useState<boolean>(false)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
+  const [itemMenuModal, setItemMenuModal] = useState<ShoppingItem | null>(null)
 
   // View Options Popover (Menu)
   const [showOptionsPopover, setShowOptionsPopover] = useState<boolean>(false)
@@ -659,48 +658,65 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   return (
     <div className="pb-32 pt-3 max-w-4xl mx-auto px-3 sm:px-6">
-      {/* 1. Trip Planner: Reorderable Store Tabs */}
-      <div className="mb-4">
+      {/* 1. Store Stops Bar & Quick Controls */}
+      <div className="mb-3">
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Store className="w-4 h-4 text-emerald-600" />
-              <span>Trip Plan / Store Stops</span>
+              <span>Store Stops</span>
             </label>
             {hideEmptyStores && hiddenCount > 0 && (
               <span className="text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-full">
-                {visibleShops.length} of {shops.length} stops
+                {visibleShops.length} of {shops.length}
               </span>
             )}
           </div>
 
-          {/* Option: Hide stores without items to shop */}
-          <button
-            type="button"
-            onClick={() => setHideEmptyStores((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold transition border ${
-              hideEmptyStores
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-            title="Toggle hiding stores without any items to shop"
-          >
-            {hideEmptyStores ? (
-              <EyeOff className="w-3.5 h-3.5 text-emerald-600" />
-            ) : (
-              <Eye className="w-3.5 h-3.5 text-slate-400" />
-            )}
-            <span>Hide empty stores</span>
-            {hideEmptyStores && hiddenCount > 0 && (
-              <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded-full font-bold">
-                {hiddenCount}
-              </span>
-            )}
-          </button>
+          {/* Quick Header Micro-Chips: Save Mode & Hide Empty */}
+          <div className="flex items-center gap-1.5">
+            {/* Save Mode Micro-Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15)
+                setSaveMode((prev) => !prev)
+              }}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition border ${
+                saveMode
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Save Mode: Only show items cheapest at this store"
+            >
+              <Zap className={`w-3.5 h-3.5 ${saveMode ? 'text-amber-300 fill-amber-300' : 'text-slate-400'}`} />
+              <span>Best Prices Only</span>
+            </button>
+
+            {/* Hide Empty Stores Toggle */}
+            <button
+              type="button"
+              onClick={() => setHideEmptyStores((prev) => !prev)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-semibold transition border ${
+                hideEmptyStores
+                  ? 'bg-slate-800 text-white border-slate-800 shadow-2xs'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Toggle hiding stores without any items to shop"
+            >
+              {hideEmptyStores ? (
+                <EyeOff className="w-3.5 h-3.5" />
+              ) : (
+                <Eye className="w-3.5 h-3.5 text-slate-400" />
+              )}
+              <span>Hide empty</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-          {visibleShops.map((shop, index) => {
+        {/* Store Tabs (Clean, swipeable pills) */}
+        <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar">
+          {visibleShops.map((shop) => {
             const isSelected = shop.id === currentShop.id
             const count = getShopItemCount(shop.id)
             const pickedCount = allNeededItems.filter((item) => {
@@ -713,195 +729,73 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             const isFullyPicked = count > 0 && pickedCount === count
 
             return (
-              <div
+              <button
                 key={shop.id}
-                className={`flex items-center rounded-2xl border shrink-0 transition-all ${
+                onClick={() => setSelectedShopId(shop.id)}
+                className={`px-3 py-1.5 rounded-xl border shrink-0 transition-all text-left flex items-center gap-2 ${
                   isSelected
-                    ? 'border-emerald-500 bg-emerald-50/90 text-emerald-950 font-bold shadow-xs ring-2 ring-emerald-500/20'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-xs ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                {/* Left/Right Reordering Controls (Requirement 7) */}
-                <div className="flex flex-col border-r border-slate-200/80 p-0.5">
-                  <button
-                    disabled={index === 0}
-                    onClick={() => moveShopOrder(shop.id, 'left', visibleShops[index - 1]?.id)}
-                    className="p-1 text-slate-400 hover:text-slate-800 disabled:opacity-20 transition"
-                    title="Move stop earlier in trip"
-                  >
-                    <ArrowLeft className="w-3 h-3" />
-                  </button>
-                  <button
-                    disabled={index === visibleShops.length - 1}
-                    onClick={() => moveShopOrder(shop.id, 'right', visibleShops[index + 1]?.id)}
-                    className="p-1 text-slate-400 hover:text-slate-800 disabled:opacity-20 transition"
-                    title="Move stop later in trip"
-                  >
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {/* Main Store Tab Click Target */}
-                <button
-                  onClick={() => setSelectedShopId(shop.id)}
-                  className="px-3.5 py-2.5 text-left flex items-center gap-2.5"
-                >
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded">
-                        Stop {index + 1}
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold tracking-tight">{shop.name}</span>
+                  <div className="text-[10px] text-slate-500">
+                    {isFullyPicked ? (
+                      <span className="text-emerald-700 font-semibold">✓ Done ({count})</span>
+                    ) : (
+                      <span>
+                        {count} {count === 1 ? 'item' : 'items'}
                       </span>
-                      <span className="text-sm font-bold tracking-tight">{shop.name}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      {isFullyPicked ? (
-                        <span className="text-emerald-700 font-semibold">✓ All {count} picked</span>
-                      ) : (
-                        <span>
-                          {count} {count === 1 ? 'item' : 'items'} to buy
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
-                </button>
-              </div>
+                </div>
+              </button>
             )
           })}
 
           <button
             onClick={onOpenStoreModal}
-            className="flex items-center gap-1 px-3 py-2.5 rounded-2xl border border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-white/50 shrink-0 text-xs font-semibold transition"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-white/50 shrink-0 text-xs font-semibold transition"
+            title="Manage stores"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Stores</span>
+            <span>Store</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Save Mode Toggle Banner (Requirement 6) */}
-      <div className="mb-4 p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-300 flex items-center justify-between gap-3 shadow-2xs">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div
-            className={`p-2 rounded-xl text-white ${
-              saveMode ? 'bg-emerald-600 shadow-sm' : 'bg-slate-400'
-            }`}
-          >
-            <Zap className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-900">
-                Save Mode {saveMode ? '(Active)' : '(Off)'}
-              </span>
-              {saveMode && (
-                <span className="text-[10px] font-extrabold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full uppercase">
-                  Best Prices Only
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-slate-600 leading-tight">
-              {saveMode
-                ? `Only showing items cheapest at ${currentShop.name}. Items cheaper elsewhere are hidden for other stops.`
-                : `Showing all items available at ${currentShop.name}, even if cheaper at another store.`}
-            </p>
-          </div>
-        </div>
-
-        {/* Toggle switch */}
-        <label className="relative inline-flex items-center cursor-pointer shrink-0">
-          <input
-            type="checkbox"
-            checked={saveMode}
-            onChange={(e) => setSaveMode(e.target.checked)}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-        </label>
-      </div>
-
-      {/* Save Mode Notice when items are moved to other stores */}
+      {/* Save Mode 1-line Hint when items are hidden */}
       {saveMode && savedForOtherStores.length > 0 && (
-        <div className="mb-4 p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-center justify-between">
+        <div className="mb-3 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200/70 text-xs text-indigo-900 flex items-center justify-between">
           <span className="text-[11px]">
-            💡 <strong>{savedForOtherStores.length}</strong> {savedForOtherStores.length === 1 ? 'item was' : 'items were'} cheaper at other stops and {savedForOtherStores.length === 1 ? 'is' : 'are'} hidden here for maximum family savings.
+            💡 <strong>{savedForOtherStores.length}</strong> {savedForOtherStores.length === 1 ? 'item was' : 'items were'} cheaper elsewhere and hidden here.
           </span>
           <button
             onClick={() => setSaveMode(false)}
-            className="text-[11px] font-bold underline text-indigo-700 hover:text-indigo-900 shrink-0 ml-2"
+            className="text-[11px] font-bold underline text-indigo-700 hover:text-indigo-900 shrink-0 ml-2 cursor-pointer"
           >
             Show All
           </button>
         </div>
       )}
 
-      {/* 3. Running Total Summary Card */}
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-4 sm:p-5 shadow-lg mb-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="text-xs font-medium text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <span>Running Cart Total</span>
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            </div>
-            <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mt-0.5">
-              {formatPrice(cartTotal)}
-            </div>
-            <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
-              <span>Remaining: {formatPrice(remainingTotal)}</span>
-              <span>•</span>
-              <span>Trip Est: {formatPrice(tripEstimatedTotal)}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:items-end gap-1.5">
-            <div className="text-xs font-medium text-slate-300">
-              Cart Progress:{' '}
-              <span className="font-bold text-white">
-                {cartItems.length} of {availableItems.length}
-              </span>{' '}
-              picked
-            </div>
-            <div className="w-40 sm:w-52 h-2.5 bg-slate-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-400 transition-all duration-300 rounded-full"
-                style={{
-                  width: `${
-                    availableItems.length > 0
-                      ? Math.round((cartItems.length / availableItems.length) * 100)
-                      : 0
-                  }%`,
-                }}
-              />
-            </div>
-            {estimatedSavings > 0 && (
-              <div className="flex items-center gap-1 text-[11px] text-emerald-300 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>Saving ~{formatPrice(estimatedSavings)} vs other stores!</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Items Not Carried at this Store Banner */}
+      {/* Items Not Carried at this Store Banner (Compact) */}
       {unavailableItems.length > 0 && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start justify-between gap-3 shadow-xs">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-semibold">
-                {unavailableItems.length}{' '}
-                {unavailableItems.length === 1 ? 'item is' : 'items are'} not carried at{' '}
-                {currentShop.name}:
-              </span>{' '}
+        <div className="mb-3 bg-amber-50/90 border border-amber-200/80 rounded-xl px-3 py-2 text-xs text-amber-900 flex items-center justify-between gap-2 shadow-2xs">
+          <div className="flex items-center gap-2 min-w-0 truncate">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="truncate">
+              <strong>{unavailableItems.length}</strong> {unavailableItems.length === 1 ? 'item not' : 'items not'} carried here:{' '}
               <span className="text-amber-800">
-                {unavailableItems.map((i) => i.name).slice(0, 3).join(', ')}
-                {unavailableItems.length > 3 && ` +${unavailableItems.length - 3} more`}
+                {unavailableItems.map((i) => i.name).slice(0, 2).join(', ')}
+                {unavailableItems.length > 2 && ` +${unavailableItems.length - 2} more`}
               </span>
-            </div>
+            </span>
           </div>
           <button
             onClick={() => setShowUnavailableDrawer(!showUnavailableDrawer)}
-            className="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline shrink-0"
+            className="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline shrink-0 ml-1 cursor-pointer"
           >
             {showUnavailableDrawer ? 'Hide' : 'View'}
           </button>
@@ -1169,25 +1063,33 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               <div
                 key={location}
                 id={`aisle-section-${encodeURIComponent(location)}`}
-                className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden transition-all scroll-mt-24"
+                className={`rounded-2xl border transition-all scroll-mt-24 overflow-hidden ${
+                  isAllPickedInAisle
+                    ? 'bg-slate-50/50 border-slate-200/60 opacity-80'
+                    : 'bg-white border-slate-200 shadow-xs'
+                }`}
               >
                 {/* Location / Aisle Category Header */}
                 <button
                   onClick={() => toggleSectionCollapse(location)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-slate-50/80 border-b border-slate-100 hover:bg-slate-100/80 transition text-left"
+                  className={`w-full flex items-center justify-between px-4 py-2.5 transition text-left cursor-pointer ${
+                    isAllPickedInAisle
+                      ? 'bg-slate-50/50 hover:bg-slate-100/50 text-slate-500'
+                      : 'bg-slate-50/80 hover:bg-slate-100/80 border-b border-slate-100 text-slate-900'
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <div
                       className={`p-1.5 rounded-lg ${
                         isAllPickedInAisle
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-emerald-100/80 text-emerald-800'
                           : 'bg-emerald-50 text-emerald-700'
                       }`}
                     >
                       <MapPin className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-slate-900 tracking-tight">
+                      <span className="text-xs font-bold tracking-tight">
                         {location}
                       </span>
                       {isAllPickedInAisle ? (
@@ -1195,7 +1097,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                           ✓ All {totalCount} picked
                         </span>
                       ) : (
-                        <span className="text-[11px] text-slate-500 ml-2">
+                        <span className="text-[11px] text-slate-500 ml-2 font-medium">
                           ({totalCount - pickedCount} to pick • {totalCount} total)
                         </span>
                       )}
@@ -1227,17 +1129,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       return (
                         <div
                           key={item.id}
-                          className={`p-3.5 sm:p-4 transition flex items-center justify-between gap-3 ${
+                          className={`p-3 sm:p-3.5 transition flex items-center justify-between gap-3 ${
                             isPicked
                               ? 'bg-slate-50/70 hover:bg-slate-100/70'
                               : 'hover:bg-slate-50/60 bg-white'
                           }`}
                         >
                           {/* Left: Checkbox & Item details */}
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             <button
+                              type="button"
                               onClick={() => handleToggleInCart(item.id)}
-                              className="transition shrink-0 mt-0.5 cursor-pointer"
+                              className="transition shrink-0 cursor-pointer p-0.5 active:scale-90"
                               title={isPicked ? 'Mark as unpicked' : 'Mark as picked into cart'}
                             >
                               {isPicked ? (
@@ -1248,10 +1151,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             </button>
 
                             <div className="min-w-0 flex-1">
-                              {/* Row 1: Item Name, Best Price badge, Cheaper elsewhere tag, Action icons */}
+                              {/* Row 1: Item Name, Best Price badge, Cheaper elsewhere tag */}
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span
-                                  className={`text-sm tracking-tight ${
+                                  onClick={() => handleToggleInCart(item.id)}
+                                  className={`text-sm tracking-tight cursor-pointer select-none ${
                                     isPicked
                                       ? 'line-through text-slate-400 font-medium'
                                       : 'text-slate-900 font-bold'
@@ -1263,20 +1167,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 {/* Inline Price Comparison Micro-Chips */}
                                 {comp.isBestPriceHere && (
                                   <span
-                                    className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md transition ${
+                                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.2 rounded-md transition ${
                                       isPicked
                                         ? 'bg-slate-100 text-slate-400 line-through'
                                         : 'bg-emerald-100/70 text-emerald-800'
                                     }`}
                                   >
-                                    <Sparkles className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-emerald-600'}`} />
+                                    <Sparkles className={`w-2.5 h-2.5 shrink-0 ${isPicked ? 'text-slate-400' : 'text-emerald-600'}`} />
                                     <span>Best Price</span>
                                   </span>
                                 )}
 
                                 {comp.isCheaperElsewhere && comp.cheapestShop && (
                                   <span
-                                    className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md transition ${
+                                    className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.2 rounded-md transition ${
                                       isPicked
                                         ? 'bg-slate-100 text-slate-400 line-through'
                                         : 'bg-rose-100/70 text-rose-800'
@@ -1287,82 +1191,33 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                         : formatPrice(comp.cheapestFulfillmentCost)
                                     }`}
                                   >
-                                    <TrendingDown className={`w-3 h-3 shrink-0 ${isPicked ? 'text-slate-400' : 'text-rose-600'}`} />
-                                    <span>
-                                      {comp.cheapestShop.name}:{' '}
-                                      {comp.cheapestUnitPrice
-                                        ? formatUnitPrice(
-                                            comp.cheapestUnitPrice,
-                                            comp.cheapestPackageUnit || item.shops[comp.cheapestShop.id]?.packageUnit
-                                          )
-                                        : formatPrice(comp.cheapestFulfillmentCost || comp.cheapestPrice)}
-                                    </span>
+                                    <TrendingDown className={`w-2.5 h-2.5 shrink-0 ${isPicked ? 'text-slate-400' : 'text-rose-600'}`} />
+                                    <span>{comp.cheapestShop.name}</span>
                                   </span>
                                 )}
-
-                                <div className="inline-flex items-center gap-0.5 ml-auto sm:ml-0">
-                                  <button
-                                    onClick={() => onEditItem(item, currentShop.id)}
-                                    className="text-slate-400 hover:text-emerald-700 p-0.5 rounded transition cursor-pointer"
-                                    title="Edit item / aisles"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      triggerHaptic(15)
-                                      setOutOfStockItem(item)
-                                    }}
-                                    className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition cursor-pointer"
-                                    title="Out of stock? Shift to another store stop or exclude"
-                                  >
-                                    <PackageX className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
                               </div>
 
-                              {/* Row 2: In-Store Shopping Controls (Quantity Stepper + Size Selector) */}
-                              <div className="flex items-center gap-2 flex-wrap mt-1.5">
-                                {/* Quantity Stepper */}
-                                <div className="inline-flex items-center bg-slate-100 hover:bg-slate-200/60 rounded-lg p-0.5 border border-slate-200/90 transition shadow-2xs">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateItemQuantity(item, packsNeeded - 1)}
-                                    disabled={packsNeeded <= 1}
-                                    className={`w-6 h-6 flex items-center justify-center rounded-md transition ${
-                                      packsNeeded <= 1
-                                        ? 'text-slate-300 cursor-not-allowed'
-                                        : 'text-slate-700 hover:text-slate-900 hover:bg-white active:scale-90 shadow-2xs cursor-pointer'
-                                    }`}
-                                    title="Decrease quantity"
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
+                              {/* Row 2: Clean Quantity & Size Pills */}
+                              <div className="flex items-center gap-2 flex-wrap mt-1">
+                                {/* Quantity Pill (tap to quick-change) */}
+                                <button
+                                  type="button"
+                                  onClick={() => setQuickQuantityItem({ item, currentQty: packsNeeded })}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border transition cursor-pointer active:scale-95 ${
+                                    isPicked
+                                      ? 'bg-slate-100 text-slate-400 border-slate-200/60'
+                                      : 'bg-slate-100 hover:bg-slate-200/80 text-slate-800 border-slate-200'
+                                  }`}
+                                  title="Tap to change quantity"
+                                >
+                                  <span className="font-bold font-mono">{packsNeeded}</span>
+                                  <span className="text-[11px] font-normal text-slate-600">
+                                    {displaySize ? (packsNeeded === 1 ? 'pack' : 'packs') : item.unit}
+                                  </span>
+                                  <ChevronDown className="w-2.5 h-2.5 text-slate-400 ml-0.5" />
+                                </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => setQuickQuantityItem({ item, currentQty: packsNeeded })}
-                                    className="px-2 py-0.5 text-xs font-black font-mono text-slate-800 hover:bg-white/80 rounded transition cursor-pointer"
-                                    title="Tap to change quantity"
-                                  >
-                                    {packsNeeded}{' '}
-                                    <span className="font-normal font-sans text-slate-600 text-[11px]">
-                                      {displaySize ? (packsNeeded === 1 ? 'pack' : 'packs') : item.unit}
-                                    </span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateItemQuantity(item, packsNeeded + 1)}
-                                    className="w-6 h-6 flex items-center justify-center rounded-md text-slate-700 hover:text-slate-900 hover:bg-white active:scale-90 transition shadow-2xs cursor-pointer"
-                                    title="Increase quantity"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                </div>
-
-                                {/* Size Selector Button */}
+                                {/* Size Pill (if multiple options or specific package) */}
                                 {optResult.hasMultipleOptions ? (
                                   <button
                                     type="button"
@@ -1374,61 +1229,49 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                         activeOptId: activeOpt.id,
                                       })
                                     }
-                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition shadow-2xs cursor-pointer active:scale-95 ${
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border transition cursor-pointer active:scale-95 ${
                                       isPicked
-                                        ? 'bg-slate-100 text-slate-500 border-slate-200'
+                                        ? 'bg-slate-100 text-slate-400 border-slate-200/60'
                                         : activeOpt.id === bestOpt.id
                                         ? 'bg-indigo-50/90 hover:bg-indigo-100 text-indigo-900 border-indigo-200'
                                         : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200'
                                     }`}
-                                    title="Tap to switch package size at this store"
+                                    title="Tap to switch package size"
                                   >
-                                    <Layers className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                    <Layers className="w-3 h-3 text-indigo-600 shrink-0" />
                                     <span>{activeOpt.label || `${activeOpt.packageSize} ${activeOpt.packageUnit}`}</span>
-                                    <span className="font-mono opacity-90 font-extrabold">{formatPrice(activeOpt.price)}</span>
-                                    {activeOpt.id === bestOpt.id ? (
-                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-600 text-white tracking-tight uppercase">
-                                        Best Price
-                                      </span>
-                                    ) : (
-                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-200 text-amber-900">
-                                        Selected
-                                      </span>
-                                    )}
-                                    <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />
+                                    <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0 ml-0.5" />
                                   </button>
                                 ) : displaySize && (displaySize !== item.quantity || displayUnit !== item.unit) ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/60">
-                                    <span>
-                                      {displaySize} {displayUnit}
-                                    </span>
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200/60">
+                                    <span>{displaySize} {displayUnit}</span>
                                     {activeOpt.label ? <span className="text-slate-400">• {activeOpt.label}</span> : null}
                                   </span>
                                 ) : null}
-                              </div>
 
-                              {item.notes && (
-                                <p
-                                  className={`text-xs mt-1 italic ${
-                                    isPicked ? 'text-slate-400 line-through' : 'text-slate-500'
-                                  }`}
-                                >
-                                  {item.notes}
-                                </p>
-                              )}
+                                {item.notes && (
+                                  <span
+                                    className={`text-[11px] italic truncate max-w-[150px] ${
+                                      isPicked ? 'text-slate-400 line-through' : 'text-slate-500'
+                                    }`}
+                                    title={item.notes}
+                                  >
+                                    {item.notes}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          {/* Right: Price box */}
-                          <div className={`shrink-0 flex items-center gap-2 ${isPicked ? 'opacity-70' : ''}`}>
+                          {/* Right: Price box & 3-dot item menu */}
+                          <div className={`shrink-0 flex items-center gap-1 sm:gap-2 ${isPicked ? 'opacity-60' : ''}`}>
                             <button
                               type="button"
                               onClick={() => openPriceCalculator(item)}
-                              className="group flex flex-col items-end px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 active:scale-95 transition text-right shadow-2xs cursor-pointer"
-                              title="Tap to update price or calculate produce scale weight"
+                              className="group flex flex-col items-end px-2 py-1 rounded-xl border border-transparent hover:border-emerald-300 hover:bg-emerald-50/40 active:scale-95 transition text-right cursor-pointer"
+                              title="Tap to update price or weigh produce"
                             >
-                              {/* Top line: Total cost */}
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1">
                                 <span
                                   className={`text-sm font-extrabold tracking-tight ${
                                     isPicked ? 'line-through text-slate-400' : 'text-slate-900'
@@ -1436,22 +1279,33 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 >
                                   {formatPrice(totalItemPrice)}
                                 </span>
-                                <Calculator className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition" />
+                                <Calculator className="w-3 h-3 text-slate-300 group-hover:text-emerald-600 transition" />
                               </div>
 
-                              {/* Second line: Price per item when packsNeeded > 1 */}
                               {packsNeeded > 1 && itemUnitPrice !== null && (
-                                <div className="text-[10px] text-slate-500 font-medium">
+                                <div className="text-[10px] text-slate-400 font-medium">
                                   ({packsNeeded} × {formatPrice(itemUnitPrice)})
                                 </div>
                               )}
 
-                              {/* Normalized package unit price if present */}
                               {(activeOpt.unitPrice || shopDetail?.unitPrice) && (
-                                <div className="text-[9px] text-indigo-700 font-mono font-medium">
+                                <div className="text-[9px] text-indigo-700/80 font-mono font-medium">
                                   {formatUnitPrice(activeOpt.unitPrice || shopDetail?.unitPrice, activeOpt.packageUnit || shopDetail?.packageUnit)}
                                 </div>
                               )}
+                            </button>
+
+                            {/* 3-Dot Item Actions Menu */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                triggerHaptic(15)
+                                setItemMenuModal(item)
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                              title="Item actions (Edit, Out of stock)"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -1466,21 +1320,33 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       )}
 
       {/* 6. Sticky Bottom Summary Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 sm:p-4 z-20 shadow-xl">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2.5 sm:px-6 sm:py-3 z-20 shadow-xl">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
               <DollarSign className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wider font-bold text-slate-400">
-                In Cart Total
-              </div>
-              <div className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
-                {formatPrice(cartTotal)}{' '}
-                <span className="text-xs font-normal text-slate-500">
-                  ({cartItems.length}/{availableItems.length} picked)
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+                  {formatPrice(cartTotal)}
                 </span>
+                <span className="text-xs font-semibold text-slate-500">
+                  ({cartItems.length} of {availableItems.length} picked)
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400 flex items-center gap-1.5 flex-wrap">
+                <span>Left: {formatPrice(remainingTotal)}</span>
+                <span>•</span>
+                <span>Trip: {formatPrice(tripEstimatedTotal)}</span>
+                {estimatedSavings > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-emerald-700 font-semibold">
+                      Save {formatPrice(estimatedSavings)}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1488,9 +1354,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           <button
             onClick={handleFinishTrip}
             disabled={cartItems.length === 0}
-            className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-md ${
+            className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-md shrink-0 ${
               cartItems.length > 0
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-95 cursor-pointer'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
             }`}
           >
@@ -2336,6 +2202,75 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-sm cursor-pointer"
               >
                 Apply Quantity
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Item Actions Mini Modal / Action Sheet */}
+      {itemMenuModal && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in"
+          onClick={() => setItemMenuModal(null)}
+        >
+          <div
+            className="bg-white w-full sm:max-w-xs rounded-t-2xl sm:rounded-2xl p-4 shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-2">
+              <div className="min-w-0 pr-2">
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Item Actions</div>
+                <div className="font-bold text-sm text-slate-900 truncate">{itemMenuModal.name}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setItemMenuModal(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const it = itemMenuModal
+                  setItemMenuModal(null)
+                  onEditItem(it, currentShop.id)
+                }}
+                className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+              >
+                <Edit2 className="w-4 h-4 text-emerald-600" />
+                <span>Edit Item & Aisles</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const it = itemMenuModal
+                  setItemMenuModal(null)
+                  triggerHaptic(15)
+                  setOutOfStockItem(it)
+                }}
+                className="w-full px-3 py-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+              >
+                <PackageX className="w-4 h-4 text-rose-500" />
+                <span>Mark Out of Stock / Move Stop</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const it = itemMenuModal
+                  setItemMenuModal(null)
+                  openPriceCalculator(it)
+                }}
+                className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+              >
+                <Calculator className="w-4 h-4 text-indigo-600" />
+                <span>Price & Produce Scale Calculator</span>
               </button>
             </div>
           </div>
