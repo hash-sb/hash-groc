@@ -5,7 +5,7 @@ import {
   Check,
   Search,
   ShoppingBag,
-  MoreHorizontal,
+  MoreVertical,
   ArrowDownWideNarrow,
   SlidersHorizontal,
   Lock,
@@ -46,8 +46,9 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'needed' | 'weekly'>('all')
   const [quickInput, setQuickInput] = useState('')
-  const [showQuickOptions, setShowQuickOptions] = useState<boolean>(false)
-  const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
+  const [quickCategory, setQuickCategory] = useState<string>(() => {
+    return categories.find((c) => c.toLowerCase() === 'other') || 'Other'
+  })
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
   const [templateSavedFeedback, setTemplateSavedFeedback] = useState(false)
   const [isWeeklyManagerOpen, setIsWeeklyManagerOpen] = useState(false)
@@ -63,6 +64,12 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     return localStorage.getItem('hash_groc_lock_items') === 'true'
   })
   const [showOptionsPopover, setShowOptionsPopover] = useState<boolean>(false)
+
+  // Category options guaranteeing 'Other' is present
+  const categoryOptions = useMemo(() => {
+    if (categories.some((c) => c.toLowerCase() === 'other')) return categories
+    return [...categories, 'Other']
+  }, [categories])
 
   // Calculator modal for list mode quantity editing
   const [calcItem, setCalcItem] = useState<ShoppingItem | null>(null)
@@ -164,6 +171,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     triggerHaptic(30)
     // If already exists in catalog, update existing item to needed rather than duplicating
     const existing = items.find((i) => i.name.trim().toLowerCase() === trimmed.toLowerCase())
+    const categoryToUse = quickCategory || 'Other'
     if (existing) {
       const newQty = existing.isNeeded
         ? (existing.quantity || 1) + quickQuantity
@@ -173,11 +181,12 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         quantity: newQty,
       })
     } else {
-      await quickAddItem(trimmed, quickCategory, quickQuantity)
+      await quickAddItem(trimmed, categoryToUse, quickQuantity)
     }
 
     setQuickInput('')
     setQuickQuantity(1)
+    setQuickCategory(categories.find((c) => c.toLowerCase() === 'other') || 'Other')
   }
 
   const handleSelectWeekly = async (resetOthers: boolean = false) => {
@@ -250,98 +259,72 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
   return (
     <div className="pb-28 pt-3 max-w-2xl mx-auto px-3 sm:px-4">
-      {/* 1. Quick Add Bar: Item Name & Quick Add Button (with Collapsible Details) */}
-      <form onSubmit={handleQuickAdd} className="mb-4 bg-white border border-slate-300 rounded-2xl p-2 sm:p-2.5 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition">
-        {/* Top: Name Input + Details Toggle + Add Button */}
-        <div className="flex items-center gap-2">
+      {/* 1. Quick Add Bar: Single Line with Quantity & Category */}
+      <form onSubmit={handleQuickAdd} className="mb-4 bg-white border border-slate-300 rounded-2xl p-1.5 sm:p-2 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Item Name Input */}
           <input
             type="text"
-            placeholder="Add an item to buy (e.g. Milk, Bananas)..."
+            placeholder="Add an item to buy..."
             value={quickInput}
             onChange={(e) => setQuickInput(e.target.value)}
-            className="flex-1 px-2.5 py-1 text-sm sm:text-base bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
+            className="flex-1 min-w-[90px] sm:min-w-[140px] px-2 py-1 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
           />
 
-          <button
-            type="button"
-            onClick={() => setShowQuickOptions(!showQuickOptions)}
-            className={`p-2 rounded-xl text-xs font-semibold transition border cursor-pointer ${
-              showQuickOptions
-                ? 'bg-slate-200 text-slate-800 border-slate-300'
-                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'
-            }`}
-            title="Configure quantity & category settings"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-          </button>
+          {/* Quantity Stepper (No label) */}
+          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs shrink-0">
+            <button
+              type="button"
+              onClick={() => setQuickQuantity((q) => Math.max(1, q - 1))}
+              className="w-6 sm:w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition cursor-pointer"
+              title="Decrease quantity"
+            >
+              <Minus className="w-3 h-3" />
+            </button>
 
+            <button
+              type="button"
+              onClick={() => setIsQuickAddCalcOpen(true)}
+              className="min-w-[20px] sm:min-w-[24px] px-1 text-center font-bold text-xs text-slate-800 hover:bg-slate-200/60 rounded transition cursor-pointer select-none"
+              title="Click to set quantity with calculator"
+            >
+              {quickQuantity}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setQuickQuantity((q) => q + 1)}
+              className="w-6 sm:w-7 h-7 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition cursor-pointer"
+              title="Increase quantity"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* Category Dropdown (No label, defaults to Other) */}
+          <select
+            value={quickCategory}
+            onChange={(e) => setQuickCategory(e.target.value)}
+            className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-1.5 sm:px-2 py-1.5 font-semibold text-slate-700 outline-none max-w-[85px] sm:max-w-[130px] truncate shrink-0 cursor-pointer"
+            title="Category"
+          >
+            {categoryOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+
+          {/* Add Button */}
           <button
             type="submit"
             disabled={!quickInput.trim()}
-            className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl transition flex items-center justify-center shadow-xs shrink-0 cursor-pointer active:scale-95"
+            className="w-8 h-8 sm:w-9 sm:h-9 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl transition flex items-center justify-center shadow-xs shrink-0 cursor-pointer active:scale-95"
             title="Add item to list"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>
-
-        {/* Collapsible Options Row: Quantity Stepper and Category */}
-        {showQuickOptions && (
-          <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs animate-in fade-in duration-150">
-            {/* Quantity Stepper */}
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-                Qty:
-              </span>
-              <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => setQuickQuantity((q) => Math.max(1, q - 1))}
-                  className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition"
-                  title="Decrease quantity"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAddCalcOpen(true)}
-                  className="min-w-[24px] px-1 text-center font-bold text-xs text-slate-800 hover:bg-slate-200/60 rounded transition cursor-pointer select-none"
-                  title="Click to set quantity with calculator"
-                >
-                  {quickQuantity}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setQuickQuantity((q) => q + 1)}
-                  className="w-7 h-7 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition"
-                  title="Increase quantity"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            {/* Category Selector */}
-            <div className="flex items-center gap-1 flex-1 min-w-[130px]">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-                Category:
-              </span>
-              <select
-                value={quickCategory}
-                onChange={(e) => setQuickCategory(e.target.value)}
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none truncate"
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
       </form>
 
       {/* Dismissible Feedback Banner */}
@@ -364,37 +347,37 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         </div>
       )}
 
-      {/* 3. Clean View Controls: All Items / To Buy / Weekly + Search + View Options */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        {/* Left: View Tabs (All Items vs To Buy vs Weekly) */}
-        <div className="flex bg-slate-200/80 p-1 rounded-xl shrink-0 overflow-x-auto max-w-full">
+      {/* 3. Clean View Controls: All / Buy / Weekly + Search + View Options (Single Line on All Screens) */}
+      <div className="flex items-center justify-between gap-1 sm:gap-2 mb-3">
+        {/* Left: View Tabs (All vs Buy vs Weekly) */}
+        <div className="flex bg-slate-200/80 p-0.5 sm:p-1 rounded-xl shrink-0 gap-0.5">
           <button
             onClick={() => setActiveTab('all')}
-            title={`All Items: Master pantry catalog (${totalCount} total items)`}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            title={`All: Master pantry catalog (${totalCount} total items)`}
+            className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
               activeTab === 'all'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <span>All Items</span>
-            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-bold">
+            <span>All</span>
+            <span className="text-[10px] bg-slate-100 text-slate-600 px-1 py-0.2 rounded-full font-bold">
               {totalCount}
             </span>
           </button>
 
           <button
             onClick={() => setActiveTab('needed')}
-            title={`To Buy: Active shopping list (${neededCount} items needed)`}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            title={`Buy: Active shopping list (${neededCount} items needed)`}
+            className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
               activeTab === 'needed'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <span>To Buy</span>
+            <span>Buy</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
                 activeTab === 'needed'
                   ? 'bg-white/25 text-white'
                   : 'bg-emerald-100 text-emerald-800'
@@ -406,17 +389,16 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
           <button
             onClick={() => setActiveTab('weekly')}
-            title={`Weekly Staples: Items consumed weekly (${weeklyCount} items)`}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            title={`Weekly: Items consumed weekly (${weeklyCount} items)`}
+            className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
               activeTab === 'weekly'
                 ? 'bg-teal-700 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Repeat className="w-3 h-3" />
             <span>Weekly</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
                 activeTab === 'weekly'
                   ? 'bg-white/25 text-white'
                   : 'bg-teal-100 text-teal-800'
@@ -427,25 +409,25 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           </button>
         </div>
 
-        {/* Right: Compact Search & Subtle '···' View Options Icon */}
-        <div className="flex items-center gap-1.5">
-          <div className="relative w-28 sm:w-36">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
+        {/* Right: Search & Vertical 3-Dot Options Button */}
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0 justify-end">
+          <div className="relative flex-1 min-w-[60px] max-w-[120px] sm:max-w-[160px]">
+            <Search className="w-3.5 h-3.5 absolute left-2 top-2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-2 py-1 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full pl-6.5 sm:pl-7 pr-2 py-1 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
           </div>
 
-          {/* Subtle '···' View Options Button & Dropdown */}
-          <div className="relative" ref={popoverRef}>
+          {/* 3 Vertical Dots View Options Button & Dropdown */}
+          <div className="relative shrink-0" ref={popoverRef}>
             <button
               type="button"
               onClick={() => setShowOptionsPopover(!showOptionsPopover)}
-              className={`p-1.5 rounded-xl border transition shadow-2xs flex items-center gap-1 cursor-pointer ${
+              className={`p-1.5 rounded-xl border transition shadow-2xs flex items-center justify-center cursor-pointer ${
                 showOptionsPopover || isLockedItems
                   ? 'border-amber-400 bg-amber-50 text-amber-800'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
@@ -455,7 +437,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
               {isLockedItems ? (
                 <Lock className="w-3.5 h-3.5 text-amber-600" />
               ) : (
-                <MoreHorizontal className="w-4 h-4" />
+                <MoreVertical className="w-4 h-4" />
               )}
             </button>
 

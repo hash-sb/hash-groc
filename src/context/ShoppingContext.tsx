@@ -612,7 +612,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const quickAddItem = async (
     name: string,
-    category = 'Produce',
+    category = 'Other',
     quantity = 1,
     unit = 'pieces'
   ) => {
