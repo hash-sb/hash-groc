@@ -71,21 +71,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const [itemMenuModal, setItemMenuModal] = useState<ShoppingItem | null>(null)
 
-  // View Options Popover (Menu)
+  // View Options Modal (Menu)
   const [showOptionsPopover, setShowOptionsPopover] = useState<boolean>(false)
-  const optionsPopoverRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (optionsPopoverRef.current && !optionsPopoverRef.current.contains(event.target as Node)) {
-        setShowOptionsPopover(false)
-      }
-    }
-    if (showOptionsPopover) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showOptionsPopover])
 
   // Option: Hide stores with 0 items to shop
   const [hideEmptyStores, setHideEmptyStores] = useState<boolean>(() => {
@@ -775,12 +762,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 </button>
               )}
 
-              {/* Subtle '···' View Options Button & Dropdown */}
-              <div className="relative" ref={optionsPopoverRef}>
+              {/* 3 Vertical Dots View Options Button & Modal */}
+              <div className="shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowOptionsPopover(!showOptionsPopover)}
-                  className={`p-1.5 rounded-xl border transition shadow-2xs flex items-center justify-center relative ${
+                  className={`p-1.5 rounded-xl border transition shadow-2xs flex items-center justify-center relative cursor-pointer ${
                     showOptionsPopover || hideCheckedItems || (keepScreenAwake && wakeLockActive)
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
                       : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
@@ -788,119 +775,166 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   title="Shopping View Options & Settings"
                   aria-label="Shopping View Options & Settings"
                 >
-                  <SlidersHorizontal className="w-4 h-4" />
+                  <MoreVertical className="w-4 h-4" />
                   {/* Subtle active badge dot if non-default option is set */}
                   {hideCheckedItems && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-600 rounded-full border-2 border-white" />
                   )}
                 </button>
 
-                {/* Dropdown Popover */}
+                {/* Modal Window Dialog (Similar to WeeklyManagerModal) */}
                 {showOptionsPopover && (
-                  <div className="absolute right-0 top-9 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 z-30 animate-in fade-in duration-150">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
-                      <SlidersHorizontal className="w-3 h-3 text-slate-400" />
-                      <span>Shopping View Options</span>
-                    </div>
-
-                    <div className="space-y-1">
-                      {/* Option 1: Keep Screen Awake */}
-                      <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs transition">
-                        <div className="flex items-center gap-2.5">
-                          {keepScreenAwake ? (
-                            <Sun className="w-4 h-4 text-amber-500 shrink-0" />
-                          ) : (
-                            <Moon className="w-4 h-4 text-slate-400 shrink-0" />
-                          )}
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+                    onClick={(e) => {
+                      if (e.target === e.currentTarget) setShowOptionsPopover(false)
+                    }}
+                  >
+                    <div className="relative bg-white rounded-3xl w-full max-w-md max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+                      {/* Header */}
+                      <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                            <SlidersHorizontal className="w-5 h-5" />
+                          </div>
                           <div>
-                            <div className="font-semibold text-slate-800">Keep Screen Awake</div>
-                            <div className="text-[10px] text-slate-400">
-                              {keepScreenAwake ? 'Screen stays on while shopping' : 'Standard phone sleep'}
-                            </div>
+                            <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
+                              Shopping View Options
+                            </h2>
+                            <p className="text-xs text-slate-500">
+                              In-store view and trip settings
+                            </p>
                           </div>
                         </div>
-                        <input
-                          type="checkbox"
-                          checked={keepScreenAwake}
-                          onChange={(e) => {
-                            triggerHaptic(15)
-                            setKeepScreenAwake(e.target.checked)
-                          }}
-                          className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 shrink-0 ml-2"
-                        />
-                      </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowOptionsPopover(false)}
+                          className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+                          title="Close"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
 
-                      {/* Option 2: Auto-collapse Done */}
-                      <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs transition">
-                        <div className="flex items-center gap-2.5">
-                          <ChevronUp className="w-4 h-4 text-blue-500 shrink-0" />
-                          <div>
-                            <div className="font-semibold text-slate-800">Auto-collapse Done</div>
-                            <div className="text-[10px] text-slate-400">
-                              Fold aisles once all items are picked
+                      {/* Scrollable Body */}
+                      <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5 flex-1">
+                        {/* Option 1: Keep Screen Awake */}
+                        <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                              {keepScreenAwake ? (
+                                <Sun className="w-4 h-4 text-amber-500 shrink-0" />
+                              ) : (
+                                <Moon className="w-4 h-4 text-slate-400 shrink-0" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-800">Keep Screen Awake</div>
+                              <div className="text-[10px] text-slate-400">
+                                {keepScreenAwake ? 'Screen stays on while shopping' : 'Standard phone sleep'}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={autoCollapseCompleted}
-                          onChange={(e) => {
-                            triggerHaptic(15)
-                            setAutoCollapseCompleted(e.target.checked)
-                          }}
-                          className="w-4 h-4 rounded text-blue-500 focus:ring-blue-400 accent-blue-500 shrink-0 ml-2"
-                        />
-                      </label>
+                          <input
+                            type="checkbox"
+                            checked={keepScreenAwake}
+                            onChange={(e) => {
+                              triggerHaptic(15)
+                              setKeepScreenAwake(e.target.checked)
+                            }}
+                            className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 shrink-0 ml-2 cursor-pointer"
+                          />
+                        </label>
 
-                      {/* Option 3: Checked at bottom */}
-                      <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs transition">
-                        <div className="flex items-center gap-2.5">
-                          <ArrowDownNarrowWide className="w-4 h-4 text-slate-600 shrink-0" />
-                          <div>
-                            <div className="font-semibold text-slate-800">Checked at bottom</div>
-                            <div className="text-[10px] text-slate-400">
-                              Sort crossed-off items to bottom
+                        {/* Option 2: Auto-collapse Done */}
+                        <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                              <ChevronUp className="w-4 h-4 text-blue-500 shrink-0" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-800">Auto-collapse Done</div>
+                              <div className="text-[10px] text-slate-400">
+                                Fold aisles once all items are picked
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={moveCheckedToBottom}
-                          onChange={(e) => {
-                            triggerHaptic(15)
-                            setMoveCheckedToBottom(e.target.checked)
-                          }}
-                          className="w-4 h-4 rounded text-slate-600 focus:ring-slate-500 accent-slate-600 shrink-0 ml-2"
-                        />
-                      </label>
+                          <input
+                            type="checkbox"
+                            checked={autoCollapseCompleted}
+                            onChange={(e) => {
+                              triggerHaptic(15)
+                              setAutoCollapseCompleted(e.target.checked)
+                            }}
+                            className="w-4 h-4 rounded text-blue-500 focus:ring-blue-400 accent-blue-500 shrink-0 ml-2 cursor-pointer"
+                          />
+                        </label>
 
-                      {/* Option 4: Hide checked */}
-                      <label className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer text-xs transition">
-                        <div className="flex items-center gap-2.5">
-                          {hideCheckedItems ? (
-                            <EyeOff className="w-4 h-4 text-emerald-600 shrink-0" />
-                          ) : (
-                            <Eye className="w-4 h-4 text-slate-400 shrink-0" />
-                          )}
-                          <div>
-                            <div className="font-semibold text-slate-800">Hide checked items</div>
-                            <div className="text-[10px] text-slate-400">
-                              {hideCheckedItems
-                                ? `Hidden (${cartItems.length} picked)`
-                                : 'Show all picked items'}
+                        {/* Option 3: Checked at bottom */}
+                        <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                              <ArrowDownNarrowWide className="w-4 h-4 text-slate-600 shrink-0" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-800">Checked at bottom</div>
+                              <div className="text-[10px] text-slate-400">
+                                Sort crossed-off items to bottom
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={hideCheckedItems}
-                          onChange={(e) => {
-                            triggerHaptic(15)
-                            setHideCheckedItems(e.target.checked)
-                          }}
-                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2"
-                        />
-                      </label>
+                          <input
+                            type="checkbox"
+                            checked={moveCheckedToBottom}
+                            onChange={(e) => {
+                              triggerHaptic(15)
+                              setMoveCheckedToBottom(e.target.checked)
+                            }}
+                            className="w-4 h-4 rounded text-slate-600 focus:ring-slate-500 accent-slate-600 shrink-0 ml-2 cursor-pointer"
+                          />
+                        </label>
+
+                        {/* Option 4: Hide checked */}
+                        <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                              {hideCheckedItems ? (
+                                <EyeOff className="w-4 h-4 text-emerald-600 shrink-0" />
+                              ) : (
+                                <Eye className="w-4 h-4 text-slate-400 shrink-0" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-800">Hide checked items</div>
+                              <div className="text-[10px] text-slate-400">
+                                {hideCheckedItems
+                                  ? `Hidden (${cartItems.length} picked)`
+                                  : 'Show all picked items'}
+                              </div>
+                            </div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={hideCheckedItems}
+                            onChange={(e) => {
+                              triggerHaptic(15)
+                              setHideCheckedItems(e.target.checked)
+                            }}
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2 cursor-pointer"
+                          />
+                        </label>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setShowOptionsPopover(false)}
+                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer"
+                        >
+                          Done
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

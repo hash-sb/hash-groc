@@ -22,6 +22,7 @@ import {
   getNormalizedUnitPrice,
   UNIT_GROUPS,
 } from '../utils/pricing'
+import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 
 interface ItemEditorModalProps {
   item?: ShoppingItem | null
@@ -114,7 +115,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   const [newCatInput, setNewCatInput] = useState('')
 
   // New Aisle Input State
-  const [isAddingNewAisle, setIsAddingNewAisle] = useState(false)
   const [newAisleInput, setNewAisleInput] = useState('')
 
   // Shop configurations: availability, price, location, packageSize, packageUnit per store
@@ -350,8 +350,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
     handleShopDetailChange(activeShop.id, { location: trimmed })
     setNewAisleInput('')
-    setIsAddingNewAisle(false)
-    setIsAisleDropdownOpen(false)
+    setIsAisleModalOpen(false)
   }
 
   const activeShop = shops.find((s) => s.id === activeTabShopId) || shops[0]
@@ -387,7 +386,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
   // Focus tracking for newly added alternative size
   const [focusOptionId, setFocusOptionId] = useState<string | null>(null)
-  const priceInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const priceButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   // On-demand label input visibility per size row (#1)
   const [showLabelInputMap, setShowLabelInputMap] = useState<Record<string, boolean>>({})
@@ -452,7 +451,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   const handleUpdateOption = (
     shopId: string,
     optionIndex: number,
-    patch: Partial<StorePackageOption>
+    patch: Partial<StorePackageOption> | { price?: number | null; packageSize?: number | null; label?: string }
   ) => {
     setShopDetails((prev) => {
       const existing = prev[shopId] || {
@@ -464,7 +463,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       if (optionIndex < 0 || optionIndex >= currentOptions.length) return prev
 
       const oldOpt = currentOptions[optionIndex]
-      const updatedOpt: StorePackageOption = { ...oldOpt, ...patch, packageUnit: commonUnit }
+      const updatedOpt: StorePackageOption = {
+        ...oldOpt,
+        ...(patch as Partial<StorePackageOption>),
+        packageUnit: commonUnit,
+      }
       if ('label' in patch) {
         updatedOpt.label = patch.label && patch.label.trim() ? patch.label.trim() : undefined
       }
@@ -626,7 +629,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   // Unified field updater for any size option (handles single or multi-size transparently)
   const handleUpdateOptionField = (
     idx: number,
-    patch: Partial<StorePackageOption>
+    patch: Partial<StorePackageOption> | { price?: number | null; packageSize?: number | null; label?: string }
   ) => {
     if (hasMultipleSizes) {
       handleUpdateOption(activeShop.id, idx, patch)
@@ -675,10 +678,10 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     ]
   }, [hasMultipleSizes, currentShopDetail, commonUnit])
 
-  // Focus newly added alternative size shelf price box
+  // Focus newly added alternative size shelf price button
   useEffect(() => {
-    if (focusOptionId && priceInputRefs.current[focusOptionId]) {
-      const el = priceInputRefs.current[focusOptionId]
+    if (focusOptionId && priceButtonRefs.current[focusOptionId]) {
+      const el = priceButtonRefs.current[focusOptionId]
       if (el) {
         el.focus()
         el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -687,31 +690,26 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     }
   }, [focusOptionId, renderedOptions])
 
-  // Aisle / Location combobox state & ref
-  const [isAisleDropdownOpen, setIsAisleDropdownOpen] = useState(false)
-  const aisleDropdownRef = useRef<HTMLDivElement>(null)
+  // Aisle / Location modal window state
+  const [isAisleModalOpen, setIsAisleModalOpen] = useState(false)
+
+  // Calculator modal state for quantity, price, and size
+  const [calcModal, setCalcModal] = useState<{
+    isOpen: boolean
+    title: string
+    mode: 'price' | 'quantity'
+    initialValue: number | null
+    unit?: string
+    packageSize?: number | null
+    packageUnit?: string
+    onApply: (val: number) => void
+  } | null>(null)
 
   useEffect(() => {
-    setIsAisleDropdownOpen(false)
-    setIsAddingNewAisle(false)
+    setIsAisleModalOpen(false)
     setNewAisleInput('')
     setFocusOptionId(null)
   }, [activeTabShopId])
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        aisleDropdownRef.current &&
-        !aisleDropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsAisleDropdownOpen(false)
-      }
-    }
-    if (isAisleDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isAisleDropdownOpen])
 
   // Strictly use predefined store aisles to disallow random aisle names
   const availableAislesForShop = useMemo(() => {
@@ -852,14 +850,23 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                     <Minus className="w-4 h-4" />
                   </button>
 
-                  <input
-                    type="number"
-                    min="1"
-                    max="999"
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full h-10 text-center font-bold text-slate-900 focus:outline-none text-sm"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCalcModal({
+                        isOpen: true,
+                        title: 'Set Quantity',
+                        mode: 'quantity',
+                        initialValue: quantity,
+                        unit: commonUnit || '',
+                        onApply: (newVal) => setQuantity(Math.max(1, newVal)),
+                      })
+                    }}
+                    className="w-full h-10 flex items-center justify-center font-bold text-slate-900 text-sm hover:bg-slate-50 active:bg-slate-100 transition cursor-pointer"
+                    title="Tap to change quantity with keypad"
+                  >
+                    <span>{quantity}</span>
+                  </button>
 
                   <button
                     type="button"
@@ -1032,187 +1039,56 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             {/* Active Shop Configuration */}
             {activeShop && (
               <div className="mt-3 p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                {/* Compact Store Control Bar: Status + Aisle Picker + Availability Toggle */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
-                  {/* Left: Active Store badge */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-                      <span className="text-xs font-bold text-slate-900">{activeShop.name}</span>
-                    </div>
-                  </div>
-
-                  {/* Right: Compact Aisle Selector (#4) & Carried Toggle */}
-                  <div className="flex items-center gap-2 ml-auto">
-                    {/* Compact Aisle Picker (Positioned right in header) */}
-                    {currentShopDetail.available && (
-                      <div className="relative" ref={aisleDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setIsAisleDropdownOpen((prev) => !prev)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
-                            currentShopDetail.location
-                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold'
-                              : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
-                          }`}
-                          title="Select aisle location"
-                        >
-                          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span className="max-w-[80px] sm:max-w-[120px] truncate">
-                            {currentShopDetail.location || 'Aisle'}
-                          </span>
-                          <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
-                        </button>
-
-                        {/* Aisle Dropdown Menu Popover */}
-                        {isAisleDropdownOpen && (
-                          <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in duration-75">
-                            <div className="p-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                                Aisles in {activeShop.name}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsAddingNewAisle(true)
-                                }}
-                                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5"
-                              >
-                                <Plus className="w-3 h-3" />
-                                <span>New</span>
-                              </button>
-                            </div>
-
-                            {isAddingNewAisle && (
-                              <div className="p-2 border-b border-slate-100 flex gap-1 bg-emerald-50/50">
-                                <input
-                                  type="text"
-                                  placeholder="e.g. Aisle 4, Dairy"
-                                  value={newAisleInput}
-                                  onChange={(e) => setNewAisleInput(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault()
-                                      handleAddNewAisle()
-                                    }
-                                    if (e.key === 'Escape') {
-                                      setIsAddingNewAisle(false)
-                                      setNewAisleInput('')
-                                    }
-                                  }}
-                                  className="flex-1 px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                                  autoFocus
-                                />
-                                <button
-                                  type="button"
-                                  onClick={handleAddNewAisle}
-                                  disabled={!newAisleInput.trim()}
-                                  className="px-2 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition shadow-2xs"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsAddingNewAisle(false)
-                                    setNewAisleInput('')
-                                  }}
-                                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            )}
-
-                            <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 p-1">
-                              {currentShopDetail.location && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleShopDetailChange(activeShop.id, { location: '' })
-                                    setIsAisleDropdownOpen(false)
-                                  }}
-                                  className="w-full px-2.5 py-1.5 text-left text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center justify-between transition"
-                                >
-                                  <span>Clear Aisle (Unassigned)</span>
-                                  <X className="w-3.5 h-3.5 text-rose-400" />
-                                </button>
-                              )}
-
-                              {availableAislesForShop.map((aisle) => {
-                                const isSelected = currentShopDetail.location === aisle
-                                return (
-                                  <button
-                                    key={aisle}
-                                    type="button"
-                                    onClick={() => {
-                                      handleShopDetailChange(activeShop.id, { location: aisle })
-                                      setIsAisleDropdownOpen(false)
-                                    }}
-                                    className={`w-full px-2.5 py-1.5 text-left text-xs rounded-lg flex items-center justify-between transition ${
-                                      isSelected
-                                        ? 'bg-emerald-50 text-emerald-950 font-bold'
-                                        : 'text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <MapPin
-                                        className={`w-3.5 h-3.5 shrink-0 ${
-                                          isSelected ? 'text-emerald-600' : 'text-slate-400'
-                                        }`}
-                                      />
-                                      <span className="truncate">{aisle}</span>
-                                    </div>
-                                    {isSelected && (
-                                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                    )}
-                                  </button>
-                                )
-                              })}
-
-                              {availableAislesForShop.length === 0 && !isAddingNewAisle && (
-                                <div className="p-3 text-center text-xs text-slate-400 italic">
-                                  No predefined aisles. Click &quot;+ New&quot; to add one.
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Availability Toggle */}
+                {/* Compact Store Control Bar: Aisle Picker + Availability Toggle */}
+                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
+                  {/* Left: Compact Aisle Picker (Opens Aisle Window) */}
+                  {currentShopDetail.available ? (
                     <button
                       type="button"
-                      onClick={() =>
-                        handleShopDetailChange(activeShop.id, {
-                          available: !currentShopDetail.available,
-                        })
-                      }
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition border ${
-                        currentShopDetail.available
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : 'bg-rose-100 text-rose-800 border-rose-300'
+                      onClick={() => setIsAisleModalOpen(true)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${
+                        currentShopDetail.location
+                          ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold'
+                          : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
                       }`}
-                      title={
-                        currentShopDetail.available
-                          ? 'Item is carried here'
-                          : 'Item is not carried here'
-                      }
+                      title="Select aisle location"
                     >
-                      {currentShopDetail.available ? (
-                        <>
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>Included</span>
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="w-3.5 h-3.5 text-rose-700" />
-                          <span>Excluded</span>
-                        </>
-                      )}
+                      <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="max-w-[130px] sm:max-w-[180px] truncate">
+                        {currentShopDetail.location || 'Select Aisle'}
+                      </span>
+                      <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
                     </button>
-                  </div>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">Not Carried</span>
+                  )}
+
+                  {/* Right: Availability Toggle (Icon Only) */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleShopDetailChange(activeShop.id, {
+                        available: !currentShopDetail.available,
+                      })
+                    }
+                    className={`p-1.5 rounded-xl border transition cursor-pointer shadow-2xs ${
+                      currentShopDetail.available
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
+                        : 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
+                    }`}
+                    title={
+                      currentShopDetail.available
+                        ? 'Item is carried here (tap to exclude)'
+                        : 'Item is not carried here (tap to include)'
+                    }
+                    aria-label={currentShopDetail.available ? 'Included in this store' : 'Excluded from this store'}
+                  >
+                    {currentShopDetail.available ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-700" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-rose-700" />
+                    )}
+                  </button>
                 </div>
 
                 {currentShopDetail.available ? (
@@ -1260,56 +1136,71 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">
                                   $
                                 </span>
-                                <input
+                                <button
+                                  type="button"
                                   ref={(el) => {
                                     if (opt.id) {
-                                      priceInputRefs.current[opt.id] = el
-                                    }
-                                    if (el && focusOptionId === opt.id) {
-                                      el.focus()
-                                      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                                      priceButtonRefs.current[opt.id] = el
                                     }
                                   }}
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="0.00"
-                                  value={
-                                    typeof opt.price === 'number' && !isNaN(opt.price)
-                                      ? opt.price
-                                      : ''
-                                  }
-                                  onChange={(e) => {
-                                    const val =
-                                      e.target.value === ''
-                                        ? (null as unknown as number)
-                                        : parseFloat(e.target.value)
-                                    handleUpdateOptionField(idx, { price: val })
+                                  onClick={() => {
+                                    setCalcModal({
+                                      isOpen: true,
+                                      title: `Set Price (${activeShop.name})`,
+                                      mode: 'price',
+                                      initialValue:
+                                        typeof opt.price === 'number' && !isNaN(opt.price)
+                                          ? opt.price
+                                          : null,
+                                      packageSize: optSizeNum,
+                                      packageUnit: commonUnit,
+                                      onApply: (val) => {
+                                        handleUpdateOptionField(idx, { price: val > 0 ? val : null })
+                                      },
+                                    })
                                   }}
-                                  className="w-full h-9 pl-6 pr-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                />
+                                  className="w-full h-9 pl-6 pr-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
+                                  title="Tap to change price with calculator"
+                                >
+                                  {typeof opt.price === 'number' && !isNaN(opt.price) && opt.price > 0 ? (
+                                    opt.price.toFixed(2)
+                                  ) : (
+                                    <span className="text-slate-400 font-normal">0.00</span>
+                                  )}
+                                </button>
                               </div>
 
                               {/* Column 2: Quantity / Size ({commonUnit}) with auto-default placeholder '1' */}
                               <div className="relative min-w-0">
-                                <input
-                                  type="number"
-                                  step="any"
-                                  placeholder="1"
-                                  value={
-                                    typeof opt.packageSize === 'number' &&
-                                    !isNaN(opt.packageSize)
-                                      ? opt.packageSize
-                                      : ''
-                                  }
-                                  onChange={(e) => {
-                                    const val =
-                                      e.target.value === ''
-                                        ? (null as unknown as number)
-                                        : parseFloat(e.target.value)
-                                    handleUpdateOptionField(idx, { packageSize: val })
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCalcModal({
+                                      isOpen: true,
+                                      title: `Set Package Size (${activeShop.name})`,
+                                      mode: 'quantity',
+                                      initialValue:
+                                        typeof opt.packageSize === 'number' &&
+                                        !isNaN(opt.packageSize)
+                                          ? opt.packageSize
+                                          : 1,
+                                      unit: commonUnit,
+                                      onApply: (val) => {
+                                        handleUpdateOptionField(idx, { packageSize: val > 0 ? val : null })
+                                      },
+                                    })
                                   }}
-                                  className="w-full h-9 pl-2.5 pr-8 rounded-lg border border-slate-300 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                />
+                                  className="w-full h-9 pl-2.5 pr-8 rounded-lg border border-slate-300 text-sm font-bold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
+                                  title="Tap to change size with calculator"
+                                >
+                                  {typeof opt.packageSize === 'number' &&
+                                  !isNaN(opt.packageSize) &&
+                                  opt.packageSize > 0 ? (
+                                    <span>{Number(opt.packageSize.toFixed(2))}</span>
+                                  ) : (
+                                    <span className="text-slate-400 font-normal">1</span>
+                                  )}
+                                </button>
                                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none truncate max-w-[28px]">
                                   {commonUnit}
                                 </span>
@@ -1379,9 +1270,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                             {/* On-Demand Label Row: ONLY displayed if label exists or user clicked '+ label' (#1) */}
                             {isLabelOpen && (
                               <div className="flex items-center gap-1.5 pt-0.5 animate-in fade-in duration-100">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
-                                  Label:
-                                </span>
                                 <input
                                   type="text"
                                   autoFocus={!hasLabel}
@@ -1392,7 +1280,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                       label: e.target.value,
                                     })
                                   }
-                                  className="flex-1 px-2 py-0.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100/80 focus:bg-white rounded border border-slate-200 focus:border-slate-300 focus:outline-none transition"
+                                  className="flex-1 px-2.5 py-1 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100/80 focus:bg-white rounded-lg border border-slate-200 focus:border-slate-300 focus:outline-none transition"
                                 />
                                 <button
                                   type="button"
@@ -1403,7 +1291,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                       [optionKey]: false,
                                     }))
                                   }}
-                                  className="text-slate-400 hover:text-rose-500 p-0.5 rounded transition"
+                                  className="text-slate-400 hover:text-rose-500 p-1 rounded-lg transition cursor-pointer"
                                   title="Clear label"
                                 >
                                   <X className="w-3.5 h-3.5" />
@@ -1472,6 +1360,155 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           </div>
         </div>
       </div>
+
+      {/* Aisle Selection Modal Dialog Window (#4) */}
+      {isAisleModalOpen && activeShop && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative bg-white rounded-3xl w-full max-w-sm sm:max-w-md max-h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                    Select Aisle / Location
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {activeShop.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAisleModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body: Scrollable list of aisles */}
+            <div className="p-3 sm:p-4 overflow-y-auto space-y-2 flex-1">
+              {/* Unassigned / Clear button */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleShopDetailChange(activeShop.id, { location: '' })
+                  setIsAisleModalOpen(false)
+                }}
+                className={`w-full py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition cursor-pointer ${
+                  !currentShopDetail.location
+                    ? 'bg-slate-100 border-slate-400 text-slate-900'
+                    : 'border-dashed border-slate-200 text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <X className="w-3.5 h-3.5 text-slate-400" />
+                  <span>No Aisle / Unassigned</span>
+                </div>
+                {!currentShopDetail.location && (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                )}
+              </button>
+
+              {/* Existing predefined aisles */}
+              {availableAislesForShop.map((aisle) => {
+                const isSelected = currentShopDetail.location === aisle
+                return (
+                  <button
+                    key={aisle}
+                    type="button"
+                    onClick={() => {
+                      handleShopDetailChange(activeShop.id, { location: aisle })
+                      setIsAisleModalOpen(false)
+                    }}
+                    className={`w-full py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className={`w-3.5 h-3.5 ${isSelected ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <span>{aisle}</span>
+                    </div>
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-emerald-600" />
+                    )}
+                  </button>
+                )
+              })}
+
+              {availableAislesForShop.length === 0 && (
+                <div className="py-4 text-center text-xs text-slate-400 italic">
+                  No aisles configured for {activeShop.name} yet.
+                </div>
+              )}
+
+              {/* Add custom aisle form */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Add new aisle (e.g. Aisle 5, Produce)"
+                    value={newAisleInput}
+                    onChange={(e) => setNewAisleInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleAddNewAisle()
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddNewAisle}
+                    disabled={!newAisleInput.trim()}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition shrink-0 cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsAisleModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keypad Calculator Modal (#3) */}
+      {calcModal && calcModal.isOpen && (
+        <KeypadCalculatorModal
+          isOpen={calcModal.isOpen}
+          onClose={() => setCalcModal(null)}
+          title={calcModal.title}
+          itemName={name || 'Item'}
+          storeName={activeShop ? activeShop.name : ''}
+          initialValue={calcModal.initialValue}
+          mode={calcModal.mode}
+          unit={calcModal.unit}
+          packageSize={calcModal.packageSize}
+          packageUnit={calcModal.packageUnit}
+          onApply={(val) => {
+            calcModal.onApply(val)
+            setCalcModal(null)
+          }}
+        />
+      )}
     </div>
   )
 }
