@@ -6,6 +6,7 @@ import {
   Store,
   Edit2,
   GripVertical,
+  Check,
 } from 'lucide-react'
 import type { Shop } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -198,9 +199,13 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
   const handleSaveEdit = async () => {
     if (!editingShopId || !editName.trim()) return
 
+    const cleanedAisles = editAisles
+      .map((a) => a.trim())
+      .filter(Boolean)
+
     await updateShop(editingShopId, {
       name: editName.trim(),
-      defaultAisles: editAisles.length > 0 ? editAisles : ['Produce', 'Checkout'],
+      defaultAisles: cleanedAisles.length > 0 ? cleanedAisles : ['Produce', 'Checkout'],
     })
 
     setEditingShopId(null)
@@ -210,10 +215,14 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
   const handleCreateShop = async () => {
     if (!newName.trim()) return
 
+    const cleanedAisles = newAisles
+      .map((a) => a.trim())
+      .filter(Boolean)
+
     await addShop({
       name: newName.trim(),
       color: 'emerald',
-      defaultAisles: newAisles.length > 0 ? newAisles : ['Produce', 'Dairy', 'Pantry', 'Frozen', 'Checkout'],
+      defaultAisles: cleanedAisles.length > 0 ? cleanedAisles : ['Produce', 'Dairy', 'Pantry', 'Frozen', 'Checkout'],
     })
 
     setNewName('')
@@ -311,7 +320,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                 >
                   {/* Store Row Card */}
                   <div className="flex items-center justify-between gap-3">
-                    {/* Left: Drag Handle + Store Info */}
+                    {/* Left: Drag Handle + Store Info (editable inline when editing) */}
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div
                         className="touch-none cursor-grab active:cursor-grabbing p-1.5 text-slate-400 hover:text-slate-700 shrink-0"
@@ -324,12 +333,33 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-slate-900 text-sm truncate">
-                          {shop.name}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {shop.defaultAisles.length} aisles • {pricedCount} priced
-                        </div>
+                        {isBeingEdited ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                handleSaveEdit()
+                              } else if (e.key === 'Escape') {
+                                setEditingShopId(null)
+                              }
+                            }}
+                            placeholder="Store name..."
+                            className="w-full px-2.5 py-1 text-sm font-bold text-slate-900 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
+                          />
+                        ) : (
+                          <>
+                            <div className="font-bold text-slate-900 text-sm truncate">
+                              {shop.name}
+                            </div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">
+                              {shop.defaultAisles.length} aisles • {pricedCount} priced
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -337,15 +367,21 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
-                        onClick={() => handleStartEditing(shop)}
+                        onClick={() => {
+                          if (isBeingEdited) {
+                            handleSaveEdit()
+                          } else {
+                            handleStartEditing(shop)
+                          }
+                        }}
                         className={`p-2 rounded-xl transition cursor-pointer ${
                           isBeingEdited
-                            ? 'bg-slate-900 text-white'
+                            ? 'bg-slate-900 text-white hover:bg-slate-800'
                             : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                         }`}
-                        title={isBeingEdited ? 'Close Editor' : 'Edit Store'}
+                        title={isBeingEdited ? 'Save changes' : 'Edit Store'}
                       >
-                        <Edit2 className="w-4 h-4" />
+                        {isBeingEdited ? <Check className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
                       </button>
 
                       <button
@@ -359,21 +395,9 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                     </div>
                   </div>
 
-                  {/* Inline Store Editor */}
+                  {/* Inline Store Editor (Aisles only, store name is edited inline above) */}
                   {isBeingEdited && (
                     <div className="pt-3 border-t border-slate-200 space-y-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Store Name
-                        </label>
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-slate-900"
-                        />
-                      </div>
-
                       {/* Aisles Section with Drag and Drop */}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
@@ -381,15 +405,15 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                             Aisles ({editAisles.length})
                           </label>
                           <span className="text-[10px] text-slate-400">
-                            Drag to reorder walking route
+                            Tap name to edit • Drag to reorder
                           </span>
                         </div>
 
-                        {/* Draggable Aisles List */}
+                        {/* Draggable & Editable Aisles List */}
                         <div className="space-y-1">
                           {editAisles.map((aisle, idx) => (
                             <div
-                              key={`${aisle}-${idx}`}
+                              key={`edit-aisle-${idx}`}
                               data-aisle-index={idx}
                               draggable
                               onDragStart={(e) => {
@@ -413,7 +437,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                                 setDraggedAisleIdx(null)
                                 setDragOverAisleIdx(null)
                               }}
-                              className={`flex items-center justify-between p-2 rounded-xl bg-white border transition ${
+                              className={`flex items-center justify-between p-1.5 rounded-xl bg-white border transition ${
                                 draggedAisleIdx === idx
                                   ? 'opacity-40 border-slate-300'
                                   : dragOverAisleIdx === idx
@@ -421,7 +445,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                                   : 'border-slate-200'
                               }`}
                             >
-                              <div className="flex items-center gap-2 min-w-0">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                 <div
                                   className="touch-none cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-700 shrink-0"
                                   onTouchStart={() => handleTouchStartEditAisle(idx)}
@@ -431,9 +455,20 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                                 >
                                   <GripVertical className="w-3.5 h-3.5" />
                                 </div>
-                                <span className="text-xs font-medium text-slate-800 truncate">
-                                  {aisle}
-                                </span>
+                                <input
+                                  type="text"
+                                  value={aisle}
+                                  onChange={(e) => {
+                                    const val = e.target.value
+                                    setEditAisles((prev) => {
+                                      const updated = [...prev]
+                                      updated[idx] = val
+                                      return updated
+                                    })
+                                  }}
+                                  placeholder="Aisle name..."
+                                  className="w-full px-2 py-0.5 text-xs font-medium text-slate-800 bg-transparent hover:bg-slate-50 focus:bg-white rounded-lg border border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none transition"
+                                />
                               </div>
 
                               <button
@@ -441,7 +476,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                                 onClick={() =>
                                   setEditAisles((prev) => prev.filter((_, i) => i !== idx))
                                 }
-                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer shrink-0 ml-1"
                                 title="Remove aisle"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -604,15 +639,15 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                     Aisles ({newAisles.length})
                   </label>
                   <span className="text-[10px] text-slate-400">
-                    Drag to reorder walking route
+                    Tap name to edit • Drag to reorder
                   </span>
                 </div>
 
-                {/* Draggable Aisles List */}
+                {/* Draggable & Editable Aisles List */}
                 <div className="space-y-1">
                   {newAisles.map((aisle, idx) => (
                     <div
-                      key={`${aisle}-${idx}`}
+                      key={`new-aisle-${idx}`}
                       data-aisle-index={idx}
                       draggable
                       onDragStart={(e) => {
@@ -636,7 +671,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                         setDraggedAisleIdx(null)
                         setDragOverAisleIdx(null)
                       }}
-                      className={`flex items-center justify-between p-2 rounded-xl bg-white border transition ${
+                      className={`flex items-center justify-between p-1.5 rounded-xl bg-white border transition ${
                         draggedAisleIdx === idx
                           ? 'opacity-40 border-slate-300'
                           : dragOverAisleIdx === idx
@@ -644,7 +679,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                           : 'border-slate-200'
                       }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <div
                           className="touch-none cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-700 shrink-0"
                           onTouchStart={() => handleTouchStartNewAisle(idx)}
@@ -654,9 +689,20 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                         >
                           <GripVertical className="w-3.5 h-3.5" />
                         </div>
-                        <span className="text-xs font-medium text-slate-800 truncate">
-                          {aisle}
-                        </span>
+                        <input
+                          type="text"
+                          value={aisle}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setNewAisles((prev) => {
+                              const updated = [...prev]
+                              updated[idx] = val
+                              return updated
+                            })
+                          }}
+                          placeholder="Aisle name..."
+                          className="w-full px-2 py-0.5 text-xs font-medium text-slate-800 bg-transparent hover:bg-slate-50 focus:bg-white rounded-lg border border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none transition"
+                        />
                       </div>
 
                       <button
@@ -664,7 +710,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                         onClick={() =>
                           setNewAisles((prev) => prev.filter((_, i) => i !== idx))
                         }
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer shrink-0 ml-1"
                         title="Remove aisle"
                       >
                         <X className="w-3.5 h-3.5" />
