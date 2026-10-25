@@ -7,13 +7,12 @@ import {
   XCircle,
   Plus,
   Minus,
-  Scale,
   ChevronDown,
-  ChevronUp,
   Check,
   MapPin,
   Repeat,
   ShoppingCart,
+  Copy,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -373,6 +372,83 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   const [focusOptionId, setFocusOptionId] = useState<string | null>(null)
   const priceInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
+  // On-demand label input visibility per size row (#1)
+  const [showLabelInputMap, setShowLabelInputMap] = useState<Record<string, boolean>>({})
+
+  // List of other stores with package sizes/prices available to copy from (#6)
+  const otherConfiguredShops = useMemo(() => {
+    if (!activeShop) return []
+    return shops.filter((s) => {
+      if (s.id === activeShop.id) return false
+      const detail = shopDetails[s.id]
+      if (!detail) return false
+      const hasPrice = typeof detail.price === 'number' && detail.price > 0
+      const hasSize = typeof detail.packageSize === 'number' && detail.packageSize > 0
+      const hasOptions =
+        detail.packageOptions &&
+        detail.packageOptions.some((o) => {
+          const p = typeof o.price === 'number' ? o.price : parseFloat(String(o.price))
+          const sz =
+            typeof o.packageSize === 'number' ? o.packageSize : parseFloat(String(o.packageSize))
+          return (!isNaN(p) && p > 0) || (!isNaN(sz) && sz > 0)
+        })
+      return hasPrice || hasSize || hasOptions
+    })
+  }, [shops, activeShop, shopDetails])
+
+  // One-tap copy sizes from another store into current store (#6)
+  const handleCopySizesFromShop = (sourceShopId: string) => {
+    const source = shopDetails[sourceShopId]
+    if (!source || !activeShop) return
+
+    setShopDetails((prev) => {
+      const existing = prev[activeShop.id] || {
+        available: true,
+        price: null,
+        location: '',
+      }
+
+      // If source has multi-sizes, copy all packageOptions (preserving sizes and labels, leaving prices empty for user to enter)
+      if (source.packageOptions && source.packageOptions.length > 0) {
+        const copiedOptions: StorePackageOption[] = source.packageOptions.map((opt) => ({
+          id: 'opt-copy-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+          label: opt.label,
+          packageSize: opt.packageSize,
+          packageUnit: commonUnit,
+          price: '' as unknown as number,
+          unitPrice: null,
+        }))
+
+        return {
+          ...prev,
+          [activeShop.id]: {
+            ...existing,
+            packageOptions: copiedOptions,
+            packageSize: copiedOptions[0]?.packageSize || null,
+            packageUnit: commonUnit,
+            unitSize: copiedOptions[0]?.label || undefined,
+            price: null,
+            unitPrice: null,
+          },
+        }
+      } else if (source.packageSize) {
+        return {
+          ...prev,
+          [activeShop.id]: {
+            ...existing,
+            packageSize: source.packageSize,
+            packageUnit: commonUnit,
+            unitSize: source.unitSize,
+            packageOptions: undefined,
+            price: null,
+            unitPrice: null,
+          },
+        }
+      }
+      return prev
+    })
+  }
+
   // Handle Adding an Alternative Size row
   const handleAddAlternativeSize = (shopId: string) => {
     const newOptionId = 'opt-alt-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)
@@ -391,7 +467,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         const primarySize =
           typeof existing.packageSize === 'number' && existing.packageSize > 0
             ? existing.packageSize
-            : (Number(quantity) || 1)
+            : 1 // Auto-default to 1 (#2)
         const primaryPrice =
           typeof existing.price === 'number' && existing.price > 0 ? existing.price : null
 
@@ -411,7 +487,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       existingOptions.push({
         id: newOptionId,
         label: undefined,
-        packageSize: '' as unknown as number,
+        packageSize: 1, // Pre-fill with 1 (#2)
         packageUnit: commonUnit,
         price: '' as unknown as number,
         unitPrice: null,
@@ -446,6 +522,20 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
       const oldOpt = currentOptions[optionIndex]
       const updatedOpt: StorePackageOption = { ...oldOpt, ...patch, packageUnit: commonUnit }
+
+      // Auto-default packageSize to 1 if price is entered and size is blank/0 (#2)
+      if (patch.price !== undefined) {
+        const p = typeof patch.price === 'number' ? patch.price : parseFloat(String(patch.price))
+        if (!isNaN(p) && p > 0) {
+          const currentSize =
+            typeof updatedOpt.packageSize === 'number'
+              ? updatedOpt.packageSize
+              : parseFloat(String(updatedOpt.packageSize))
+          if (isNaN(currentSize) || currentSize <= 0) {
+            updatedOpt.packageSize = 1
+          }
+        }
+      }
 
       const numPrice =
         typeof updatedOpt.price === 'number' ? updatedOpt.price : parseFloat(String(updatedOpt.price))
@@ -604,6 +694,17 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       }
       if (patch.price !== undefined) {
         shopPatch.price = patch.price
+        // Auto-default packageSize to 1 if price is entered and size is blank/0 (#2)
+        const p = typeof patch.price === 'number' ? patch.price : parseFloat(String(patch.price))
+        if (!isNaN(p) && p > 0) {
+          const currentSize =
+            typeof currentShopDetail.packageSize === 'number'
+              ? currentShopDetail.packageSize
+              : parseFloat(String(currentShopDetail.packageSize))
+          if (isNaN(currentSize) || currentSize <= 0) {
+            shopPatch.packageSize = 1
+          }
+        }
       }
       if (patch.packageSize !== undefined) {
         shopPatch.packageSize = patch.packageSize
@@ -988,18 +1089,193 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
             {/* Active Shop Configuration */}
             {activeShop && (
-              <div className="mt-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-600" />
-                    <span className="text-sm font-bold text-slate-900">{activeShop.name}</span>
+              <div className="mt-3 p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                {/* Compact Store Control Bar: Status/Copy + Aisle Picker + Availability Toggle */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
+                  {/* Left: Active Store badge & Quick Copy button (#5, #6) */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                      <span className="text-xs font-bold text-slate-900">{activeShop.name}</span>
+                    </div>
+
+                    {/* Quick Copy Package Sizes from Another Store (#6) */}
+                    {otherConfiguredShops.length > 0 && currentShopDetail.available && (
+                      <div className="relative">
+                        {otherConfiguredShops.length === 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => handleCopySizesFromShop(otherConfiguredShops[0].id)}
+                            className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-lg flex items-center gap-1 transition"
+                            title={`Copy package sizes from ${otherConfiguredShops[0].name}`}
+                          >
+                            <Copy className="w-3 h-3 text-indigo-600" />
+                            <span>Copy sizes from {otherConfiguredShops[0].name}</span>
+                          </button>
+                        ) : (
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleCopySizesFromShop(e.target.value)
+                              }
+                            }}
+                            className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-lg cursor-pointer focus:outline-none"
+                          >
+                            <option value="" disabled>
+                              📋 Copy sizes from...
+                            </option>
+                            {otherConfiguredShops.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Availability Toggle */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-600">
-                      {currentShopDetail.available ? 'Carried Here' : 'Not Carried (Excluded)'}
-                    </span>
+                  {/* Right: Compact Aisle Selector (#4) & Carried Toggle */}
+                  <div className="flex items-center gap-2 ml-auto">
+                    {/* Compact Aisle Picker (Positioned right in header) */}
+                    {currentShopDetail.available && (
+                      <div className="relative" ref={aisleDropdownRef}>
+                        <button
+                          type="button"
+                          onClick={() => setIsAisleDropdownOpen((prev) => !prev)}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                            currentShopDetail.location
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold'
+                              : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                          }`}
+                          title="Select aisle location"
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="max-w-[80px] sm:max-w-[120px] truncate">
+                            {currentShopDetail.location || 'Aisle'}
+                          </span>
+                          <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+                        </button>
+
+                        {/* Aisle Dropdown Menu Popover */}
+                        {isAisleDropdownOpen && (
+                          <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in duration-75">
+                            <div className="p-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                Aisles in {activeShop.name}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingNewAisle(true)
+                                }}
+                                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>New</span>
+                              </button>
+                            </div>
+
+                            {isAddingNewAisle && (
+                              <div className="p-2 border-b border-slate-100 flex gap-1 bg-emerald-50/50">
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Aisle 4, Dairy"
+                                  value={newAisleInput}
+                                  onChange={(e) => setNewAisleInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault()
+                                      handleAddNewAisle()
+                                    }
+                                    if (e.key === 'Escape') {
+                                      setIsAddingNewAisle(false)
+                                      setNewAisleInput('')
+                                    }
+                                  }}
+                                  className="flex-1 px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleAddNewAisle}
+                                  disabled={!newAisleInput.trim()}
+                                  className="px-2 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition shadow-2xs"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsAddingNewAisle(false)
+                                    setNewAisleInput('')
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 p-1">
+                              {currentShopDetail.location && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleShopDetailChange(activeShop.id, { location: '' })
+                                    setIsAisleDropdownOpen(false)
+                                  }}
+                                  className="w-full px-2.5 py-1.5 text-left text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center justify-between transition"
+                                >
+                                  <span>Clear Aisle (Unassigned)</span>
+                                  <X className="w-3.5 h-3.5 text-rose-400" />
+                                </button>
+                              )}
+
+                              {availableAislesForShop.map((aisle) => {
+                                const isSelected = currentShopDetail.location === aisle
+                                return (
+                                  <button
+                                    key={aisle}
+                                    type="button"
+                                    onClick={() => {
+                                      handleShopDetailChange(activeShop.id, { location: aisle })
+                                      setIsAisleDropdownOpen(false)
+                                    }}
+                                    className={`w-full px-2.5 py-1.5 text-left text-xs rounded-lg flex items-center justify-between transition ${
+                                      isSelected
+                                        ? 'bg-emerald-50 text-emerald-950 font-bold'
+                                        : 'text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <MapPin
+                                        className={`w-3.5 h-3.5 shrink-0 ${
+                                          isSelected ? 'text-emerald-600' : 'text-slate-400'
+                                        }`}
+                                      />
+                                      <span className="truncate">{aisle}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    )}
+                                  </button>
+                                )
+                              })}
+
+                              {availableAislesForShop.length === 0 && !isAddingNewAisle && (
+                                <div className="p-3 text-center text-xs text-slate-400 italic">
+                                  No predefined aisles. Click &quot;+ New&quot; to add one.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Availability Toggle */}
                     <button
                       type="button"
                       onClick={() =>
@@ -1012,6 +1288,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                           ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                           : 'bg-rose-100 text-rose-800 border-rose-300'
                       }`}
+                      title={
+                        currentShopDetail.available
+                          ? 'Item is carried here'
+                          : 'Item is not carried here'
+                      }
                     >
                       {currentShopDetail.available ? (
                         <>
@@ -1029,388 +1310,220 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                 </div>
 
                 {currentShopDetail.available ? (
-                  <div className="space-y-4">
-                    {/* Header (Section Header, not a nested container) */}
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <Scale className="w-4 h-4 text-emerald-600" />
-                        <span>Pricing & Package {hasMultipleSizes ? 'Sizes' : 'Size'}</span>
-                      </label>
-                      {hasMultipleSizes && (
-                        <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
-                          {renderedOptions.length} sizes compared
-                        </span>
-                      )}
+                  <div className="space-y-2">
+                    {/* Grid Column Header */}
+                    <div className="grid grid-cols-[1fr_1fr_1.3fr_auto] gap-2 px-3 py-1.5 bg-slate-100/90 rounded-xl text-[11px] font-bold text-slate-600 uppercase tracking-wider items-center">
+                      <div>Price ($)</div>
+                      <div>Quantity ({commonUnit})</div>
+                      <div>Unit Price (Result)</div>
+                      <div className="w-7 text-center"></div>
                     </div>
 
-                    {/* Grid of Size Alternatives: Col 1 = Price, Col 2 = Quantity/Size, Col 3 = Read-Only Result */}
+                    {/* Rows for Primary and Alternative Sizes */}
                     <div className="space-y-2">
-                      {/* Grid Column Header */}
-                      <div className="grid grid-cols-[1fr_1fr_1.3fr_auto] gap-2 px-3 py-1.5 bg-slate-100/90 rounded-xl text-[11px] font-bold text-slate-600 uppercase tracking-wider items-center">
-                        <div>Price ($)</div>
-                        <div>Quantity ({commonUnit})</div>
-                        <div>Unit Price (Result)</div>
-                        <div className="w-7 text-center"></div>
-                      </div>
+                      {renderedOptions.map((opt, idx) => {
+                        const isOptimal =
+                          hasMultipleSizes &&
+                          optimalStorePackageResult?.bestOption.id === opt.id
+                        const optPriceNum =
+                          typeof opt.price === 'number'
+                            ? opt.price
+                            : parseFloat(String(opt.price))
+                        const optSizeNum =
+                          typeof opt.packageSize === 'number'
+                            ? opt.packageSize
+                            : parseFloat(String(opt.packageSize))
+                        const optUnitPrice =
+                          typeof opt.unitPrice === 'number' && opt.unitPrice > 0
+                            ? opt.unitPrice
+                            : !isNaN(optPriceNum) &&
+                              optPriceNum > 0 &&
+                              !isNaN(optSizeNum) &&
+                              optSizeNum > 0
+                            ? Number((optPriceNum / optSizeNum).toFixed(4))
+                            : null
 
-                      {/* Rows for Primary and Alternative Sizes */}
-                      <div className="space-y-2">
-                        {renderedOptions.map((opt, idx) => {
-                          const isOptimal =
-                            hasMultipleSizes &&
-                            optimalStorePackageResult?.bestOption.id === opt.id
-                          const optPriceNum =
-                            typeof opt.price === 'number'
-                              ? opt.price
-                              : parseFloat(String(opt.price))
-                          const optSizeNum =
-                            typeof opt.packageSize === 'number'
-                              ? opt.packageSize
-                              : parseFloat(String(opt.packageSize))
-                          const optUnitPrice =
-                            typeof opt.unitPrice === 'number' && opt.unitPrice > 0
-                              ? opt.unitPrice
-                              : !isNaN(optPriceNum) &&
-                                optPriceNum > 0 &&
-                                !isNaN(optSizeNum) &&
-                                optSizeNum > 0
-                              ? Number((optPriceNum / optSizeNum).toFixed(4))
-                              : null
+                        const optionKey = opt.id || `opt-${idx}`
+                        const isLabelOpen = Boolean(opt.label) || Boolean(showLabelInputMap[optionKey])
 
-                          return (
-                            <div
-                              key={opt.id || `opt-${idx}`}
-                              className={`p-2.5 rounded-xl border transition-all space-y-1.5 ${
-                                isOptimal
-                                  ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
-                                  : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
-                              }`}
-                            >
-                              <div className="grid grid-cols-[1fr_1fr_1.3fr_auto] gap-2 items-center">
-                                {/* Column 1: Shelf Price ($) */}
-                                <div className="relative">
-                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">
-                                    $
-                                  </span>
-                                  <input
-                                    ref={(el) => {
-                                      if (opt.id) {
-                                        priceInputRefs.current[opt.id] = el
-                                      }
-                                      if (el && focusOptionId === opt.id) {
-                                        el.focus()
-                                        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-                                      }
-                                    }}
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    value={
-                                      typeof opt.price === 'number' && !isNaN(opt.price)
-                                        ? opt.price
-                                        : ''
+                        return (
+                          <div
+                            key={optionKey}
+                            className={`p-2.5 rounded-xl border transition-all space-y-1.5 ${
+                              isOptimal
+                                ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
+                                : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="grid grid-cols-[1fr_1fr_1.3fr_auto] gap-2 items-center">
+                              {/* Column 1: Shelf Price ($) */}
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">
+                                  $
+                                </span>
+                                <input
+                                  ref={(el) => {
+                                    if (opt.id) {
+                                      priceInputRefs.current[opt.id] = el
                                     }
-                                    onChange={(e) => {
-                                      const val =
-                                        e.target.value === ''
-                                          ? (null as unknown as number)
-                                          : parseFloat(e.target.value)
-                                      handleUpdateOptionField(idx, { price: val })
-                                    }}
-                                    className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                  />
-                                </div>
-
-                                {/* Column 2: Quantity / Size ({commonUnit}) */}
-                                <div className="relative">
-                                  <input
-                                    type="number"
-                                    step="any"
-                                    placeholder="Size"
-                                    value={
-                                      typeof opt.packageSize === 'number' &&
-                                      !isNaN(opt.packageSize)
-                                        ? opt.packageSize
-                                        : ''
+                                    if (el && focusOptionId === opt.id) {
+                                      el.focus()
+                                      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
                                     }
-                                    onChange={(e) => {
-                                      const val =
-                                        e.target.value === ''
-                                          ? (null as unknown as number)
-                                          : parseFloat(e.target.value)
-                                      handleUpdateOptionField(idx, { packageSize: val })
-                                    }}
-                                    className="w-full pl-2.5 pr-9 py-1.5 rounded-lg border border-slate-300 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                  />
-                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none truncate max-w-[28px]">
-                                    {commonUnit}
-                                  </span>
-                                </div>
-
-                                {/* Column 3: Read-Only Result (Unit Price / Value) */}
-                                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                                  {optUnitPrice ? (
-                                    <>
-                                      <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md shrink-0">
-                                        {formatUnitPrice(optUnitPrice, commonUnit)}
-                                      </span>
-                                      {isOptimal && (
-                                        <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-1.5 py-0.5 rounded-full shadow-2xs shrink-0 flex items-center gap-0.5">
-                                          <span>★</span>
-                                          <span>Best</span>
-                                        </span>
-                                      )}
-                                      {hasMultipleSizes &&
-                                        optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
-                                        !isOptimal && (
-                                          <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0">
-                                            Lowest $
-                                          </span>
-                                        )}
-                                    </>
-                                  ) : (
-                                    <span className="text-xs text-slate-400 italic">—</span>
-                                  )}
-                                </div>
-
-                                {/* Column 4: Action (Remove alternative size) */}
-                                <div className="w-7 flex items-center justify-center">
-                                  {hasMultipleSizes && idx > 0 ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemovePackageOption(activeShop.id, idx)}
-                                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                      title="Remove this size option"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  ) : (
-                                    <span className="w-3.5 h-3.5" />
-                                  )}
-                                </div>
+                                  }}
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  value={
+                                    typeof opt.price === 'number' && !isNaN(opt.price)
+                                      ? opt.price
+                                      : ''
+                                  }
+                                  onChange={(e) => {
+                                    const val =
+                                      e.target.value === ''
+                                        ? (null as unknown as number)
+                                        : parseFloat(e.target.value)
+                                    handleUpdateOptionField(idx, { price: val })
+                                  }}
+                                  className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                />
                               </div>
 
-                              {/* Subtle secondary row for optional size label */}
-                              <div className="flex items-center gap-2 pt-0.5">
+                              {/* Column 2: Quantity / Size ({commonUnit}) with auto-default placeholder '1' */}
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  placeholder="1"
+                                  value={
+                                    typeof opt.packageSize === 'number' &&
+                                    !isNaN(opt.packageSize)
+                                      ? opt.packageSize
+                                      : ''
+                                  }
+                                  onChange={(e) => {
+                                    const val =
+                                      e.target.value === ''
+                                        ? (null as unknown as number)
+                                        : parseFloat(e.target.value)
+                                    handleUpdateOptionField(idx, { packageSize: val })
+                                  }}
+                                  className="w-full pl-2.5 pr-8 py-1.5 rounded-lg border border-slate-300 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                />
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none truncate max-w-[28px]">
+                                  {commonUnit}
+                                </span>
+                              </div>
+
+                              {/* Column 3: Read-Only Result (Unit Price / Value) + On-demand label button */}
+                              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                {optUnitPrice ? (
+                                  <>
+                                    <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md shrink-0">
+                                      {formatUnitPrice(optUnitPrice, commonUnit)}
+                                    </span>
+                                    {isOptimal && (
+                                      <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-1.5 py-0.5 rounded-full shadow-2xs shrink-0 flex items-center gap-0.5">
+                                        <span>★</span>
+                                        <span>Best</span>
+                                      </span>
+                                    )}
+                                    {hasMultipleSizes &&
+                                      optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
+                                      !isOptimal && (
+                                        <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0">
+                                          Lowest $
+                                        </span>
+                                      )}
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-slate-400 italic">—</span>
+                                )}
+
+                                {/* If label is not open, offer subtle '+ label' button (#1) */}
+                                {!isLabelOpen && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowLabelInputMap((prev) => ({
+                                        ...prev,
+                                        [optionKey]: true,
+                                      }))
+                                    }
+                                    className="text-[10px] text-slate-400 hover:text-indigo-600 font-medium px-1 py-0.5 rounded hover:bg-slate-100 transition shrink-0 ml-auto"
+                                    title="Add custom label (e.g. Family Size, Club Pack)"
+                                  >
+                                    + label
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Column 4: Action (Remove alternative size) */}
+                              <div className="w-7 flex items-center justify-center">
+                                {hasMultipleSizes && idx > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePackageOption(activeShop.id, idx)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                    title="Remove this size option"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : (
+                                  <span className="w-3.5 h-3.5" />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* On-Demand Label Row: ONLY displayed if label exists or user clicked '+ label' (#1) */}
+                            {isLabelOpen && (
+                              <div className="flex items-center gap-1.5 pt-0.5 animate-in fade-in duration-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
+                                  Label:
+                                </span>
                                 <input
                                   type="text"
-                                  placeholder={
-                                    idx === 0
-                                      ? 'Label (optional, e.g. Standard, 12-pack)'
-                                      : 'Size label (optional, e.g. Family Size, Club Pack)'
-                                  }
+                                  autoFocus={!opt.label}
+                                  placeholder="e.g. Family Size, Club Pack, 12-pack"
                                   value={opt.label || ''}
                                   onChange={(e) =>
                                     handleUpdateOptionField(idx, {
                                       label: e.target.value || undefined,
                                     })
                                   }
-                                  className="w-full px-2 py-0.5 text-xs text-slate-600 placeholder:text-slate-400 bg-slate-50/60 hover:bg-slate-100/80 focus:bg-white rounded border border-transparent focus:border-slate-300 focus:outline-none transition"
+                                  className="flex-1 px-2 py-0.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100/80 focus:bg-white rounded border border-slate-200 focus:border-slate-300 focus:outline-none transition"
                                 />
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-
-                      {/* Add Alternative Size button */}
-                      <button
-                        type="button"
-                        onClick={() => handleAddAlternativeSize(activeShop.id)}
-                        className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition mt-2"
-                      >
-                        <Plus className="w-4 h-4 text-indigo-600" />
-                        <span>{hasMultipleSizes ? 'Add Another Size Option' : 'Add Alternative Size'}</span>
-                      </button>
-                    </div>
-
-                    {/* Location / Aisle Combobox */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Aisle / Location in {activeShop.name}</span>
-                        </label>
-                        <div className="flex items-center gap-2">
-                          {currentShopDetail.location && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleShopDetailChange(activeShop.id, { location: '' })
-                                setIsAisleDropdownOpen(false)
-                              }}
-                              className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition"
-                            >
-                              Clear
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAisleDropdownOpen(true)
-                              setIsAddingNewAisle(true)
-                            }}
-                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5 transition"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Add Aisle</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Input Container - directly anchors dropdown under this box */}
-                      <div className="relative" ref={aisleDropdownRef}>
-                        <input
-                          type="text"
-                          readOnly
-                          placeholder="Select an aisle..."
-                          value={currentShopDetail.location || ''}
-                          onClick={() => setIsAisleDropdownOpen((prev) => !prev)}
-                          className="w-full pl-3 pr-16 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white cursor-pointer select-none font-medium text-slate-800"
-                        />
-
-                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                          {currentShopDetail.location && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleShopDetailChange(activeShop.id, { location: '' })
-                              }}
-                              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
-                              title="Clear location"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => setIsAisleDropdownOpen((prev) => !prev)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                            title="Show all aisles for this store"
-                          >
-                            {isAisleDropdownOpen ? (
-                              <ChevronUp className="w-4 h-4 text-emerald-600" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Dropdown Menu directly under the Aisle input box */}
-                        {isAisleDropdownOpen && (
-                          <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in duration-75">
-                            <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 p-1">
-                              {/* Option: Clear / Unassigned */}
-                              {currentShopDetail.location && (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    handleShopDetailChange(activeShop.id, { location: '' })
-                                    setIsAisleDropdownOpen(false)
+                                    handleUpdateOptionField(idx, { label: undefined })
+                                    setShowLabelInputMap((prev) => ({
+                                      ...prev,
+                                      [optionKey]: false,
+                                    }))
                                   }}
-                                  className="w-full px-3 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center justify-between transition"
+                                  className="text-slate-400 hover:text-rose-500 p-0.5 rounded transition"
+                                  title="Clear label"
                                 >
-                                  <span>Clear Aisle (Unassigned)</span>
-                                  <X className="w-3.5 h-3.5 text-rose-400" />
+                                  <X className="w-3.5 h-3.5" />
                                 </button>
-                              )}
-
-                              {/* List of all available aisles */}
-                              {availableAislesForShop.map((aisle) => {
-                                const isSelected = currentShopDetail.location === aisle
-                                return (
-                                  <button
-                                    key={aisle}
-                                    type="button"
-                                    onClick={() => {
-                                      handleShopDetailChange(activeShop.id, { location: aisle })
-                                      setIsAisleDropdownOpen(false)
-                                    }}
-                                    className={`w-full px-3 py-2 text-left text-xs rounded-lg flex items-center justify-between transition ${
-                                      isSelected
-                                        ? 'bg-emerald-50 text-emerald-950 font-bold'
-                                        : 'text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <MapPin
-                                        className={`w-3.5 h-3.5 shrink-0 ${
-                                          isSelected ? 'text-emerald-600' : 'text-slate-400'
-                                        }`}
-                                      />
-                                      <span className="truncate">{aisle}</span>
-                                    </div>
-                                    {isSelected && (
-                                      <Check className="w-4 h-4 text-emerald-600 shrink-0 ml-2" />
-                                    )}
-                                  </button>
-                                )
-                              })}
-
-                              {availableAislesForShop.length === 0 && (
-                                <div className="p-3 text-center text-xs text-slate-400">
-                                  No aisles configured for {activeShop.name} yet.
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Add New Aisle Row at bottom of dropdown */}
-                            <div className="p-2 border-t border-slate-100 bg-slate-50/70">
-                              {isAddingNewAisle ? (
-                                <div className="flex items-center gap-1.5">
-                                  <input
-                                    type="text"
-                                    autoFocus
-                                    placeholder="New aisle (e.g. Aisle 5 - Pasta)..."
-                                    value={newAisleInput}
-                                    onChange={(e) => setNewAisleInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault()
-                                        handleAddNewAisle()
-                                      }
-                                      if (e.key === 'Escape') {
-                                        setIsAddingNewAisle(false)
-                                        setNewAisleInput('')
-                                      }
-                                    }}
-                                    className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-emerald-400 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-slate-800"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={handleAddNewAisle}
-                                    disabled={!newAisleInput.trim()}
-                                    className="px-2.5 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition shadow-2xs"
-                                  >
-                                    Add
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setIsAddingNewAisle(false)
-                                      setNewAisleInput('')
-                                    }}
-                                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setIsAddingNewAisle(true)}
-                                  className="w-full py-1.5 px-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100/60 rounded-lg flex items-center justify-center gap-1.5 transition border border-dashed border-emerald-300 bg-white"
-                                >
-                                  <Plus className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>Add New Aisle to {activeShop.name}</span>
-                                </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        )
+                      })}
                     </div>
+
+                    {/* Add Alternative Size button */}
+                    <button
+                      type="button"
+                      onClick={() => handleAddAlternativeSize(activeShop.id)}
+                      className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition mt-2"
+                    >
+                      <Plus className="w-4 h-4 text-indigo-600" />
+                      <span>{hasMultipleSizes ? 'Add Another Size Option' : 'Add Alternative Size'}</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
