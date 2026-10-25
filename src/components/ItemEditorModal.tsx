@@ -21,7 +21,6 @@ import {
   formatUnitPrice,
   getOptimalStorePackage,
   getNormalizedUnitPrice,
-  getUnitFamily,
   UNIT_GROUPS,
 } from '../utils/pricing'
 
@@ -53,10 +52,31 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   const [name, setName] = useState(liveItem?.name || '')
   const [category, setCategory] = useState(liveItem?.category || (categories[0] || 'Produce'))
   const [quantity, setQuantity] = useState(liveItem?.quantity || 1)
-  const unit = liveItem?.unit && liveItem.unit !== 'items' ? liveItem.unit : 'pieces'
   const [notes, setNotes] = useState(liveItem?.notes || '')
   const [isNeeded, setIsNeeded] = useState(liveItem ? liveItem.isNeeded : true)
   const [isWeekly, setIsWeekly] = useState(Boolean(liveItem?.isWeekly))
+
+  // Discover initial common package measurement unit across stores and alternatives
+  const getInitialCommonUnit = (): string => {
+    if (item?.shops) {
+      for (const sDetail of Object.values(item.shops)) {
+        if (sDetail.packageUnit) return sDetail.packageUnit
+        if (sDetail.packageOptions && sDetail.packageOptions[0]?.packageUnit) {
+          return sDetail.packageOptions[0].packageUnit
+        }
+      }
+    }
+    if (item?.unit && item.unit !== 'items' && item.unit !== 'pieces') {
+      return item.unit
+    }
+    if (item?.unit) {
+      return item.unit
+    }
+    return 'oz'
+  }
+
+  // Common measurement unit for all stores and all alternative sizes
+  const [commonUnit, setCommonUnit] = useState<string>(getInitialCommonUnit)
 
   // Re-sync form state when item changes or modal opens
   useEffect(() => {
@@ -67,6 +87,26 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       setNotes(liveItem.notes || '')
       setIsNeeded(liveItem.isNeeded)
       setIsWeekly(Boolean(liveItem.isWeekly))
+
+      let detectedUnit = ''
+      if (liveItem.shops) {
+        for (const sDetail of Object.values(liveItem.shops)) {
+          if (sDetail.packageUnit) {
+            detectedUnit = sDetail.packageUnit
+            break
+          }
+          if (sDetail.packageOptions && sDetail.packageOptions[0]?.packageUnit) {
+            detectedUnit = sDetail.packageOptions[0].packageUnit
+            break
+          }
+        }
+      }
+      if (!detectedUnit && liveItem.unit) {
+        detectedUnit = liveItem.unit
+      }
+      if (detectedUnit) {
+        setCommonUnit(detectedUnit)
+      }
     }
   }, [liveItem?.id, liveItem?.quantity, liveItem?.updatedAt])
 
@@ -80,10 +120,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
   // Shop configurations: availability, price, location, packageSize, packageUnit per store
   const [shopDetails, setShopDetails] = useState<Record<string, ItemShopDetail>>(() => {
+    const defaultUnit = getInitialCommonUnit()
     const initial: Record<string, ItemShopDetail> = {}
     shops.forEach((shop) => {
       if (item && item.shops[shop.id]) {
-        initial[shop.id] = { ...item.shops[shop.id] }
+        initial[shop.id] = {
+          ...item.shops[shop.id],
+          packageUnit: item.shops[shop.id].packageUnit || defaultUnit,
+        }
       } else {
         initial[shop.id] = {
           available: true,
@@ -91,13 +135,34 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           location: '',
           unitSize: '',
           packageSize: null,
-          packageUnit: 'oz',
+          packageUnit: defaultUnit,
           unitPrice: null,
         }
       }
     })
     return initial
   })
+
+  // When common unit changes, seamlessly synchronize across all stores & package options
+  const handleCommonUnitChange = (newUnit: string) => {
+    setCommonUnit(newUnit)
+    setShopDetails((prev) => {
+      const updated: Record<string, ItemShopDetail> = {}
+      for (const [shopId, detail] of Object.entries(prev)) {
+        const updatedOptions = detail.packageOptions?.map((opt) => ({
+          ...opt,
+          packageUnit: newUnit,
+        }))
+
+        updated[shopId] = {
+          ...detail,
+          packageUnit: newUnit,
+          packageOptions: updatedOptions,
+        }
+      }
+      return updated
+    })
+  }
 
   const [activeTabShopId, setActiveTabShopId] = useState<string>(() => {
     if (initialShopId && shops.some((s) => s.id === initialShopId)) {
@@ -179,6 +244,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
               ...opt,
               price: p,
               packageSize: s,
+              packageUnit: commonUnit,
               unitPrice: Number((p / s).toFixed(4)),
             }
           })
@@ -199,7 +265,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             packageOptions: validOptions,
             price: best.price,
             packageSize: best.packageSize,
-            packageUnit: best.packageUnit,
+            packageUnit: commonUnit,
             unitPrice: best.unitPrice,
             unitSize: best.label || detail.unitSize,
           }
@@ -209,18 +275,22 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             packageOptions: undefined,
             price: validOptions[0].price,
             packageSize: validOptions[0].packageSize,
-            packageUnit: validOptions[0].packageUnit,
+            packageUnit: commonUnit,
             unitPrice: validOptions[0].unitPrice,
             unitSize: validOptions[0].label || detail.unitSize,
           }
         } else {
           cleanedShopDetails[sId] = {
             ...detail,
+            packageUnit: commonUnit,
             packageOptions: undefined,
           }
         }
       } else {
-        cleanedShopDetails[sId] = detail
+        cleanedShopDetails[sId] = {
+          ...detail,
+          packageUnit: commonUnit,
+        }
       }
     }
 
@@ -228,7 +298,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       name: name.trim(),
       category,
       quantity: Number(quantity) || 1,
-      unit,
+      unit: commonUnit,
       notes: notes.trim(),
       isNeeded,
       isWeekly,
@@ -284,7 +354,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         name,
         category,
         quantity: Number(quantity) || 1,
-        unit,
+        unit: commonUnit,
         isNeeded,
         inCart: false,
         shops: shopDetails,
@@ -293,26 +363,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       },
       activeShop.id
     )
-  }, [item?.id, name, category, quantity, unit, isNeeded, shopDetails, activeShop])
+  }, [item?.id, name, category, quantity, commonUnit, isNeeded, shopDetails, activeShop])
 
   const hasMultipleSizes = Boolean(
     currentShopDetail.packageOptions && currentShopDetail.packageOptions.length >= 2
   )
-
-  // Dynamically prioritize compatible package units at the top of the dropdown
-  const organizedPackageUnitGroups = useMemo(() => {
-    const targetFamily = getUnitFamily(unit)
-    const matching = UNIT_GROUPS.filter((g) => g.family === targetFamily)
-    const others = UNIT_GROUPS.filter((g) => g.family !== targetFamily)
-
-    return [
-      ...matching.map((g) => ({
-        ...g,
-        label: `★ Compatible (${g.label})`,
-      })),
-      ...others,
-    ]
-  }, [unit])
 
   // Focus tracking for newly added alternative size
   const [focusOptionId, setFocusOptionId] = useState<string | null>(null)
@@ -337,7 +392,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           typeof existing.packageSize === 'number' && existing.packageSize > 0
             ? existing.packageSize
             : (Number(quantity) || 1)
-        const primaryUnit = existing.packageUnit || unit || 'oz'
         const primaryPrice =
           typeof existing.price === 'number' && existing.price > 0 ? existing.price : null
 
@@ -345,7 +399,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           id: 'opt-primary-' + Date.now(),
           label: existing.unitSize || undefined,
           packageSize: primarySize,
-          packageUnit: primaryUnit,
+          packageUnit: commonUnit,
           price: (primaryPrice ?? '') as unknown as number,
           unitPrice:
             primaryPrice && primarySize > 0
@@ -354,14 +408,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         })
       }
 
-      const defaultUnit =
-        existingOptions[0]?.packageUnit || existing.packageUnit || unit || 'oz'
-
       existingOptions.push({
         id: newOptionId,
         label: undefined,
         packageSize: '' as unknown as number,
-        packageUnit: defaultUnit,
+        packageUnit: commonUnit,
         price: '' as unknown as number,
         unitPrice: null,
       })
@@ -378,7 +429,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     setFocusOptionId(newOptionId)
   }
 
-  // Handle live inline editing of any package size option (Price, Package Size, Unit, or Label)
+  // Handle live inline editing of any package size option (Price, Package Size, or Label)
   const handleUpdateOption = (
     shopId: string,
     optionIndex: number,
@@ -394,7 +445,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       if (optionIndex < 0 || optionIndex >= currentOptions.length) return prev
 
       const oldOpt = currentOptions[optionIndex]
-      const updatedOpt: StorePackageOption = { ...oldOpt, ...patch }
+      const updatedOpt: StorePackageOption = { ...oldOpt, ...patch, packageUnit: commonUnit }
 
       const numPrice =
         typeof updatedOpt.price === 'number' ? updatedOpt.price : parseFloat(String(updatedOpt.price))
@@ -414,6 +465,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       // Keep the shop's top-level fields in sync with the best value option
       const shopPatch: Partial<ItemShopDetail> = {
         packageOptions: currentOptions,
+        packageUnit: commonUnit,
       }
       const validOpts = currentOptions.filter(
         (o) => {
@@ -434,7 +486,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         const best = sorted[0]
         shopPatch.price = best.price
         shopPatch.packageSize = best.packageSize
-        shopPatch.packageUnit = best.packageUnit
+        shopPatch.packageUnit = commonUnit
         shopPatch.unitPrice = best.unitPrice
         if (best.label !== undefined) {
           shopPatch.unitSize = best.label || undefined
@@ -442,7 +494,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       } else if (optionIndex === 0) {
         shopPatch.price = !isNaN(numPrice) && numPrice > 0 ? numPrice : null
         shopPatch.packageSize = !isNaN(numSize) && numSize > 0 ? numSize : null
-        shopPatch.packageUnit = updatedOpt.packageUnit
+        shopPatch.packageUnit = commonUnit
         shopPatch.unitPrice = updatedOpt.unitPrice
         if (updatedOpt.label !== undefined) {
           shopPatch.unitSize = updatedOpt.label || undefined
@@ -483,7 +535,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             : typeof existing.packageSize === 'number' && existing.packageSize > 0
             ? existing.packageSize
             : null
-        const remUnit = remaining?.packageUnit || existing.packageUnit || unit || 'oz'
         const remUnitPrice = remPrice && remSize ? Number((remPrice / remSize).toFixed(4)) : null
 
         return {
@@ -492,7 +543,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             ...existing,
             price: remPrice,
             packageSize: remSize,
-            packageUnit: remUnit,
+            packageUnit: commonUnit,
             unitPrice: remUnitPrice,
             unitSize: remaining?.label || existing.unitSize,
             packageOptions: undefined,
@@ -507,7 +558,9 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           return !isNaN(p) && p > 0 && !isNaN(s) && s > 0
         }
       )
-      let bestPatch: Partial<ItemShopDetail> = {}
+      let bestPatch: Partial<ItemShopDetail> = {
+        packageUnit: commonUnit,
+      }
       if (validOpts.length > 0) {
         const sorted = [...validOpts].sort((a, b) => {
           const uA = getNormalizedUnitPrice(a.unitPrice, a.packageUnit)
@@ -521,7 +574,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         bestPatch = {
           price: best.price,
           packageSize: best.packageSize,
-          packageUnit: best.packageUnit,
+          packageUnit: commonUnit,
           unitPrice: best.unitPrice,
           unitSize: best.label || undefined,
         }
@@ -546,15 +599,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     if (hasMultipleSizes) {
       handleUpdateOption(activeShop.id, idx, patch)
     } else {
-      const shopPatch: Partial<ItemShopDetail> = {}
+      const shopPatch: Partial<ItemShopDetail> = {
+        packageUnit: commonUnit,
+      }
       if (patch.price !== undefined) {
         shopPatch.price = patch.price
       }
       if (patch.packageSize !== undefined) {
         shopPatch.packageSize = patch.packageSize
-      }
-      if (patch.packageUnit !== undefined) {
-        shopPatch.packageUnit = patch.packageUnit
       }
       if (patch.label !== undefined) {
         shopPatch.unitSize = patch.label
@@ -573,12 +625,12 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         id: 'primary',
         label: currentShopDetail.unitSize,
         packageSize: (currentShopDetail.packageSize ?? '') as unknown as number,
-        packageUnit: currentShopDetail.packageUnit || unit || 'oz',
+        packageUnit: commonUnit,
         price: (currentShopDetail.price ?? '') as unknown as number,
         unitPrice: currentShopDetail.unitPrice,
       },
     ]
-  }, [hasMultipleSizes, currentShopDetail, unit])
+  }, [hasMultipleSizes, currentShopDetail, commonUnit])
 
   // Focus newly added alternative size shelf price box
   useEffect(() => {
@@ -631,7 +683,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       shopId: sId,
       shop: shops.find((s) => s.id === sId),
       unitPrice: d.unitPrice!,
-      packageUnit: d.packageUnit,
+      packageUnit: d.packageUnit || commonUnit,
     }))
 
   const minUnitPriceEntry =
@@ -835,14 +887,42 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
           {/* 2. Store Pricing & Package Size Normalization */}
           <div className="pt-2 border-t border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Store className="w-4 h-4 text-emerald-600" />
-                <span>Store Prices, Sizes & Aisles</span>
-              </label>
-              <span className="text-[11px] text-slate-500">
-                Normalize package sizes across stores
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+              <div>
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Store className="w-4 h-4 text-emerald-600" />
+                  <span>Store Prices, Sizes & Aisles</span>
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Select package unit once for all stores & size comparisons
+                </p>
+              </div>
+
+              {/* Single Common Unit Selector */}
+              <div className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-xl border border-slate-200 transition">
+                <label htmlFor="common-unit-select" className="text-[11px] font-bold text-slate-600 uppercase tracking-wider cursor-pointer">
+                  Unit:
+                </label>
+                <select
+                  id="common-unit-select"
+                  value={commonUnit}
+                  onChange={(e) => handleCommonUnitChange(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer pr-1"
+                >
+                  {!UNIT_GROUPS.some((g) => g.units.includes(commonUnit)) && (
+                    <option value={commonUnit}>{commonUnit}</option>
+                  )}
+                  {UNIT_GROUPS.map((grp) => (
+                    <optgroup key={grp.label} label={grp.label}>
+                      {grp.units.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Store Grid (2x2 on mobile, 4-col on desktop) — No Horizontal Scrolling */}
@@ -890,8 +970,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                       {isAvailable ? (
                         detail?.price ? (
                           <div className="text-[11px] font-mono font-bold text-slate-800 leading-tight">
-                            {detail.unitPrice && detail.packageUnit
-                              ? formatUnitPrice(detail.unitPrice, detail.packageUnit)
+                            {detail.unitPrice
+                              ? formatUnitPrice(detail.unitPrice, detail.packageUnit || commonUnit)
                               : `$${detail.price.toFixed(2)}`}
                           </div>
                         ) : (
@@ -954,88 +1034,64 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                         <Scale className="w-4 h-4 text-emerald-600" />
-                        <span>Store Pricing & Package {hasMultipleSizes ? 'Sizes' : 'Size'}</span>
+                        <span>Pricing & Package {hasMultipleSizes ? 'Sizes' : 'Size'}</span>
                       </label>
                       {hasMultipleSizes && (
                         <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
-                          {renderedOptions.length} sizes tracked
+                          {renderedOptions.length} sizes compared
                         </span>
                       )}
                     </div>
 
-                    {/* Unified list of size cards (identical layout for 1-size or multi-size) */}
-                    <div className="space-y-3">
-                      {renderedOptions.map((opt, idx) => {
-                        const isOptimal = hasMultipleSizes && optimalStorePackageResult?.bestOption.id === opt.id
-                        const optPriceNum =
-                          typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price))
-                        const optSizeNum =
-                          typeof opt.packageSize === 'number'
-                            ? opt.packageSize
-                            : parseFloat(String(opt.packageSize))
-                        const optUnitPrice =
-                          typeof opt.unitPrice === 'number' && opt.unitPrice > 0
-                            ? opt.unitPrice
-                            : !isNaN(optPriceNum) && optPriceNum > 0 && !isNaN(optSizeNum) && optSizeNum > 0
-                            ? Number((optPriceNum / optSizeNum).toFixed(4))
-                            : null
+                    {/* Grid of Size Alternatives: Col 1 = Price, Col 2 = Quantity/Size, Col 3 = Read-Only Result */}
+                    <div className="space-y-2">
+                      {/* Grid Column Header */}
+                      <div className="grid grid-cols-[1fr_1fr_1.3fr_auto] gap-2 px-3 py-1.5 bg-slate-100/90 rounded-xl text-[11px] font-bold text-slate-600 uppercase tracking-wider items-center">
+                        <div>Price ($)</div>
+                        <div>Quantity ({commonUnit})</div>
+                        <div>Unit Price (Result)</div>
+                        <div className="w-7 text-center"></div>
+                      </div>
 
-                        return (
-                          <div
-                            key={opt.id || `opt-${idx}`}
-                            className={`p-3 rounded-xl border transition-all space-y-2.5 ${
-                              isOptimal
-                                ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
-                                : 'bg-white border-slate-200 shadow-2xs'
-                            }`}
-                          >
-                            {/* Header: Title, Badges & Remove Button */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-bold text-slate-800">
-                                  {idx === 0 ? 'Primary Size' : `Alternative Size ${idx + 1}`}
-                                </span>
-                                {isOptimal && (
-                                  <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-2xs">
-                                    🏆 Best Value
-                                  </span>
-                                )}
-                                {hasMultipleSizes &&
-                                  optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
-                                  !isOptimal && (
-                                    <span className="bg-slate-100 text-slate-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-slate-200">
-                                      Lowest Out-of-Pocket
-                                    </span>
-                                  )}
-                                {optUnitPrice && (
-                                  <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                                    {formatUnitPrice(optUnitPrice, opt.packageUnit || unit || 'oz')}
-                                  </span>
-                                )}
-                              </div>
+                      {/* Rows for Primary and Alternative Sizes */}
+                      <div className="space-y-2">
+                        {renderedOptions.map((opt, idx) => {
+                          const isOptimal =
+                            hasMultipleSizes &&
+                            optimalStorePackageResult?.bestOption.id === opt.id
+                          const optPriceNum =
+                            typeof opt.price === 'number'
+                              ? opt.price
+                              : parseFloat(String(opt.price))
+                          const optSizeNum =
+                            typeof opt.packageSize === 'number'
+                              ? opt.packageSize
+                              : parseFloat(String(opt.packageSize))
+                          const optUnitPrice =
+                            typeof opt.unitPrice === 'number' && opt.unitPrice > 0
+                              ? opt.unitPrice
+                              : !isNaN(optPriceNum) &&
+                                optPriceNum > 0 &&
+                                !isNaN(optSizeNum) &&
+                                optSizeNum > 0
+                              ? Number((optPriceNum / optSizeNum).toFixed(4))
+                              : null
 
-                              {/* Remove Button (for alternative sizes) */}
-                              {hasMultipleSizes && idx > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemovePackageOption(activeShop.id, idx)}
-                                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                  title="Remove this size option"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-
-                            {/* 3 Inline Editable Fields: Shelf Price ($) | Package Size + Unit */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {/* Field 1: Shelf Price */}
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                                  Shelf Price ($)
-                                </label>
+                          return (
+                            <div
+                              key={opt.id || `opt-${idx}`}
+                              className={`p-2.5 rounded-xl border transition-all space-y-1.5 ${
+                                isOptimal
+                                  ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
+                                  : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="grid grid-cols-[1fr_1fr_1.3fr_auto] gap-2 items-center">
+                                {/* Column 1: Shelf Price ($) */}
                                 <div className="relative">
-                                  <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">$</span>
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">
+                                    $
+                                  </span>
                                   <input
                                     ref={(el) => {
                                       if (opt.id) {
@@ -1048,7 +1104,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                     }}
                                     type="number"
                                     step="0.01"
-                                    placeholder="e.g. 4.99"
+                                    placeholder="0.00"
                                     value={
                                       typeof opt.price === 'number' && !isNaN(opt.price)
                                         ? opt.price
@@ -1061,23 +1117,19 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                           : parseFloat(e.target.value)
                                       handleUpdateOptionField(idx, { price: val })
                                     }}
-                                    className="w-full pl-7 pr-3 py-1.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white font-medium"
+                                    className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                   />
                                 </div>
-                              </div>
 
-                              {/* Fields 2 & 3: Package Size & Unit */}
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                                  Package Size & Unit
-                                </label>
-                                <div className="flex gap-1.5">
+                                {/* Column 2: Quantity / Size ({commonUnit}) */}
+                                <div className="relative">
                                   <input
                                     type="number"
                                     step="any"
-                                    placeholder="e.g. 32"
+                                    placeholder="Size"
                                     value={
-                                      typeof opt.packageSize === 'number' && !isNaN(opt.packageSize)
+                                      typeof opt.packageSize === 'number' &&
+                                      !isNaN(opt.packageSize)
                                         ? opt.packageSize
                                         : ''
                                     }
@@ -1088,52 +1140,84 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                           : parseFloat(e.target.value)
                                       handleUpdateOptionField(idx, { packageSize: val })
                                     }}
-                                    className="w-2/3 px-3 py-1.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                                    className="w-full pl-2.5 pr-9 py-1.5 rounded-lg border border-slate-300 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                   />
-                                  <select
-                                    value={opt.packageUnit || unit || 'oz'}
-                                    onChange={(e) =>
-                                      handleUpdateOptionField(idx, { packageUnit: e.target.value })
-                                    }
-                                    className="w-1/3 px-2 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
-                                  >
-                                    {organizedPackageUnitGroups.map((grp) => (
-                                      <optgroup key={grp.label} label={grp.label}>
-                                        {grp.units.map((pu) => (
-                                          <option key={pu} value={pu}>
-                                            {pu}
-                                          </option>
-                                        ))}
-                                      </optgroup>
-                                    ))}
-                                  </select>
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none truncate max-w-[28px]">
+                                    {commonUnit}
+                                  </span>
+                                </div>
+
+                                {/* Column 3: Read-Only Result (Unit Price / Value) */}
+                                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                  {optUnitPrice ? (
+                                    <>
+                                      <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md shrink-0">
+                                        {formatUnitPrice(optUnitPrice, commonUnit)}
+                                      </span>
+                                      {isOptimal && (
+                                        <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-1.5 py-0.5 rounded-full shadow-2xs shrink-0 flex items-center gap-0.5">
+                                          <span>★</span>
+                                          <span>Best</span>
+                                        </span>
+                                      )}
+                                      {hasMultipleSizes &&
+                                        optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
+                                        !isOptimal && (
+                                          <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0">
+                                            Lowest $
+                                          </span>
+                                        )}
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-slate-400 italic">—</span>
+                                  )}
+                                </div>
+
+                                {/* Column 4: Action (Remove alternative size) */}
+                                <div className="w-7 flex items-center justify-center">
+                                  {hasMultipleSizes && idx > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemovePackageOption(activeShop.id, idx)}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                      title="Remove this size option"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <span className="w-3.5 h-3.5" />
+                                  )}
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Optional Description / Label */}
-                            <div>
-                              <input
-                                type="text"
-                                placeholder="Size label (optional, e.g. Family Size, Small, 2-pack)"
-                                value={opt.label || ''}
-                                onChange={(e) =>
-                                  handleUpdateOptionField(idx, {
-                                    label: e.target.value || undefined,
-                                  })
-                                }
-                                className="w-full px-3 py-1 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs bg-white text-slate-600 placeholder:text-slate-400"
-                              />
+                              {/* Subtle secondary row for optional size label */}
+                              <div className="flex items-center gap-2 pt-0.5">
+                                <input
+                                  type="text"
+                                  placeholder={
+                                    idx === 0
+                                      ? 'Label (optional, e.g. Standard, 12-pack)'
+                                      : 'Size label (optional, e.g. Family Size, Club Pack)'
+                                  }
+                                  value={opt.label || ''}
+                                  onChange={(e) =>
+                                    handleUpdateOptionField(idx, {
+                                      label: e.target.value || undefined,
+                                    })
+                                  }
+                                  className="w-full px-2 py-0.5 text-xs text-slate-600 placeholder:text-slate-400 bg-slate-50/60 hover:bg-slate-100/80 focus:bg-white rounded border border-transparent focus:border-slate-300 focus:outline-none transition"
+                                />
+                              </div>
                             </div>
-                          </div>
-                        )
-                      })}
+                          )
+                        })}
+                      </div>
 
-                      {/* Add Alternative Size button: always placed directly below cards */}
+                      {/* Add Alternative Size button */}
                       <button
                         type="button"
                         onClick={() => handleAddAlternativeSize(activeShop.id)}
-                        className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                        className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition mt-2"
                       >
                         <Plus className="w-4 h-4 text-indigo-600" />
                         <span>{hasMultipleSizes ? 'Add Another Size Option' : 'Add Alternative Size'}</span>
