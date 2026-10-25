@@ -1311,14 +1311,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
                 {currentShopDetail.available ? (
                   <div className="space-y-2">
-                    {/* Grid Column Header */}
-                    <div className="grid grid-cols-[1fr_1fr_1.3fr_auto] gap-2 px-3 py-1.5 bg-slate-100/90 rounded-xl text-[11px] font-bold text-slate-600 uppercase tracking-wider items-center">
-                      <div>Price ($)</div>
-                      <div>Quantity ({commonUnit})</div>
-                      <div>Unit Price (Result)</div>
-                      <div className="w-7 text-center"></div>
-                    </div>
-
                     {/* Rows for Primary and Alternative Sizes */}
                     <div className="space-y-2">
                       {renderedOptions.map((opt, idx) => {
