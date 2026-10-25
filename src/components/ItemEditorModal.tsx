@@ -12,8 +12,6 @@ import {
   ChevronUp,
   Check,
   MapPin,
-  AlertTriangle,
-  Sparkles,
   Repeat,
   ShoppingCart,
 } from 'lucide-react'
@@ -21,12 +19,9 @@ import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
 import {
   formatUnitPrice,
-  formatPrice,
-  getPacksNeeded,
   getOptimalStorePackage,
   getNormalizedUnitPrice,
   getUnitFamily,
-  checkUnitCompatibility,
   UNIT_GROUPS,
 } from '../utils/pricing'
 
@@ -280,26 +275,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     location: '',
   }
 
-  // Calculate packs needed for current shop based on target quantity and package size
-  const calculatedPacks = useMemo(() => {
-    if (!activeShop) return Number(quantity) || 1
-    return getPacksNeeded(
-      {
-        id: item?.id || '',
-        name,
-        category,
-        quantity: Number(quantity) || 1,
-        unit,
-        isNeeded,
-        inCart: false,
-        shops: shopDetails,
-        createdAt: 0,
-        updatedAt: 0,
-      },
-      activeShop.id
-    )
-  }, [item?.id, name, category, quantity, unit, isNeeded, shopDetails, activeShop])
-
   // Multi-size evaluation for the current store
   const optimalStorePackageResult = useMemo(() => {
     if (!activeShop) return null
@@ -323,33 +298,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   const hasMultipleSizes = Boolean(
     currentShopDetail.packageOptions && currentShopDetail.packageOptions.length >= 2
   )
-
-  const effectiveDisplaySize = hasMultipleSizes
-    ? optimalStorePackageResult?.bestOption.packageSize
-    : currentShopDetail.packageSize
-
-  const effectiveDisplayUnit = hasMultipleSizes
-    ? optimalStorePackageResult?.bestOption.packageUnit
-    : currentShopDetail.packageUnit
-
-  const effectiveDisplayPrice = hasMultipleSizes
-    ? optimalStorePackageResult?.bestOption.price
-    : currentShopDetail.price
-
-  // Unit compatibility between item target demand and current shop's package unit
-  const unitCompatibility = useMemo(() => {
-    const pkgUnit = hasMultipleSizes
-      ? optimalStorePackageResult?.bestOption.packageUnit || unit
-      : currentShopDetail.packageUnit || unit
-
-    return checkUnitCompatibility(Number(quantity) || 1, unit, pkgUnit)
-  }, [
-    quantity,
-    unit,
-    hasMultipleSizes,
-    optimalStorePackageResult?.bestOption.packageUnit,
-    currentShopDetail.packageUnit,
-  ])
 
   // Dynamically prioritize compatible package units at the top of the dropdown
   const organizedPackageUnitGroups = useMemo(() => {
@@ -1191,163 +1139,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                         <span>{hasMultipleSizes ? 'Add Another Size Option' : 'Add Alternative Size'}</span>
                       </button>
                     </div>
-
-                    {/* Live Target Demand vs Store Pack Conversion Card */}
-                    {(hasMultipleSizes || (currentShopDetail.packageSize && currentShopDetail.packageSize > 0)) ? (
-                      unitCompatibility.isCompatible ? (
-                        <div className="p-3 bg-indigo-50/80 border border-indigo-200/90 rounded-xl flex flex-col gap-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-bold text-indigo-950 flex items-center gap-2">
-                                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                                <span>Store Package Requirement:</span>
-                                <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-black shadow-2xs">
-                                  {calculatedPacks} {calculatedPacks === 1 ? 'pack' : 'packs'}
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-indigo-800 mt-1">
-                                {unitCompatibility.isConversion ? (
-                                  <span>
-                                    {unitCompatibility.message}. Buying{' '}
-                                    <strong>
-                                      {calculatedPacks} × {effectiveDisplaySize}{' '}
-                                      {effectiveDisplayUnit || unit}
-                                    </strong>{' '}
-                                    satisfies your <strong>{quantity}</strong> target need.
-                                  </span>
-                                ) : (
-                                  <span>
-                                    Buying{' '}
-                                    <strong>
-                                      {calculatedPacks} × {effectiveDisplaySize}{' '}
-                                      {effectiveDisplayUnit || unit}
-                                    </strong>{' '}
-                                    satisfies your <strong>{quantity}</strong> target need.
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            {effectiveDisplayPrice && (
-                              <div className="text-right pl-3 shrink-0">
-                                <div className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">
-                                  Total to Buy
-                                </div>
-                                <div className="text-base font-black text-indigo-950">
-                                  {formatPrice(calculatedPacks * effectiveDisplayPrice)}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Multi-Size Optimization Note */}
-                          {optimalStorePackageResult && optimalStorePackageResult.hasMultipleOptions && (
-                            <div className="p-2.5 rounded-xl bg-indigo-100/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-2 mt-0.5">
-                              <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                              <div className="space-y-0.5">
-                                <span className="font-bold">Multi-Size Value Optimization: </span>
-                                <span>
-                                  Option{' '}
-                                  <strong>
-                                    {optimalStorePackageResult.bestOption.label ||
-                                      `${optimalStorePackageResult.bestOption.packageSize} ${optimalStorePackageResult.bestOption.packageUnit}`}
-                                  </strong>{' '}
-                                  selected as <strong>Best Value</strong>
-                                  {optimalStorePackageResult.bestOption.unitPrice
-                                    ? ` (${formatUnitPrice(optimalStorePackageResult.bestOption.unitPrice, optimalStorePackageResult.bestOption.packageUnit)})`
-                                    : ''}.
-                                </span>
-                                {optimalStorePackageResult.unitSavingsPercent &&
-                                optimalStorePackageResult.unitSavingsPercent > 0 ? (
-                                  <span className="block font-bold text-emerald-800">
-                                    🎉 Saves {optimalStorePackageResult.unitSavingsPercent}%
-                                    {optimalStorePackageResult.unitSavingsVsOther
-                                      ? ` (${formatPrice(optimalStorePackageResult.unitSavingsVsOther)} / ${optimalStorePackageResult.bestOption.packageUnit})`
-                                      : ''}{' '}
-                                    compared to {optimalStorePackageResult.otherOptionLabel}!
-                                  </span>
-                                ) : optimalStorePackageResult.savingsVsOther &&
-                                  optimalStorePackageResult.savingsVsOther > 0 ? (
-                                  <span className="block font-bold text-emerald-800">
-                                    🎉 Saves {formatPrice(optimalStorePackageResult.savingsVsOther)}{' '}
-                                    compared to {optimalStorePackageResult.otherOptionLabel}!
-                                  </span>
-                                ) : null}
-                                {optimalStorePackageResult.lowestCashOption && (
-                                  <span className="block text-slate-600 font-medium pt-0.5">
-                                    💵 Lowest upfront cash: {optimalStorePackageResult.lowestCashOption.label || `${optimalStorePackageResult.lowestCashOption.packageSize} ${optimalStorePackageResult.lowestCashOption.packageUnit}`} at {formatPrice(optimalStorePackageResult.lowestCashOption.price)}.
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Optional manual override */}
-                          <div className="flex items-center justify-between pt-1.5 border-t border-indigo-200/60 text-[11px]">
-                            <span className="text-indigo-900 font-medium">
-                              Manual pack override for {activeShop.name}:
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="number"
-                                min="1"
-                                placeholder={`Auto (${calculatedPacks})`}
-                                value={currentShopDetail.storeQuantity || ''}
-                                onChange={(e) => {
-                                  const val =
-                                    e.target.value === ''
-                                      ? null
-                                      : Math.max(1, parseInt(e.target.value) || 1)
-                                  handleShopDetailChange(activeShop.id, { storeQuantity: val })
-                                }}
-                                className="w-20 px-2 py-0.5 text-center rounded border border-indigo-300 text-xs bg-white font-bold text-indigo-950 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              />
-                              {currentShopDetail.storeQuantity && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleShopDetailChange(activeShop.id, { storeQuantity: null })
-                                  }
-                                  className="text-[10px] text-indigo-700 hover:text-rose-600 font-bold underline transition"
-                                >
-                                  Reset
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex flex-col gap-2 text-xs">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-1.5 font-bold text-amber-950">
-                              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                              <span>Unit Compatibility Mismatch</span>
-                            </div>
-                            <span className="bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wide">
-                              Defaulting to {calculatedPacks} {calculatedPacks === 1 ? 'pack' : 'packs'}
-                            </span>
-                          </div>
-
-                          <p className="text-[11px] text-amber-900 leading-relaxed">
-                            {unitCompatibility.message} Grocery items cannot be auto-converted across different measurement dimensions.
-                          </p>
-
-                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/80 text-[11px] flex-wrap">
-                            <span className="text-amber-900 font-medium">Quick fix:</span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleShopDetailChange(activeShop.id, { packageUnit: unit })
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold transition text-xs shadow-2xs"
-                              >
-                                Match store unit to "{unit}"
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    ) : null}
 
                     {/* Location / Aisle Combobox */}
                     <div>
