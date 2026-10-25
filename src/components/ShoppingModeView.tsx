@@ -15,7 +15,6 @@ import {
   ArrowRight,
   DollarSign,
   Plus,
-  Minus,
   Zap,
   Eye,
   EyeOff,
@@ -33,6 +32,7 @@ import {
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
 import type { ShoppingItem, PurchasedItemRecord } from '../types'
+import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import {
   compareShopPrices,
   formatPrice,
@@ -207,11 +207,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     }
   }, [toastMessage])
 
-  // Fast In-Store Shelf Price Modal (Sale price override for trip)
+  // Fast In-Store Shelf Price Modal (Calculator)
   const [shelfPriceItem, setShelfPriceItem] = useState<ShoppingItem | null>(null)
-  const [shelfPriceInput, setShelfPriceInput] = useState<string>('')
 
-  // Feature: Interactive Package Size Picker & Quick Quantity
+  // Feature: Interactive Package Size Picker & Quick Quantity (Calculator)
   const [sizePickerItem, setSizePickerItem] = useState<{
     item: ShoppingItem
     options: EvaluatedPackageOption[]
@@ -222,7 +221,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [quickQuantityItem, setQuickQuantityItem] = useState<{
     item: ShoppingItem
     currentQty: number
-    rawQty?: string
   } | null>(null)
 
   const handleSelectPackageOption = async (item: ShoppingItem, optionId: string) => {
@@ -427,27 +425,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   }
 
   const openShelfPriceModal = (item: ShoppingItem) => {
-    const optResult = getOptimalStorePackage(item, currentShop.id)
-    const activeOpt = optResult.selectedOption
-    const detail = item.shops[currentShop.id]
-    const currentPrice = activeOpt.price > 0 ? activeOpt.price : detail?.price
-
     setShelfPriceItem(item)
-    setShelfPriceInput(
-      currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : ''
-    )
     triggerHaptic(15)
   }
 
-  const handleSaveShelfPrice = async () => {
+  const handleSaveShelfPrice = async (priceVal: number) => {
     if (!shelfPriceItem) return
-    const p = parseFloat(shelfPriceInput)
-    if (isNaN(p) || p < 0) {
+    if (isNaN(priceVal) || priceVal < 0) {
       setShelfPriceItem(null)
       return
     }
 
-    const roundedPrice = Number(p.toFixed(2))
+    const roundedPrice = Number(priceVal.toFixed(2))
     const detail = shelfPriceItem.shops[currentShop.id]
     const optResult = getOptimalStorePackage(shelfPriceItem, currentShop.id)
     const activeOpt = optResult.selectedOption
@@ -1114,7 +1103,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                     setQuickQuantityItem({
                                       item,
                                       currentQty: packsNeeded,
-                                      rawQty: String(Number(packsNeeded.toFixed(2))),
                                     })
                                   }
                                   className={`inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded-lg text-xs font-bold font-mono border transition cursor-pointer active:scale-95 ${
@@ -1473,112 +1461,28 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         </div>
       )}
 
-      {/* 11. Fast Shelf / Sale Price Modal */}
-      {shelfPriceItem && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in"
-          onClick={() => setShelfPriceItem(null)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  Update Shelf Price
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  <span className="font-bold text-slate-800">{shelfPriceItem.name}</span>
-                  {' '}at {currentShop.name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShelfPriceItem(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* 11. Fast Shelf / Sale Price Calculator Modal */}
+      {shelfPriceItem && (() => {
+        const optResult = getOptimalStorePackage(shelfPriceItem, currentShop.id)
+        const activeOpt = optResult.selectedOption
+        const detail = shelfPriceItem.shops[currentShop.id]
+        const currentPrice = activeOpt.price > 0 ? activeOpt.price : (detail?.price ?? null)
 
-            <div className="space-y-4 mb-4">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                  Shelf / Sale Price ($)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-extrabold text-xl">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    autoFocus
-                    placeholder="0.00"
-                    value={shelfPriceInput}
-                    onChange={(e) => setShelfPriceInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        handleSaveShelfPrice()
-                      }
-                    }}
-                    className="w-full pl-9 pr-3 py-2.5 text-2xl font-black text-slate-900 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Quick Stepper Buttons */}
-              <div>
-                <div className="text-[11px] font-semibold text-slate-400 mb-1">
-                  Quick Adjust:
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { label: '-$1.00', delta: -1.0, isMinus: true },
-                    { label: '-$0.10', delta: -0.1, isMinus: true },
-                    { label: '+$0.10', delta: 0.1, isMinus: false },
-                    { label: '+$1.00', delta: 1.0, isMinus: false },
-                  ].map((step) => (
-                    <button
-                      key={step.label}
-                      type="button"
-                      onClick={() => {
-                        triggerHaptic(10)
-                        const cur = parseFloat(shelfPriceInput) || 0
-                        const nextVal = Math.max(0, cur + step.delta)
-                        setShelfPriceInput(nextVal.toFixed(2))
-                      }}
-                      className="py-1.5 px-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 active:scale-95 transition flex items-center justify-center gap-0.5 cursor-pointer"
-                    >
-                      {step.isMinus ? <Minus className="w-3 h-3 text-slate-400" /> : <Plus className="w-3 h-3 text-slate-400" />}
-                      <span>{step.label.replace(/^[+-]/, '')}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setShelfPriceItem(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveShelfPrice}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm cursor-pointer transition active:scale-95"
-              >
-                Save Price
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        return (
+          <KeypadCalculatorModal
+            isOpen={Boolean(shelfPriceItem)}
+            onClose={() => setShelfPriceItem(null)}
+            title="Update Shelf Price"
+            itemName={shelfPriceItem.name}
+            storeName={currentShop.name}
+            initialValue={currentPrice}
+            mode="price"
+            packageSize={activeOpt.packageSize || detail?.packageSize}
+            packageUnit={activeOpt.packageUnit || detail?.packageUnit || shelfPriceItem.unit}
+            onApply={handleSaveShelfPrice}
+          />
+        )
+      })()}
 
 
 
@@ -1698,148 +1602,31 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         </div>
       )}
 
-      {/* Quick Quantity Picker Modal */}
-      {quickQuantityItem && (
-        <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150"
-          onClick={() => setQuickQuantityItem(null)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  {quickQuantityItem.item.name}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Set purchase quantity at <span className="font-bold text-slate-700">{currentShop.name}</span>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setQuickQuantityItem(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Quick Quantity Calculator Modal */}
+      {quickQuantityItem && (() => {
+        const optResult = getOptimalStorePackage(quickQuantityItem.item, currentShop.id)
+        const activeOpt = optResult.selectedOption
+        const detail = quickQuantityItem.item.shops[currentShop.id]
+        const itemUnitPrice = activeOpt.price > 0 ? activeOpt.price : (detail?.price ?? null)
 
-            {/* Quick Presets */}
-            <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                Quick Presets
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {[0.5, 1, 1.5, 2, 2.5, 3, 4, 5].map((qty) => (
-                  <button
-                    key={qty}
-                    type="button"
-                    onClick={async () => {
-                      await handleUpdateItemQuantity(quickQuantityItem.item, qty)
-                      setQuickQuantityItem(null)
-                    }}
-                    className={`py-2 rounded-xl text-sm font-bold font-mono transition cursor-pointer ${
-                      quickQuantityItem.currentQty === qty
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-                    }`}
-                  >
-                    {qty}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Custom Stepper Input */}
-            <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                Custom Quantity / Weight
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuickQuantityItem((prev) => {
-                      if (!prev) return null
-                      const delta = prev.currentQty <= 1 ? 0.25 : 1
-                      const nextVal = Math.max(0.05, Number((prev.currentQty - delta).toFixed(2)))
-                      return { ...prev, currentQty: nextVal, rawQty: String(nextVal) }
-                    })
-                  }
-                  disabled={quickQuantityItem.currentQty <= 0.05}
-                  className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 cursor-pointer"
-                  title="Decrease quantity"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="1.0"
-                  value={quickQuantityItem.rawQty ?? String(quickQuantityItem.currentQty)}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                      const parsed = parseFloat(raw)
-                      setQuickQuantityItem((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              rawQty: raw,
-                              currentQty: !isNaN(parsed) && parsed > 0 ? parsed : 0,
-                            }
-                          : null
-                      )
-                    }
-                  }}
-                  className="w-full text-center text-lg font-black font-mono py-2 rounded-xl border border-slate-200 focus:outline-emerald-600"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuickQuantityItem((prev) => {
-                      if (!prev) return null
-                      const delta = prev.currentQty < 1 ? 0.25 : 1
-                      const nextVal = Number((prev.currentQty + delta).toFixed(2))
-                      return { ...prev, currentQty: nextVal, rawQty: String(nextVal) }
-                    })
-                  }
-                  className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
-                  title="Increase quantity"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setQuickQuantityItem(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const parsed = parseFloat(quickQuantityItem.rawQty || String(quickQuantityItem.currentQty))
-                  const finalQty = !isNaN(parsed) && parsed > 0 ? parsed : quickQuantityItem.currentQty
-                  if (finalQty > 0) {
-                    await handleUpdateItemQuantity(quickQuantityItem.item, finalQty)
-                  }
-                  setQuickQuantityItem(null)
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-sm cursor-pointer"
-              >
-                Apply Quantity
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        return (
+          <KeypadCalculatorModal
+            isOpen={Boolean(quickQuantityItem)}
+            onClose={() => setQuickQuantityItem(null)}
+            title="Set Quantity"
+            itemName={quickQuantityItem.item.name}
+            storeName={currentShop.name}
+            initialValue={quickQuantityItem.currentQty}
+            mode="quantity"
+            unit={activeOpt.packageUnit || quickQuantityItem.item.unit || ''}
+            unitPrice={itemUnitPrice}
+            onApply={async (newQty) => {
+              await handleUpdateItemQuantity(quickQuantityItem.item, newQty)
+              setQuickQuantityItem(null)
+            }}
+          />
+        )
+      })()}
 
       {/* 9. Item Actions Mini Modal / Action Sheet */}
       {itemMenuModal && (
