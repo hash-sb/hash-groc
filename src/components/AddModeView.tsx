@@ -20,6 +20,7 @@ import type { ShoppingItem } from '../types'
 import { COMMON_UNITS } from '../types'
 import { useShopping } from '../context/ShoppingContext'
 import { WeeklyManagerModal } from './WeeklyManagerModal'
+import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 
 interface AddModeViewProps {
   onOpenCreateModal: () => void
@@ -64,6 +65,10 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     return localStorage.getItem('hash_groc_lock_items') === 'true'
   })
   const [showOptionsPopover, setShowOptionsPopover] = useState<boolean>(false)
+
+  // Calculator modal for list mode quantity editing
+  const [calcItem, setCalcItem] = useState<ShoppingItem | null>(null)
+  const [isQuickAddCalcOpen, setIsQuickAddCalcOpen] = useState<boolean>(false)
 
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -300,9 +305,14 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                   <Minus className="w-3 h-3" />
                 </button>
 
-                <span className="w-6 text-center font-bold text-xs text-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickAddCalcOpen(true)}
+                  className="min-w-[24px] px-1 text-center font-bold text-xs text-slate-800 hover:bg-slate-200/60 rounded transition cursor-pointer select-none"
+                  title="Click to set quantity with calculator"
+                >
                   {quickQuantity}
-                </span>
+                </button>
 
                 <button
                   type="button"
@@ -821,17 +831,9 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
                             <button
                               type="button"
-                              onClick={() => {
-                                const input = window.prompt(`Set quantity for "${item.name}":`, String(item.quantity || 1))
-                                if (input !== null) {
-                                  const parsed = parseInt(input, 10)
-                                  if (!isNaN(parsed)) {
-                                    handleDirectQuantityChange(item, parsed)
-                                  }
-                                }
-                              }}
+                              onClick={() => setCalcItem(item)}
                               className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-200/60 transition cursor-pointer select-none"
-                              title="Click to set specific quantity"
+                              title="Click to set quantity with calculator"
                             >
                               {item.quantity}
                             </button>
@@ -870,6 +872,42 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         isOpen={isWeeklyManagerOpen}
         onClose={() => setIsWeeklyManagerOpen(false)}
       />
+
+      {/* Calculator Modal for Item Quantity in List */}
+      {calcItem && (
+        <KeypadCalculatorModal
+          isOpen={Boolean(calcItem)}
+          onClose={() => setCalcItem(null)}
+          title="Set Quantity"
+          itemName={calcItem.name}
+          storeName=""
+          initialValue={calcItem.quantity || 1}
+          mode="quantity"
+          unit={calcItem.unit || ''}
+          onApply={async (newQty) => {
+            await handleDirectQuantityChange(calcItem, newQty)
+            setCalcItem(null)
+          }}
+        />
+      )}
+
+      {/* Calculator Modal for Quick Add Quantity */}
+      {isQuickAddCalcOpen && (
+        <KeypadCalculatorModal
+          isOpen={isQuickAddCalcOpen}
+          onClose={() => setIsQuickAddCalcOpen(false)}
+          title="Set Add Quantity"
+          itemName={quickInput.trim() || 'New Item'}
+          storeName=""
+          initialValue={quickQuantity}
+          mode="quantity"
+          unit={quickUnit}
+          onApply={(newQty) => {
+            setQuickQuantity(newQty)
+            setIsQuickAddCalcOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }

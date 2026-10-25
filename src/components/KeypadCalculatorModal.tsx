@@ -183,7 +183,7 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
       const rounded = Number(Math.max(0, finalNum).toFixed(2))
       await onApply(rounded)
     } else {
-      const rounded = Number(Math.max(0.01, finalNum).toFixed(2))
+      const rounded = Number(Math.max(0, finalNum).toFixed(2))
       await onApply(rounded)
     }
     onClose()
