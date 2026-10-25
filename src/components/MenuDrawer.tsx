@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import {
   X,
+  ShoppingCart,
   BarChart3,
   Store,
   Users,
@@ -41,6 +42,9 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   } = useShopping()
   const { user, signInWithGoogle, signOut, isConfigured } = useAuth()
   const [savedFeedback, setSavedFeedback] = useState(false)
+
+  const neededCount = items.filter((i) => i.isNeeded).length
+  const inCartCount = items.filter((i) => i.isNeeded && i.inCart).length
 
   const handleSaveDefault = async () => {
     await saveCurrentAsDefault()
@@ -134,6 +138,35 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
               Features & Tools
             </div>
+
+            {/* Shop Mode */}
+            <button
+              onClick={() => {
+                setMode('shopping')
+                onClose()
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-emerald-50/70 transition text-left group border border-emerald-100 bg-emerald-50/30"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-xs">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>Shop</span>
+                    {neededCount > 0 && (
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full">
+                        {inCartCount}/{neededCount} in cart
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    In-store runner with aisle grouping & check-off
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-emerald-600 group-hover:translate-x-0.5 transition" />
+            </button>
 
             {/* 1. Price Analysis Matrix */}
             <button

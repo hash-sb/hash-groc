@@ -23,18 +23,16 @@ import {
   Sun,
   Moon,
   PackageX,
-  Scale,
-  Calculator,
   Navigation,
   Check,
   X,
-  MoreHorizontal,
+  MoreVertical,
   SlidersHorizontal,
   Layers,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
-import type { ShoppingItem, StorePackageOption, PurchasedItemRecord } from '../types'
+import type { ShoppingItem, PurchasedItemRecord } from '../types'
 import {
   compareShopPrices,
   formatPrice,
@@ -42,7 +40,6 @@ import {
   getOptimalStorePackage,
   groupItemsByShopLocation,
   isCheapestAtStore,
-  compareShelfSizes,
   type EvaluatedPackageOption,
 } from '../utils/pricing'
 
@@ -210,21 +207,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     }
   }, [toastMessage])
 
-  // Feature 4: Fast In-Store Price & Weighted Scale Calculator Modal
-  const [calcModalItem, setCalcModalItem] = useState<ShoppingItem | null>(null)
-  const [calcMode, setCalcMode] = useState<'price' | 'scale' | 'compare'>('price')
-  const [calcShelfPrice, setCalcShelfPrice] = useState<string>('')
-  const [calcWeight, setCalcWeight] = useState<string>('')
-  const [calcPricePerUnit, setCalcPricePerUnit] = useState<string>('')
-  const [calcWeightUnit, setCalcWeightUnit] = useState<string>('lb')
-
-  // Feature 4b: In-Aisle Shelf Size Comparison
-  const [compareSizeA, setCompareSizeA] = useState<string>('')
-  const [compareUnitA, setCompareUnitA] = useState<string>('oz')
-  const [comparePriceA, setComparePriceA] = useState<string>('')
-  const [compareSizeB, setCompareSizeB] = useState<string>('')
-  const [compareUnitB, setCompareUnitB] = useState<string>('oz')
-  const [comparePriceB, setComparePriceB] = useState<string>('')
+  // Fast In-Store Shelf Price Modal (Sale price override for trip)
+  const [shelfPriceItem, setShelfPriceItem] = useState<ShoppingItem | null>(null)
+  const [shelfPriceInput, setShelfPriceInput] = useState<string>('')
 
   // Feature: Interactive Package Size Picker & Quick Quantity
   const [sizePickerItem, setSizePickerItem] = useState<{
@@ -440,151 +425,60 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     }
   }
 
-  const openPriceCalculator = (item: ShoppingItem) => {
+  const openShelfPriceModal = (item: ShoppingItem) => {
     const optResult = getOptimalStorePackage(item, currentShop.id)
     const activeOpt = optResult.selectedOption
     const detail = item.shops[currentShop.id]
     const currentPrice = activeOpt.price > 0 ? activeOpt.price : detail?.price
-    const currentPkgSize = activeOpt.packageSize || detail?.packageSize
-    const currentPkgUnit = activeOpt.packageUnit || detail?.packageUnit || item.unit || 'oz'
-    const isWeightUnit = ['lb', 'lbs', 'oz', 'kg'].includes(item.unit?.toLowerCase())
 
-    setCalcModalItem(item)
-    setCalcShelfPrice(currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
-    setCalcWeight(item.quantity ? item.quantity.toString() : '1')
-    setCalcPricePerUnit(
-      activeOpt.unitPrice?.toString() ||
-        detail?.unitPrice?.toString() ||
-        (currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
+    setShelfPriceItem(item)
+    setShelfPriceInput(
+      currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : ''
     )
-    setCalcWeightUnit(isWeightUnit ? item.unit : 'lb')
-    setCalcMode(isWeightUnit ? 'scale' : 'price')
-
-    // Pre-populate Size A for shelf comparison
-    setCompareSizeA(currentPkgSize ? currentPkgSize.toString() : '')
-    setCompareUnitA(currentPkgUnit)
-    setComparePriceA(currentPrice !== null && currentPrice !== undefined ? currentPrice.toString() : '')
-    setCompareSizeB('')
-    setCompareUnitB(currentPkgUnit)
-    setComparePriceB('')
-
     triggerHaptic(15)
   }
 
-  const shelfComparison = useMemo(() => {
-    if (!calcModalItem || calcMode !== 'compare') return null
-    const sA = parseFloat(compareSizeA)
-    const pA = parseFloat(comparePriceA)
-    const sB = parseFloat(compareSizeB)
-    const pB = parseFloat(comparePriceB)
-
-    if (
-      isNaN(sA) ||
-      sA <= 0 ||
-      isNaN(pA) ||
-      pA <= 0 ||
-      isNaN(sB) ||
-      sB <= 0 ||
-      isNaN(pB) ||
-      pB <= 0
-    ) {
-      return null
+  const handleSaveShelfPrice = async () => {
+    if (!shelfPriceItem) return
+    const p = parseFloat(shelfPriceInput)
+    if (isNaN(p) || p < 0) {
+      setShelfPriceItem(null)
+      return
     }
 
-    return compareShelfSizes(
-      calcModalItem.quantity || 1,
-      calcModalItem.unit || '',
-      { size: sA, unit: compareUnitA, price: pA },
-      { size: sB, unit: compareUnitB, price: pB }
-    )
-  }, [
-    calcModalItem,
-    calcMode,
-    compareSizeA,
-    comparePriceA,
-    compareUnitA,
-    compareSizeB,
-    comparePriceB,
-    compareUnitB,
-  ])
+    const roundedPrice = Number(p.toFixed(2))
+    const detail = shelfPriceItem.shops[currentShop.id]
+    const optResult = getOptimalStorePackage(shelfPriceItem, currentShop.id)
+    const activeOpt = optResult.selectedOption
 
-  const handleApplyWinningSize = async () => {
-    if (!calcModalItem || !shelfComparison) return
-    const winning = shelfComparison.winner === 'B' ? shelfComparison.sizeB : shelfComparison.sizeA
-    await updateItemShopDetail(calcModalItem.id, currentShop.id, {
-      price: winning.price,
-      packageSize: winning.size,
-      packageUnit: winning.unit,
-      unitPrice: winning.unitPrice,
-      unitSize: `${winning.size} ${winning.unit}`,
-    })
-    triggerHaptic(30)
-    setToastMessage(
-      `Applied Size ${shelfComparison.winner} ($${winning.price.toFixed(2)} for ${winning.size} ${winning.unit}) to ${calcModalItem.name}`
-    )
-    setCalcModalItem(null)
-  }
-
-  const handleSaveBothSizes = async () => {
-    if (!calcModalItem || !shelfComparison) return
-    const optA: StorePackageOption = {
-      id: 'opt-a-' + Date.now(),
-      label: `Size A (${shelfComparison.sizeA.size} ${shelfComparison.sizeA.unit})`,
-      packageSize: shelfComparison.sizeA.size,
-      packageUnit: shelfComparison.sizeA.unit,
-      price: shelfComparison.sizeA.price,
-      unitPrice: shelfComparison.sizeA.unitPrice,
-    }
-    const optB: StorePackageOption = {
-      id: 'opt-b-' + (Date.now() + 1),
-      label: `Size B (${shelfComparison.sizeB.size} ${shelfComparison.sizeB.unit})`,
-      packageSize: shelfComparison.sizeB.size,
-      packageUnit: shelfComparison.sizeB.unit,
-      price: shelfComparison.sizeB.price,
-      unitPrice: shelfComparison.sizeB.unitPrice,
-    }
-    const winning = shelfComparison.winner === 'B' ? shelfComparison.sizeB : shelfComparison.sizeA
-    await updateItemShopDetail(calcModalItem.id, currentShop.id, {
-      price: winning.price,
-      packageSize: winning.size,
-      packageUnit: winning.unit,
-      unitPrice: winning.unitPrice,
-      unitSize: `${winning.size} ${winning.unit}`,
-      packageOptions: [optA, optB],
-    })
-    triggerHaptic(30)
-    setToastMessage(
-      `Saved both sizes to ${currentShop.name}! Size ${shelfComparison.winner} selected as optimal.`
-    )
-    setCalcModalItem(null)
-  }
-
-  const handleSaveCalculatorPrice = async () => {
-    if (!calcModalItem) return
-    let finalPrice: number | null = null
-
-    if (calcMode === 'scale') {
-      const w = parseFloat(calcWeight)
-      const ppu = parseFloat(calcPricePerUnit)
-      if (!isNaN(w) && !isNaN(ppu)) {
-        finalPrice = Number((w * ppu).toFixed(2))
-      }
-    } else {
-      const p = parseFloat(calcShelfPrice)
-      if (!isNaN(p)) {
-        finalPrice = p
-      }
-    }
-
-    if (finalPrice !== null) {
-      await updateItemShopDetail(calcModalItem.id, currentShop.id, {
-        price: finalPrice,
+    if (detail?.packageOptions && detail.packageOptions.length > 0) {
+      const updatedOptions = detail.packageOptions.map((opt) => {
+        if (opt.id === activeOpt.id) {
+          const newUnitPrice =
+            opt.packageSize && opt.packageSize > 0
+              ? Number((roundedPrice / opt.packageSize).toFixed(4))
+              : null
+          return {
+            ...opt,
+            price: roundedPrice,
+            unitPrice: newUnitPrice,
+          }
+        }
+        return opt
       })
-      triggerHaptic(30)
-      setToastMessage(`Updated price for ${calcModalItem.name} to $${finalPrice.toFixed(2)}`)
+      await updateItemShopDetail(shelfPriceItem.id, currentShop.id, {
+        price: roundedPrice,
+        packageOptions: updatedOptions,
+      })
+    } else {
+      await updateItemShopDetail(shelfPriceItem.id, currentShop.id, {
+        price: roundedPrice,
+      })
     }
 
-    setCalcModalItem(null)
+    triggerHaptic(30)
+    setToastMessage(`Updated shelf price for ${shelfPriceItem.name} to $${roundedPrice.toFixed(2)}`)
+    setShelfPriceItem(null)
   }
 
   // Feature 2: Next pending aisle for runner navigation
@@ -913,7 +807,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   title="Shopping View Options & Settings"
                   aria-label="Shopping View Options & Settings"
                 >
-                  <MoreHorizontal className="w-4 h-4" />
+                  <SlidersHorizontal className="w-4 h-4" />
                   {/* Subtle active badge dot if non-default option is set */}
                   {hideCheckedItems && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-600 rounded-full border-2 border-white" />
@@ -1123,8 +1017,13 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       const itemUnitPrice = activeOpt.price > 0 ? activeOpt.price : (shopDetail?.price || null)
                       const packsNeeded = activeOpt.packsNeeded
                       const totalItemPrice = itemUnitPrice !== null ? itemUnitPrice * packsNeeded : null
-                      const displaySize = activeOpt.packageSize || shopDetail?.packageSize
-                      const displayUnit = activeOpt.packageUnit || shopDetail?.packageUnit || item.unit
+                      const itemSizeText = activeOpt.label
+                        ? (activeOpt.packageSize ? `${activeOpt.packageSize} ${activeOpt.packageUnit} (${activeOpt.label})` : activeOpt.label)
+                        : activeOpt.packageSize
+                          ? `${activeOpt.packageSize} ${activeOpt.packageUnit}`
+                          : shopDetail?.packageSize
+                            ? `${shopDetail.packageSize} ${shopDetail.packageUnit || item.unit}`
+                            : `${item.quantity || 1} ${item.unit || ''}`.trim()
 
                       return (
                         <div
@@ -1151,7 +1050,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             </button>
 
                             <div className="min-w-0 flex-1">
-                              {/* Row 1: Item Name, Best Price badge, Cheaper elsewhere tag */}
+                              {/* Row 1: Item Name, Best Price badge (icon only), Cheaper elsewhere tag */}
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span
                                   onClick={() => handleToggleInCart(item.id)}
@@ -1164,17 +1063,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                   {item.name}
                                 </span>
 
-                                {/* Inline Price Comparison Micro-Chips */}
+                                {/* Best Price (icon only) */}
                                 {comp.isBestPriceHere && (
                                   <span
-                                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.2 rounded-md transition ${
-                                      isPicked
-                                        ? 'bg-slate-100 text-slate-400 line-through'
-                                        : 'bg-emerald-100/70 text-emerald-800'
+                                    className={`inline-flex items-center p-0.5 rounded transition ${
+                                      isPicked ? 'text-slate-400' : 'text-emerald-600'
                                     }`}
+                                    title="Best price at this store"
                                   >
-                                    <Sparkles className={`w-2.5 h-2.5 shrink-0 ${isPicked ? 'text-slate-400' : 'text-emerald-600'}`} />
-                                    <span>Best Price</span>
+                                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
                                   </span>
                                 )}
 
@@ -1197,27 +1094,23 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 )}
                               </div>
 
-                              {/* Row 2: Clean Quantity & Size Pills */}
-                              <div className="flex items-center gap-2 flex-wrap mt-1">
-                                {/* Quantity Pill (tap to quick-change) */}
+                              {/* Row 2: Packs count (number only) & Quantity Size (always show!) */}
+                              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                {/* Packs count (number only, tap to change) */}
                                 <button
                                   type="button"
                                   onClick={() => setQuickQuantityItem({ item, currentQty: packsNeeded })}
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border transition cursor-pointer active:scale-95 ${
+                                  className={`inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded-lg text-xs font-bold font-mono border transition cursor-pointer active:scale-95 ${
                                     isPicked
                                       ? 'bg-slate-100 text-slate-400 border-slate-200/60'
                                       : 'bg-slate-100 hover:bg-slate-200/80 text-slate-800 border-slate-200'
                                   }`}
-                                  title="Tap to change quantity"
+                                  title="Tap to change quantity / packs needed"
                                 >
-                                  <span className="font-bold font-mono">{packsNeeded}</span>
-                                  <span className="text-[11px] font-normal text-slate-600">
-                                    {displaySize ? (packsNeeded === 1 ? 'pack' : 'packs') : item.unit}
-                                  </span>
-                                  <ChevronDown className="w-2.5 h-2.5 text-slate-400 ml-0.5" />
+                                  <span>{packsNeeded}</span>
                                 </button>
 
-                                {/* Size Pill (if multiple options or specific package) */}
+                                {/* Quantity Size (Always show!) */}
                                 {optResult.hasMultipleOptions ? (
                                   <button
                                     type="button"
@@ -1242,16 +1135,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                     <span>{activeOpt.label || `${activeOpt.packageSize} ${activeOpt.packageUnit}`}</span>
                                     <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0 ml-0.5" />
                                   </button>
-                                ) : displaySize && (displaySize !== item.quantity || displayUnit !== item.unit) ? (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200/60">
-                                    <span>{displaySize} {displayUnit}</span>
-                                    {activeOpt.label ? <span className="text-slate-400">• {activeOpt.label}</span> : null}
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200/60">
+                                    <span>{itemSizeText}</span>
                                   </span>
-                                ) : null}
+                                )}
 
                                 {item.notes && (
                                   <span
-                                    className={`text-[11px] italic truncate max-w-[150px] ${
+                                    className={`text-[11px] italic truncate max-w-[140px] ${
                                       isPicked ? 'text-slate-400 line-through' : 'text-slate-500'
                                     }`}
                                     title={item.notes}
@@ -1263,13 +1155,13 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             </div>
                           </div>
 
-                          {/* Right: Price box & 3-dot item menu */}
-                          <div className={`shrink-0 flex items-center gap-1 sm:gap-2 ${isPicked ? 'opacity-60' : ''}`}>
+                          {/* Right: Price box & Vertical 3-dot item menu */}
+                          <div className={`shrink-0 flex items-center gap-1 sm:gap-1.5 ${isPicked ? 'opacity-60' : ''}`}>
                             <button
                               type="button"
-                              onClick={() => openPriceCalculator(item)}
+                              onClick={() => openShelfPriceModal(item)}
                               className="group flex flex-col items-end px-2 py-1 rounded-xl border border-transparent hover:border-emerald-300 hover:bg-emerald-50/40 active:scale-95 transition text-right cursor-pointer"
-                              title="Tap to update price or weigh produce"
+                              title="Tap to enter shelf / sale price"
                             >
                               <div className="flex items-center gap-1">
                                 <span
@@ -1279,7 +1171,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 >
                                   {formatPrice(totalItemPrice)}
                                 </span>
-                                <Calculator className="w-3 h-3 text-slate-300 group-hover:text-emerald-600 transition" />
                               </div>
 
                               {packsNeeded > 1 && itemUnitPrice !== null && (
@@ -1295,17 +1186,17 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                               )}
                             </button>
 
-                            {/* 3-Dot Item Actions Menu */}
+                            {/* Vertical 3-Dot Item Actions Menu */}
                             <button
                               type="button"
                               onClick={() => {
                                 triggerHaptic(15)
                                 setItemMenuModal(item)
                               }}
-                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-                              title="Item actions (Edit, Out of stock)"
+                              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                              title="Item actions"
                             >
-                              <MoreHorizontal className="w-4 h-4" />
+                              <MoreVertical className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -1561,415 +1452,114 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         </div>
       )}
 
-      {/* 11. Quick Price & Produce Scale Calculator Modal */}
-      {calcModalItem && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-3 mb-4">
+      {/* 11. Fast Shelf / Sale Price Modal */}
+      {shelfPriceItem && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in"
+          onClick={() => setShelfPriceItem(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Update Price at {currentShop.name}
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Update Shelf Price
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  <span className="font-bold text-slate-800">{calcModalItem.name}</span>
-                  {calcModalItem.quantity ? ` (${calcModalItem.quantity} ${calcModalItem.unit})` : ''}
+                  <span className="font-bold text-slate-800">{shelfPriceItem.name}</span>
+                  {' '}at {currentShop.name}
                 </p>
               </div>
               <button
-                onClick={() => setCalcModalItem(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                type="button"
+                onClick={() => setShelfPriceItem(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Mode Switcher */}
-            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl mb-4">
-              <button
-                type="button"
-                onClick={() => setCalcMode('price')}
-                className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition ${
-                  calcMode === 'price'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Calculator className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="truncate">Shelf Price</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalcMode('scale')}
-                className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition ${
-                  calcMode === 'scale'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Scale className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="truncate">Scale Wt</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalcMode('compare')}
-                className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition ${
-                  calcMode === 'compare'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                <span className="truncate">Compare Sizes</span>
-              </button>
+            <div className="space-y-4 mb-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Shelf / Sale Price ($)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-extrabold text-xl">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    autoFocus
+                    placeholder="0.00"
+                    value={shelfPriceInput}
+                    onChange={(e) => setShelfPriceInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleSaveShelfPrice()
+                      }
+                    }}
+                    className="w-full pl-9 pr-3 py-2.5 text-2xl font-black text-slate-900 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Stepper Buttons */}
+              <div>
+                <div className="text-[11px] font-semibold text-slate-400 mb-1">
+                  Quick Adjust:
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { label: '-$1.00', delta: -1.0, isMinus: true },
+                    { label: '-$0.10', delta: -0.1, isMinus: true },
+                    { label: '+$0.10', delta: 0.1, isMinus: false },
+                    { label: '+$1.00', delta: 1.0, isMinus: false },
+                  ].map((step) => (
+                    <button
+                      key={step.label}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(10)
+                        const cur = parseFloat(shelfPriceInput) || 0
+                        const nextVal = Math.max(0, cur + step.delta)
+                        setShelfPriceInput(nextVal.toFixed(2))
+                      }}
+                      className="py-1.5 px-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 active:scale-95 transition flex items-center justify-center gap-0.5 cursor-pointer"
+                    >
+                      {step.isMinus ? <Minus className="w-3 h-3 text-slate-400" /> : <Plus className="w-3 h-3 text-slate-400" />}
+                      <span>{step.label.replace(/^[+-]/, '')}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Mode 1: Shelf Price with Steppers */}
-            {calcMode === 'price' && (
-              <div className="space-y-4 mb-5">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                    Shelf Price per item
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      autoFocus
-                      placeholder="0.00"
-                      value={calcShelfPrice}
-                      onChange={(e) => setCalcShelfPrice(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2.5 text-xl font-black text-slate-900 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Stepper Buttons */}
-                <div>
-                  <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
-                    Quick Adjust:
-                  </div>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[
-                      { label: '-$1.00', delta: -1.0, isMinus: true },
-                      { label: '-$0.10', delta: -0.1, isMinus: true },
-                      { label: '+$0.10', delta: 0.1, isMinus: false },
-                      { label: '+$1.00', delta: 1.0, isMinus: false },
-                    ].map((step) => (
-                      <button
-                        key={step.label}
-                        type="button"
-                        onClick={() => {
-                          triggerHaptic(10)
-                          const cur = parseFloat(calcShelfPrice) || 0
-                          const nextVal = Math.max(0, cur + step.delta)
-                          setCalcShelfPrice(nextVal.toFixed(2))
-                        }}
-                        className="py-1.5 px-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 active:scale-95 transition flex items-center justify-center gap-0.5"
-                      >
-                        {step.isMinus ? <Minus className="w-3 h-3 text-slate-400" /> : <Plus className="w-3 h-3 text-slate-400" />}
-                        <span>{step.label.replace(/^[+-]/, '')}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Mode 2: Scale Weight x Price/Unit */}
-            {calcMode === 'scale' && (
-              <div className="space-y-4 mb-5">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                      Scale Weight
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="number"
-                        step="0.01"
-                        autoFocus
-                        placeholder="e.g. 2.45"
-                        value={calcWeight}
-                        onChange={(e) => setCalcWeight(e.target.value)}
-                        className="w-full px-3 py-2 text-base font-bold text-slate-900 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
-                      />
-                      <span className="text-xs font-semibold text-slate-500">
-                        {calcWeightUnit}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                      Price per {calcWeightUnit}
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
-                        $
-                      </span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="e.g. 1.99"
-                        value={calcPricePerUnit}
-                        onChange={(e) => setCalcPricePerUnit(e.target.value)}
-                        className="w-full pl-6 pr-2 py-2 text-base font-bold text-slate-900 border border-slate-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Calculation preview */}
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
-                  <div className="text-xs text-emerald-800">
-                    <span className="font-semibold">{calcWeight || '0'} {calcWeightUnit}</span>
-                    <span> × </span>
-                    <span className="font-semibold">${calcPricePerUnit || '0.00'}/{calcWeightUnit}</span>
-                  </div>
-                  <div className="text-sm font-extrabold text-emerald-900">
-                    ={' '}
-                    {formatPrice(
-                      (parseFloat(calcWeight) || 0) * (parseFloat(calcPricePerUnit) || 0)
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Mode 3: In-Aisle Shelf Size Comparison */}
-            {calcMode === 'compare' && (
-              <div className="space-y-3.5 mb-5 text-xs">
-                <div className="text-[11px] text-slate-500">
-                  Compare two package sizes on the shelf for your{' '}
-                  <strong>
-                    {calcModalItem.quantity || 1} {calcModalItem.unit || 'units'}
-                  </strong>{' '}
-                  target need:
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  {/* Size A (Current / Known) */}
-                  <div className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
-                    <div className="font-bold text-slate-800 text-[11px] flex items-center justify-between">
-                      <span>Size A</span>
-                      {shelfComparison?.winner === 'A' && (
-                        <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
-                          Cheaper
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
-                        Size & Unit
-                      </label>
-                      <div className="flex gap-1">
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="Size"
-                          value={compareSizeA}
-                          onChange={(e) => setCompareSizeA(e.target.value)}
-                          className="w-3/5 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Unit"
-                          value={compareUnitA}
-                          onChange={(e) => setCompareUnitA(e.target.value)}
-                          className="w-2/5 px-1 py-1 bg-white border border-slate-300 rounded-lg text-xs outline-none text-center font-medium"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
-                        Shelf Price ($)
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-2 top-1 text-slate-400">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={comparePriceA}
-                          onChange={(e) => setComparePriceA(e.target.value)}
-                          className="w-full pl-5 pr-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {shelfComparison && (
-                      <div className="pt-1.5 border-t border-slate-200 text-[11px] space-y-0.5">
-                        <div className="text-slate-500">
-                          Unit: {shelfComparison.sizeA.unitPrice ? `$${shelfComparison.sizeA.unitPrice.toFixed(3)}/${shelfComparison.sizeA.unit}` : '--'}
-                        </div>
-                        <div className="font-bold text-slate-800">
-                          {shelfComparison.sizeA.packsNeeded} pk = ${shelfComparison.sizeA.fulfillmentCost.toFixed(2)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Size B (New / Competitor Size) */}
-                  <div className="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-2">
-                    <div className="font-bold text-indigo-950 text-[11px] flex items-center justify-between">
-                      <span>Size B</span>
-                      {shelfComparison?.winner === 'B' && (
-                        <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full">
-                          Cheaper
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-indigo-900 mb-0.5">
-                        Size & Unit
-                      </label>
-                      <div className="flex gap-1">
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="Size"
-                          value={compareSizeB}
-                          onChange={(e) => setCompareSizeB(e.target.value)}
-                          className="w-3/5 px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Unit"
-                          value={compareUnitB}
-                          onChange={(e) => setCompareUnitB(e.target.value)}
-                          className="w-2/5 px-1 py-1 bg-white border border-indigo-300 rounded-lg text-xs outline-none text-center font-medium"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-indigo-900 mb-0.5">
-                        Shelf Price ($)
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-2 top-1 text-slate-400">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={comparePriceB}
-                          onChange={(e) => setComparePriceB(e.target.value)}
-                          className="w-full pl-5 pr-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {shelfComparison && (
-                      <div className="pt-1.5 border-t border-indigo-200 text-[11px] space-y-0.5">
-                        <div className="text-indigo-800">
-                          Unit: {shelfComparison.sizeB.unitPrice ? `$${shelfComparison.sizeB.unitPrice.toFixed(3)}/${shelfComparison.sizeB.unit}` : '--'}
-                        </div>
-                        <div className="font-bold text-indigo-950">
-                          {shelfComparison.sizeB.packsNeeded} pk = ${shelfComparison.sizeB.fulfillmentCost.toFixed(2)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Verdict Banner */}
-                {shelfComparison && (
-                  <div
-                    className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
-                      shelfComparison.winner !== 'TIE'
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
-                        : 'bg-slate-100 border-slate-300 text-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <div>
-                        <div className="font-black text-xs">{shelfComparison.summary}</div>
-                        {shelfComparison.winner !== 'TIE' && (
-                          <div className="text-[11px] text-emerald-800 mt-0.5">
-                            Buying{' '}
-                            <strong>
-                              {shelfComparison.winner === 'B'
-                                ? `${shelfComparison.sizeB.packsNeeded} × ${shelfComparison.sizeB.size} ${shelfComparison.sizeB.unit}`
-                                : `${shelfComparison.sizeA.packsNeeded} × ${shelfComparison.sizeA.size} ${shelfComparison.sizeA.unit}`}
-                            </strong>{' '}
-                            fulfills your demand for the lowest total out-of-pocket cost.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Modal Actions */}
-            {calcMode === 'compare' ? (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCalcModalItem(null)}
-                  className="w-1/3 py-2.5 px-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
-                >
-                  Cancel
-                </button>
-                {shelfComparison ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleApplyWinningSize}
-                      className="w-1/3 py-2.5 px-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-emerald-700 transition truncate"
-                      title="Use the cheaper size right now"
-                    >
-                      Use Winner ({shelfComparison.winner})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveBothSizes}
-                      className="w-1/3 py-2.5 px-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-indigo-700 transition truncate"
-                      title="Keep both sizes saved to this store"
-                    >
-                      Save Both
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="w-2/3 py-2.5 px-3 bg-slate-200 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed"
-                  >
-                    Enter sizes & prices above
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCalcModalItem(null)}
-                  className="w-1/3 py-2.5 px-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveCalculatorPrice}
-                  className="w-2/3 py-2.5 px-3 bg-emerald-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition flex items-center justify-center gap-1.5"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Save Price to Store</span>
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShelfPriceItem(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveShelfPrice}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm cursor-pointer transition active:scale-95"
+              >
+                Save Price
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+
 
       {/* Interactive Size Picker Modal Sheet */}
       {sizePickerItem && (
@@ -2265,12 +1855,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 onClick={() => {
                   const it = itemMenuModal
                   setItemMenuModal(null)
-                  openPriceCalculator(it)
+                  openShelfPriceModal(it)
                 }}
                 className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
               >
-                <Calculator className="w-4 h-4 text-indigo-600" />
-                <span>Price & Produce Scale Calculator</span>
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+                <span>Update Shelf / Sale Price</span>
               </button>
             </div>
           </div>
