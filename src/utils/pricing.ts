@@ -1120,7 +1120,7 @@ export function formatPrice(num: number | null | undefined): string {
 
 export function formatUnitPrice(price: number | null | undefined, unit: string | null | undefined): string {
   if (price === null || price === undefined || isNaN(price) || !unit) return ''
-  return `$${price < 1 ? price.toFixed(3) : price.toFixed(2)} / ${unit}`
+  return `$${price < 1 ? price.toFixed(3) : price.toFixed(2)}/${unit}`
 }
 
 /**
