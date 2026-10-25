@@ -186,7 +186,16 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         price: null,
         location: '',
       }
-      const merged = { ...existing, ...patch }
+      const merged: ItemShopDetail = {
+        ...existing,
+        ...patch,
+        unitSize:
+          'unitSize' in patch
+            ? patch.unitSize && patch.unitSize.trim()
+              ? patch.unitSize.trim()
+              : undefined
+            : existing.unitSize,
+      }
 
       // Auto-compute unit price if price and packageSize exist
       if (
@@ -265,7 +274,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             packageSize: best.packageSize,
             packageUnit: commonUnit,
             unitPrice: best.unitPrice,
-            unitSize: best.label || detail.unitSize,
+            unitSize: best.label && best.label.trim() ? best.label.trim() : undefined,
           }
         } else if (validOptions.length === 1) {
           cleanedShopDetails[sId] = {
@@ -275,19 +284,21 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             packageSize: validOptions[0].packageSize,
             packageUnit: commonUnit,
             unitPrice: validOptions[0].unitPrice,
-            unitSize: validOptions[0].label || detail.unitSize,
+            unitSize: validOptions[0].label && validOptions[0].label.trim() ? validOptions[0].label.trim() : undefined,
           }
         } else {
           cleanedShopDetails[sId] = {
             ...detail,
             packageUnit: commonUnit,
             packageOptions: undefined,
+            unitSize: detail.unitSize && detail.unitSize.trim() ? detail.unitSize.trim() : undefined,
           }
         }
       } else {
         cleanedShopDetails[sId] = {
           ...detail,
           packageUnit: commonUnit,
+          unitSize: detail.unitSize && detail.unitSize.trim() ? detail.unitSize.trim() : undefined,
         }
       }
     }
@@ -447,6 +458,9 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
       const oldOpt = currentOptions[optionIndex]
       const updatedOpt: StorePackageOption = { ...oldOpt, ...patch, packageUnit: commonUnit }
+      if ('label' in patch) {
+        updatedOpt.label = patch.label && patch.label.trim() ? patch.label.trim() : undefined
+      }
 
       // Auto-default packageSize to 1 if price is entered and size is blank/0 (#2)
       if (patch.price !== undefined) {
@@ -503,17 +517,13 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
         shopPatch.packageSize = best.packageSize
         shopPatch.packageUnit = commonUnit
         shopPatch.unitPrice = best.unitPrice
-        if (best.label !== undefined) {
-          shopPatch.unitSize = best.label || undefined
-        }
+        shopPatch.unitSize = best.label && best.label.trim() ? best.label.trim() : undefined
       } else if (optionIndex === 0) {
         shopPatch.price = !isNaN(numPrice) && numPrice > 0 ? numPrice : null
         shopPatch.packageSize = !isNaN(numSize) && numSize > 0 ? numSize : null
         shopPatch.packageUnit = commonUnit
         shopPatch.unitPrice = updatedOpt.unitPrice
-        if (updatedOpt.label !== undefined) {
-          shopPatch.unitSize = updatedOpt.label || undefined
-        }
+        shopPatch.unitSize = updatedOpt.label && updatedOpt.label.trim() ? updatedOpt.label.trim() : undefined
       }
 
       return {
@@ -560,7 +570,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             packageSize: remSize,
             packageUnit: commonUnit,
             unitPrice: remUnitPrice,
-            unitSize: remaining?.label || existing.unitSize,
+            unitSize: remaining?.label && remaining.label.trim() ? remaining.label.trim() : undefined,
             packageOptions: undefined,
           },
         }
@@ -591,7 +601,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           packageSize: best.packageSize,
           packageUnit: commonUnit,
           unitPrice: best.unitPrice,
-          unitSize: best.label || undefined,
+          unitSize: best.label && best.label.trim() ? best.label.trim() : undefined,
         }
       }
 
@@ -634,8 +644,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       if (patch.packageSize !== undefined) {
         shopPatch.packageSize = patch.packageSize
       }
-      if (patch.label !== undefined) {
-        shopPatch.unitSize = patch.label
+      if ('label' in patch) {
+        shopPatch.unitSize = patch.label && patch.label.trim() ? patch.label.trim() : undefined
       }
       handleShopDetailChange(activeShop.id, shopPatch)
     }
@@ -649,7 +659,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     return [
       {
         id: 'primary',
-        label: currentShopDetail.unitSize,
+        label: currentShopDetail.unitSize && currentShopDetail.unitSize.trim() ? currentShopDetail.unitSize.trim() : undefined,
         packageSize: (currentShopDetail.packageSize ?? '') as unknown as number,
         packageUnit: commonUnit,
         price: (currentShopDetail.price ?? '') as unknown as number,
@@ -1225,7 +1235,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                             : null
 
                         const optionKey = opt.id || `opt-${idx}`
-                        const isLabelOpen = Boolean(opt.label) || Boolean(showLabelInputMap[optionKey])
+                        const hasLabel = Boolean(opt.label && opt.label.trim())
+                        const isLabelOpen = hasLabel || Boolean(showLabelInputMap[optionKey])
 
                         return (
                           <div
@@ -1365,12 +1376,12 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                 </span>
                                 <input
                                   type="text"
-                                  autoFocus={!opt.label}
+                                  autoFocus={!hasLabel}
                                   placeholder="e.g. Family Size, Club Pack, 12-pack"
                                   value={opt.label || ''}
                                   onChange={(e) =>
                                     handleUpdateOptionField(idx, {
-                                      label: e.target.value || undefined,
+                                      label: e.target.value,
                                     })
                                   }
                                   className="flex-1 px-2 py-0.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100/80 focus:bg-white rounded border border-slate-200 focus:border-slate-300 focus:outline-none transition"
@@ -1378,7 +1389,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    handleUpdateOptionField(idx, { label: undefined })
+                                    handleUpdateOptionField(idx, { label: '' })
                                     setShowLabelInputMap((prev) => ({
                                       ...prev,
                                       [optionKey]: false,
