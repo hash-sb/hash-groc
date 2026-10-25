@@ -12,7 +12,6 @@ import {
   MapPin,
   Repeat,
   ShoppingCart,
-  Copy,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -374,80 +373,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
   // On-demand label input visibility per size row (#1)
   const [showLabelInputMap, setShowLabelInputMap] = useState<Record<string, boolean>>({})
-
-  // List of other stores with package sizes/prices available to copy from (#6)
-  const otherConfiguredShops = useMemo(() => {
-    if (!activeShop) return []
-    return shops.filter((s) => {
-      if (s.id === activeShop.id) return false
-      const detail = shopDetails[s.id]
-      if (!detail) return false
-      const hasPrice = typeof detail.price === 'number' && detail.price > 0
-      const hasSize = typeof detail.packageSize === 'number' && detail.packageSize > 0
-      const hasOptions =
-        detail.packageOptions &&
-        detail.packageOptions.some((o) => {
-          const p = typeof o.price === 'number' ? o.price : parseFloat(String(o.price))
-          const sz =
-            typeof o.packageSize === 'number' ? o.packageSize : parseFloat(String(o.packageSize))
-          return (!isNaN(p) && p > 0) || (!isNaN(sz) && sz > 0)
-        })
-      return hasPrice || hasSize || hasOptions
-    })
-  }, [shops, activeShop, shopDetails])
-
-  // One-tap copy sizes from another store into current store (#6)
-  const handleCopySizesFromShop = (sourceShopId: string) => {
-    const source = shopDetails[sourceShopId]
-    if (!source || !activeShop) return
-
-    setShopDetails((prev) => {
-      const existing = prev[activeShop.id] || {
-        available: true,
-        price: null,
-        location: '',
-      }
-
-      // If source has multi-sizes, copy all packageOptions (preserving sizes and labels, leaving prices empty for user to enter)
-      if (source.packageOptions && source.packageOptions.length > 0) {
-        const copiedOptions: StorePackageOption[] = source.packageOptions.map((opt) => ({
-          id: 'opt-copy-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-          label: opt.label,
-          packageSize: opt.packageSize,
-          packageUnit: commonUnit,
-          price: '' as unknown as number,
-          unitPrice: null,
-        }))
-
-        return {
-          ...prev,
-          [activeShop.id]: {
-            ...existing,
-            packageOptions: copiedOptions,
-            packageSize: copiedOptions[0]?.packageSize || null,
-            packageUnit: commonUnit,
-            unitSize: copiedOptions[0]?.label || undefined,
-            price: null,
-            unitPrice: null,
-          },
-        }
-      } else if (source.packageSize) {
-        return {
-          ...prev,
-          [activeShop.id]: {
-            ...existing,
-            packageSize: source.packageSize,
-            packageUnit: commonUnit,
-            unitSize: source.unitSize,
-            packageOptions: undefined,
-            price: null,
-            unitPrice: null,
-          },
-        }
-      }
-      return prev
-    })
-  }
 
   // Handle Adding an Alternative Size row
   const handleAddAlternativeSize = (shopId: string) => {
@@ -1090,50 +1015,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
             {/* Active Shop Configuration */}
             {activeShop && (
               <div className="mt-3 p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                {/* Compact Store Control Bar: Status/Copy + Aisle Picker + Availability Toggle */}
+                {/* Compact Store Control Bar: Status + Aisle Picker + Availability Toggle */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
-                  {/* Left: Active Store badge & Quick Copy button (#5, #6) */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  {/* Left: Active Store badge */}
+                  <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-slate-200 shadow-2xs">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
                       <span className="text-xs font-bold text-slate-900">{activeShop.name}</span>
                     </div>
-
-                    {/* Quick Copy Package Sizes from Another Store (#6) */}
-                    {otherConfiguredShops.length > 0 && currentShopDetail.available && (
-                      <div className="relative">
-                        {otherConfiguredShops.length === 1 ? (
-                          <button
-                            type="button"
-                            onClick={() => handleCopySizesFromShop(otherConfiguredShops[0].id)}
-                            className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-lg flex items-center gap-1 transition"
-                            title={`Copy package sizes from ${otherConfiguredShops[0].name}`}
-                          >
-                            <Copy className="w-3 h-3 text-indigo-600" />
-                            <span>Copy sizes from {otherConfiguredShops[0].name}</span>
-                          </button>
-                        ) : (
-                          <select
-                            value=""
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                handleCopySizesFromShop(e.target.value)
-                              }
-                            }}
-                            className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-lg cursor-pointer focus:outline-none"
-                          >
-                            <option value="" disabled>
-                              📋 Copy sizes from...
-                            </option>
-                            {otherConfiguredShops.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   {/* Right: Compact Aisle Selector (#4) & Carried Toggle */}
