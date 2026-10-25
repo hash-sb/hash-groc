@@ -600,19 +600,16 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-center gap-1.5">
-                  {shop.icon && <span className="text-base leading-none shrink-0">{shop.icon}</span>}
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold tracking-tight">{shop.name}</span>
-                    <div className="text-[10px] text-slate-500">
-                      {isFullyPicked ? (
-                        <span className="text-emerald-700 font-semibold">✓ Done ({count})</span>
-                      ) : (
-                        <span>
-                          {count} {count === 1 ? 'item' : 'items'}
-                        </span>
-                      )}
-                    </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold tracking-tight">{shop.name}</span>
+                  <div className="text-[10px] text-slate-500">
+                    {isFullyPicked ? (
+                      <span className="text-emerald-700 font-semibold">✓ Done ({count})</span>
+                    ) : (
+                      <span>
+                        {count} {count === 1 ? 'item' : 'items'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </button>
