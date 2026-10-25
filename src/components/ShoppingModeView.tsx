@@ -233,13 +233,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const handleUpdateItemQuantity = async (item: ShoppingItem, newPacks: number) => {
     if (isNaN(newPacks) || newPacks <= 0) return
     triggerHaptic(15)
+    await updateItem(item.id, { quantity: newPacks })
     await updateItemShopDetail(item.id, currentShop.id, {
       storeQuantity: newPacks,
     })
-    const shopDetail = item.shops[currentShop.id]
-    if (!shopDetail?.packageOptions || shopDetail.packageOptions.length === 0) {
-      await updateItem(item.id, { quantity: newPacks })
-    }
   }
 
   // All needed items on active shopping list

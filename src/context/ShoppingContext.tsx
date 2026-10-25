@@ -49,6 +49,9 @@ interface ShoppingContextType {
   saveCurrentNeededAsWeekly: (replaceExisting?: boolean) => Promise<number>
   bulkSetWeekly: (itemIds: string[], isWeekly: boolean) => Promise<void>
   clearAllWeekly: () => Promise<void>
+  unselectAllItems: () => Promise<void>
+  resetAllItemCounts: () => Promise<void>
+  resetAllItemDescriptions: () => Promise<void>
   updateItemShopDetail: (
     itemId: string,
     shopId: string,
@@ -1021,6 +1024,99 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }
 
+  const unselectAllItems = async (): Promise<void> => {
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        if (item.isNeeded || item.inCart) {
+          const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+          batch.update(itemRef, { isNeeded: false, inCart: false, updatedAt: Date.now() })
+        }
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) =>
+        item.isNeeded || item.inCart
+          ? { ...item, isNeeded: false, inCart: false, updatedAt: Date.now() }
+          : item
+      )
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
+  const resetAllItemCounts = async (): Promise<void> => {
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+        let shopsChanged = false
+        const cleanedShops = { ...item.shops }
+        Object.keys(cleanedShops).forEach((sId) => {
+          if (cleanedShops[sId].storeQuantity !== undefined) {
+            delete cleanedShops[sId].storeQuantity
+            shopsChanged = true
+          }
+        })
+        const patch: Record<string, any> = { quantity: 1, updatedAt: Date.now() }
+        if (shopsChanged) {
+          patch.shops = cleanedShops
+        }
+        batch.update(itemRef, patch)
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) => {
+        const cleanedShops = { ...item.shops }
+        Object.keys(cleanedShops).forEach((sId) => {
+          if (cleanedShops[sId].storeQuantity !== undefined) {
+            delete cleanedShops[sId].storeQuantity
+          }
+        })
+        return { ...item, quantity: 1, shops: cleanedShops, updatedAt: Date.now() }
+      })
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
+  const resetAllItemDescriptions = async (): Promise<void> => {
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        let shopsChanged = false
+        const cleanedShops = { ...item.shops }
+        Object.keys(cleanedShops).forEach((sId) => {
+          if (cleanedShops[sId].notes) {
+            cleanedShops[sId] = { ...cleanedShops[sId], notes: '' }
+            shopsChanged = true
+          }
+        })
+        if (item.notes || shopsChanged) {
+          const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+          const patch: Record<string, any> = { notes: '', updatedAt: Date.now() }
+          if (shopsChanged) {
+            patch.shops = cleanedShops
+          }
+          batch.update(itemRef, patch)
+        }
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) => {
+        const cleanedShops = { ...item.shops }
+        Object.keys(cleanedShops).forEach((sId) => {
+          if (cleanedShops[sId].notes) {
+            cleanedShops[sId] = { ...cleanedShops[sId], notes: '' }
+          }
+        })
+        return { ...item, notes: '', shops: cleanedShops, updatedAt: Date.now() }
+      })
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
   const resetToSampleData = async () => {
     if (isConfigured && db) {
       const batch = writeBatch(db)
@@ -1124,6 +1220,9 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       saveCurrentNeededAsWeekly,
       bulkSetWeekly,
       clearAllWeekly,
+      unselectAllItems,
+      resetAllItemCounts,
+      resetAllItemDescriptions,
       updateItemShopDetail,
       clearCart,
       receipts,

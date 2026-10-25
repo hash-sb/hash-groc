@@ -530,15 +530,8 @@ export function getOptimalStorePackage(
     packageUnit: detail?.packageUnit || targetUnit,
     price: detail?.price || 0,
     unitPrice: detail?.unitPrice || null,
-    packsNeeded:
-      typeof detail?.storeQuantity === 'number' && detail.storeQuantity > 0
-        ? detail.storeQuantity
-        : Math.max(1, Math.round(targetAmount)),
-    fulfillmentCost:
-      (detail?.price || 0) *
-      (typeof detail?.storeQuantity === 'number' && detail.storeQuantity > 0
-        ? detail.storeQuantity
-        : Math.max(1, Math.round(targetAmount))),
+    packsNeeded: targetAmount,
+    fulfillmentCost: (detail?.price || 0) * targetAmount,
     normalizedUnitPrice: getNormalizedUnitPrice(detail?.unitPrice, detail?.packageUnit),
     isOptimal: true,
   }
@@ -625,36 +618,8 @@ export function getOptimalStorePackage(
 
   // Evaluate each candidate option
   const evaluated: EvaluatedPackageOption[] = rawCandidates.map((opt) => {
-    let packs = 1
-
-    if (typeof detail.storeQuantity === 'number' && detail.storeQuantity > 0) {
-      packs = detail.storeQuantity
-    } else if (opt.packageSize > 0) {
-      const convertedTarget = convertUnits(targetAmount, targetUnit, opt.packageUnit)
-      if (convertedTarget !== null && convertedTarget > 0) {
-        packs = Math.max(1, Math.ceil(convertedTarget / opt.packageSize))
-      } else {
-        const normTarget = targetUnit.toLowerCase().trim()
-        const normOpt = opt.packageUnit.toLowerCase().trim()
-        if (
-          !targetUnit ||
-          normTarget === normOpt ||
-          isPackageWrapperUnit(normTarget) ||
-          (CONTAINER_NORMALIZATION[normTarget] &&
-            CONTAINER_NORMALIZATION[normTarget] === CONTAINER_NORMALIZATION[normOpt])
-        ) {
-          if (isPackageWrapperUnit(normTarget) || !targetUnit) {
-            packs = Math.max(1, Math.round(targetAmount))
-          } else if (targetAmount <= 1) {
-            packs = 1
-          } else {
-            packs = Math.max(1, Math.ceil(targetAmount / opt.packageSize))
-          }
-        } else {
-          packs = Math.max(1, Math.round(targetAmount))
-        }
-      }
-    }
+    // The quantity needed matches the quantity set on the shopping list
+    const packs = targetAmount
 
     const computedUnitPrice =
       typeof opt.unitPrice === 'number' && opt.unitPrice > 0
@@ -758,16 +723,8 @@ export function getOptimalStorePackage(
  * Calculates how many store packages are needed to fulfill the item's target demand.
  * Formula: ceil(targetAmount / storePackageSize) with unit normalization and multi-size optimization.
  */
-export function getPacksNeeded(item: ShoppingItem, shopId: string): number {
-  const detail = item.shops[shopId]
-  if (!detail) return item.quantity || 1
-
-  // Manual storeQuantity override takes priority if defined
-  if (typeof detail.storeQuantity === 'number' && detail.storeQuantity > 0) {
-    return detail.storeQuantity
-  }
-
-  return getOptimalStorePackage(item, shopId).bestOption.packsNeeded
+export function getPacksNeeded(item: ShoppingItem, _shopId: string): number {
+  return item.quantity || 1
 }
 
 /**
