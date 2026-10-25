@@ -258,7 +258,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   // Filter stores that have items to shop
   const nonEmptyShops = shops.filter((s) => getShopItemCount(s.id) > 0)
-  const hiddenCount = shops.length - nonEmptyShops.length
 
   const visibleShops = useMemo(() => {
     if (!hideEmptyStores) return shops
@@ -550,11 +549,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               <Store className="w-4 h-4 text-emerald-600" />
               <span>Store Stops</span>
             </label>
-            {hideEmptyStores && hiddenCount > 0 && (
-              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-full">
-                {visibleShops.length} of {shops.length}
-              </span>
-            )}
           </div>
 
           {/* Quick Header Micro-Chips: Save Mode & Hide Empty */}
