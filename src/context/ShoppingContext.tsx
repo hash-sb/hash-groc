@@ -619,6 +619,19 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const trimmed = name.trim()
     if (!trimmed) return ''
 
+    // If item already exists (case-insensitive), update its needed status & quantity rather than duplicating
+    const existing = items.find((i) => i.name.trim().toLowerCase() === trimmed.toLowerCase())
+    if (existing) {
+      const newQty = existing.isNeeded
+        ? (existing.quantity || 1) + Math.max(1, quantity)
+        : Math.max(existing.quantity || 1, quantity)
+      await updateItem(existing.id, {
+        isNeeded: true,
+        quantity: newQty,
+      })
+      return existing.id
+    }
+
     // Initialize default shops
     const initialShops: Record<string, ItemShopDetail> = {}
     shops.forEach((s) => {

@@ -33,8 +33,8 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const {
     items,
     categories,
-    toggleNeeded,
     changeItemQuantity,
+    updateItem,
     quickAddItem,
     hasCustomDefault,
     saveCurrentAsDefault,
@@ -46,6 +46,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'needed' | 'weekly'>('all')
   const [quickInput, setQuickInput] = useState('')
+  const [showQuickOptions, setShowQuickOptions] = useState<boolean>(false)
   const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
   const [quickUnit, setQuickUnit] = useState<string>('pieces')
@@ -93,10 +94,85 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const totalCount = items.length
   const weeklyCount = items.filter((i) => i.isWeekly).length
 
+  const triggerHaptic = (ms: number = 25) => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(ms)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const handleAddItem = async (item: ShoppingItem) => {
+    triggerHaptic(30)
+    await updateItem(item.id, {
+      isNeeded: true,
+      quantity: Math.max(1, item.quantity || 1),
+    })
+  }
+
+  const handleIncrement = async (item: ShoppingItem) => {
+    triggerHaptic(20)
+    if (!item.isNeeded) {
+      await updateItem(item.id, {
+        isNeeded: true,
+        quantity: Math.max(1, item.quantity || 1),
+      })
+    } else {
+      await changeItemQuantity(item.id, 1)
+    }
+  }
+
+  const handleDecrement = async (item: ShoppingItem) => {
+    triggerHaptic(20)
+    const currentQty = item.quantity || 1
+    if (currentQty > 1) {
+      await changeItemQuantity(item.id, -1)
+    } else {
+      // Reached 1 -> pressing minus removes item from the list
+      await updateItem(item.id, {
+        isNeeded: false,
+        inCart: false,
+      })
+    }
+  }
+
+  const handleDirectQuantityChange = async (item: ShoppingItem, newQty: number) => {
+    triggerHaptic(20)
+    if (newQty <= 0) {
+      await updateItem(item.id, {
+        isNeeded: false,
+        inCart: false,
+      })
+    } else {
+      await updateItem(item.id, {
+        isNeeded: true,
+        quantity: newQty,
+      })
+    }
+  }
+
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!quickInput.trim()) return
-    await quickAddItem(quickInput.trim(), quickCategory, quickQuantity, quickUnit)
+    const trimmed = quickInput.trim()
+    if (!trimmed) return
+
+    triggerHaptic(30)
+    // If already exists in catalog, update existing item to needed rather than duplicating
+    const existing = items.find((i) => i.name.trim().toLowerCase() === trimmed.toLowerCase())
+    if (existing) {
+      const newQty = existing.isNeeded
+        ? (existing.quantity || 1) + quickQuantity
+        : Math.max(existing.quantity || 1, quickQuantity)
+      await updateItem(existing.id, {
+        isNeeded: true,
+        quantity: newQty,
+      })
+    } else {
+      await quickAddItem(trimmed, quickCategory, quickQuantity, quickUnit)
+    }
+
     setQuickInput('')
     setQuickQuantity(1)
   }
@@ -171,9 +247,9 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
   return (
     <div className="pb-28 pt-3 max-w-2xl mx-auto px-3 sm:px-4">
-      {/* 1. Quick Add Bar: Item Name, Quantity, Unit, & Category */}
+      {/* 1. Quick Add Bar: Item Name & Quick Add Button (with Collapsible Details) */}
       <form onSubmit={handleQuickAdd} className="mb-4 bg-white border border-slate-300 rounded-2xl p-2 sm:p-2.5 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition">
-        {/* Top: Name Input + Add Button */}
+        {/* Top: Name Input + Details Toggle + Add Button */}
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -182,84 +258,100 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             onChange={(e) => setQuickInput(e.target.value)}
             className="flex-1 px-2.5 py-1 text-sm sm:text-base bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
           />
+
+          <button
+            type="button"
+            onClick={() => setShowQuickOptions(!showQuickOptions)}
+            className={`p-2 rounded-xl text-xs font-semibold transition border cursor-pointer ${
+              showQuickOptions
+                ? 'bg-slate-200 text-slate-800 border-slate-300'
+                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'
+            }`}
+            title="Configure quantity, unit & category settings"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+          </button>
+
           <button
             type="submit"
             disabled={!quickInput.trim()}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs sm:text-sm font-bold rounded-xl transition flex items-center gap-1 shadow-xs shrink-0"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs sm:text-sm font-bold rounded-xl transition flex items-center gap-1 shadow-xs shrink-0 cursor-pointer active:scale-95"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Add</span>
           </button>
         </div>
 
-        {/* Bottom Options Row: Quantity Stepper, Unit Selector, and Category */}
-        <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
-          {/* Quantity Stepper */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-              Qty:
-            </span>
-            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setQuickQuantity((q) => Math.max(1, q - 1))}
-                className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition"
-                title="Decrease quantity"
-              >
-                <Minus className="w-3 h-3" />
-              </button>
-
-              <span className="w-6 text-center font-bold text-xs text-slate-800">
-                {quickQuantity}
+        {/* Collapsible Options Row: Quantity Stepper, Unit Selector, and Category */}
+        {showQuickOptions && (
+          <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs animate-in fade-in duration-150">
+            {/* Quantity Stepper */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+                Qty:
               </span>
+              <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setQuickQuantity((q) => Math.max(1, q - 1))}
+                  className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition"
+                  title="Decrease quantity"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setQuickQuantity((q) => q + 1)}
-                className="w-7 h-7 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition"
-                title="Increase quantity"
+                <span className="w-6 text-center font-bold text-xs text-slate-800">
+                  {quickQuantity}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setQuickQuantity((q) => q + 1)}
+                  className="w-7 h-7 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition"
+                  title="Increase quantity"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            {/* Unit Selector */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+                Unit:
+              </span>
+              <select
+                value={quickUnit}
+                onChange={(e) => setQuickUnit(e.target.value)}
+                className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none"
               >
-                <Plus className="w-3 h-3" />
-              </button>
+                {COMMON_UNITS.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Category Selector */}
+            <div className="flex items-center gap-1 flex-1 min-w-[130px]">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+                Category:
+              </span>
+              <select
+                value={quickCategory}
+                onChange={(e) => setQuickCategory(e.target.value)}
+                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none truncate"
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-
-          {/* Unit Selector */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-              Unit:
-            </span>
-            <select
-              value={quickUnit}
-              onChange={(e) => setQuickUnit(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none"
-            >
-              {COMMON_UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Category Selector */}
-          <div className="flex items-center gap-1 flex-1 min-w-[130px]">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-              Category:
-            </span>
-            <select
-              value={quickCategory}
-              onChange={(e) => setQuickCategory(e.target.value)}
-              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none truncate"
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        )}
       </form>
 
       {/* Dismissible Feedback Banner */}
@@ -675,16 +767,18 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                 </div>
 
                 {/* Items in Category */}
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 p-1">
                   {groupItems.map((item) => {
                     return (
                       <div
                         key={item.id}
-                        className={`p-3 sm:p-3.5 flex items-center justify-between gap-3 transition-colors ${
-                          item.isNeeded ? 'bg-emerald-50/30' : 'hover:bg-slate-50/50'
+                        className={`p-2.5 sm:p-3 flex items-center justify-between gap-3 transition-all rounded-xl ${
+                          item.isNeeded
+                            ? 'bg-emerald-50/70 border border-emerald-200/80 shadow-2xs my-0.5'
+                            : 'hover:bg-slate-50/70 border border-transparent'
                         }`}
                       >
-                        {/* Left: Item Name & Unit (Clickable to edit when not locked) */}
+                        {/* Left: Item Name & Status Indicator (Clickable to edit when not locked) */}
                         <div
                           className={`min-w-0 flex-1 ${
                             !isLockedItems ? 'cursor-pointer group' : ''
@@ -692,9 +786,17 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           onClick={() => {
                             if (!isLockedItems) onEditItem(item)
                           }}
-                          title={!isLockedItems ? 'Click to edit item & prices' : undefined}
+                          title={!isLockedItems ? 'Click to edit item & details' : undefined}
                         >
-                          <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {item.isNeeded ? (
+                              <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </span>
+                            ) : (
+                              <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0 ml-1.5 mr-1" />
+                            )}
+
                             <span
                               className={`text-sm tracking-tight truncate ${
                                 item.isNeeded
@@ -717,57 +819,60 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Middle: Quantity Stepper ([-] [ qty unit ] [+]) */}
-                        <div className="h-8 flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => changeItemQuantity(item.id, -1)}
-                            className="w-8 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition"
-                            title="Decrease quantity"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
+                        {/* Right: Unified Action Stepper (When needed) or [+ Add] (When not needed) */}
+                        {item.isNeeded ? (
+                          <div className="h-8 sm:h-9 flex items-center rounded-xl border border-emerald-300 bg-white shadow-2xs overflow-hidden shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleDecrement(item)}
+                              className="w-8 sm:w-9 h-full flex items-center justify-center text-emerald-800 hover:bg-emerald-100 active:bg-emerald-200 transition cursor-pointer"
+                              title={item.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
+                            >
+                              <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
 
-                          <div className="px-2 text-center text-xs font-bold text-slate-800 whitespace-nowrap">
-                            {item.quantity}{' '}
-                            <span className="text-[11px] font-medium text-slate-500">
-                              {item.unit}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const input = window.prompt(`Set quantity for "${item.name}":`, String(item.quantity || 1))
+                                if (input !== null) {
+                                  const parsed = parseInt(input, 10)
+                                  if (!isNaN(parsed)) {
+                                    handleDirectQuantityChange(item, parsed)
+                                  }
+                                }
+                              }}
+                              className="px-2.5 sm:px-3 h-full flex items-center justify-center text-xs sm:text-sm font-black text-emerald-950 hover:bg-emerald-50 transition cursor-pointer whitespace-nowrap"
+                              title="Click to set specific quantity"
+                            >
+                              <span>{item.quantity}</span>
+                              {item.unit && (
+                                <span className="ml-1 text-[10px] sm:text-[11px] font-semibold text-emerald-700">
+                                  {item.unit}
+                                </span>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleIncrement(item)}
+                              className="w-8 sm:w-9 h-full flex items-center justify-center text-emerald-800 hover:bg-emerald-100 active:bg-emerald-200 transition cursor-pointer"
+                              title="Increase quantity"
+                            >
+                              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
                           </div>
-
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => changeItemQuantity(item.id, 1)}
-                            className="w-8 h-full flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition"
-                            title="Increase quantity"
+                            onClick={() => handleAddItem(item)}
+                            className="h-8 sm:h-9 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1 shrink-0 shadow-2xs border bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 border-slate-200 hover:border-emerald-600 cursor-pointer active:scale-95"
+                            title="Add to shopping list"
                           >
-                            <Plus className="w-3.5 h-3.5" />
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Add</span>
                           </button>
-                        </div>
-
-                        {/* Right: Buy / Remove Toggle Button (Height matched to h-8 with quantity stepper) */}
-                        <button
-                          type="button"
-                          onClick={() => toggleNeeded(item.id)}
-                          className={`h-8 w-20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 shrink-0 shadow-2xs border ${
-                            item.isNeeded
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-emerald-600/20'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
-                          }`}
-                          title={item.isNeeded ? 'Remove from shopping list' : 'Mark to buy on shopping list'}
-                        >
-                          {item.isNeeded ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
-                              <span>Remove</span>
-                            </>
-                          ) : (
-                            <>
-                              <Plus className="w-3.5 h-3.5 text-slate-400" />
-                              <span>Buy</span>
-                            </>
-                          )}
-                        </button>
+                        )}
                       </div>
                     )
                   })}
