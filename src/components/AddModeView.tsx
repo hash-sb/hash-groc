@@ -17,7 +17,6 @@ import {
   X,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
-import { COMMON_UNITS } from '../types'
 import { useShopping } from '../context/ShoppingContext'
 import { WeeklyManagerModal } from './WeeklyManagerModal'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
@@ -50,7 +49,6 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [showQuickOptions, setShowQuickOptions] = useState<boolean>(false)
   const [quickCategory, setQuickCategory] = useState<string>(categories[0] || 'Produce')
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
-  const [quickUnit, setQuickUnit] = useState<string>('pieces')
   const [templateSavedFeedback, setTemplateSavedFeedback] = useState(false)
   const [isWeeklyManagerOpen, setIsWeeklyManagerOpen] = useState(false)
   const [weeklyBannerMessage, setWeeklyBannerMessage] = useState<{
@@ -175,7 +173,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         quantity: newQty,
       })
     } else {
-      await quickAddItem(trimmed, quickCategory, quickQuantity, quickUnit)
+      await quickAddItem(trimmed, quickCategory, quickQuantity)
     }
 
     setQuickInput('')
@@ -272,7 +270,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                 ? 'bg-slate-200 text-slate-800 border-slate-300'
                 : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'
             }`}
-            title="Configure quantity, unit & category settings"
+            title="Configure quantity & category settings"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
           </button>
@@ -287,7 +285,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           </button>
         </div>
 
-        {/* Collapsible Options Row: Quantity Stepper, Unit Selector, and Category */}
+        {/* Collapsible Options Row: Quantity Stepper and Category */}
         {showQuickOptions && (
           <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs animate-in fade-in duration-150">
             {/* Quantity Stepper */}
@@ -323,24 +321,6 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
-            </div>
-
-            {/* Unit Selector */}
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-                Unit:
-              </span>
-              <select
-                value={quickUnit}
-                onChange={(e) => setQuickUnit(e.target.value)}
-                className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none"
-              >
-                {COMMON_UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Category Selector */}
@@ -901,7 +881,6 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           storeName=""
           initialValue={quickQuantity}
           mode="quantity"
-          unit={quickUnit}
           onApply={(newQty) => {
             setQuickQuantity(newQty)
             setIsQuickAddCalcOpen(false)
