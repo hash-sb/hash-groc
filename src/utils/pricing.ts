@@ -625,7 +625,9 @@ export function getOptimalStorePackage(
           (CONTAINER_NORMALIZATION[normTarget] &&
             CONTAINER_NORMALIZATION[normTarget] === CONTAINER_NORMALIZATION[normOpt])
         ) {
-          if (targetAmount <= 1 || isPackageWrapperUnit(normTarget)) {
+          if (isPackageWrapperUnit(normTarget) || !targetUnit) {
+            packs = Math.max(1, Math.round(targetAmount))
+          } else if (targetAmount <= 1) {
             packs = 1
           } else {
             packs = Math.max(1, Math.ceil(targetAmount / opt.packageSize))

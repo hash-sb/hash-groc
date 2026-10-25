@@ -46,17 +46,34 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
     addCategory,
     updateShop,
     selectedShopId,
+    items,
   } = useShopping()
 
-  const [name, setName] = useState(item?.name || '')
-  const [category, setCategory] = useState(item?.category || (categories[0] || 'Produce'))
-  const [quantity, setQuantity] = useState(item?.quantity || 1)
-  const [unit, setUnit] = useState(
-    item?.unit && item.unit !== 'items' ? item.unit : 'pieces'
-  )
-  const [notes, setNotes] = useState(item?.notes || '')
-  const [isNeeded, setIsNeeded] = useState(item ? item.isNeeded : true)
-  const [isWeekly, setIsWeekly] = useState(Boolean(item?.isWeekly))
+  // Always reference the live item from context to ensure the modal shows the exact quantity from the List
+  const liveItem = useMemo(() => {
+    if (!item?.id) return item
+    return items.find((i) => i.id === item.id) || item
+  }, [items, item])
+
+  const [name, setName] = useState(liveItem?.name || '')
+  const [category, setCategory] = useState(liveItem?.category || (categories[0] || 'Produce'))
+  const [quantity, setQuantity] = useState(liveItem?.quantity || 1)
+  const unit = liveItem?.unit && liveItem.unit !== 'items' ? liveItem.unit : 'pieces'
+  const [notes, setNotes] = useState(liveItem?.notes || '')
+  const [isNeeded, setIsNeeded] = useState(liveItem ? liveItem.isNeeded : true)
+  const [isWeekly, setIsWeekly] = useState(Boolean(liveItem?.isWeekly))
+
+  // Re-sync form state when item changes or modal opens
+  useEffect(() => {
+    if (liveItem) {
+      setName(liveItem.name || '')
+      setCategory(liveItem.category || (categories[0] || 'Produce'))
+      setQuantity(liveItem.quantity || 1)
+      setNotes(liveItem.notes || '')
+      setIsNeeded(liveItem.isNeeded)
+      setIsWeekly(Boolean(liveItem.isWeekly))
+    }
+  }, [liveItem?.id, liveItem?.quantity, liveItem?.updatedAt])
 
   // New Category Input State
   const [isAddingNewCat, setIsAddingNewCat] = useState(false)
@@ -713,7 +730,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Category Selection + Add Custom Category */}
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -810,28 +827,6 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
-
-              {/* Unit */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Unit
-                </label>
-                <select
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm bg-white h-10 font-medium"
-                >
-                  {UNIT_GROUPS.map((group) => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.units.map((u) => (
-                        <option key={u} value={u}>
-                          {u}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
               </div>
             </div>
 
@@ -1218,7 +1213,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                       {calculatedPacks} × {effectiveDisplaySize}{' '}
                                       {effectiveDisplayUnit || unit}
                                     </strong>{' '}
-                                    satisfies your <strong>{quantity} {unit}</strong> target need.
+                                    satisfies your <strong>{quantity}</strong> target need.
                                   </span>
                                 ) : (
                                   <span>
@@ -1227,7 +1222,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                       {calculatedPacks} × {effectiveDisplaySize}{' '}
                                       {effectiveDisplayUnit || unit}
                                     </strong>{' '}
-                                    satisfies your <strong>{quantity} {unit}</strong> target need.
+                                    satisfies your <strong>{quantity}</strong> target need.
                                   </span>
                                 )}
                               </div>
