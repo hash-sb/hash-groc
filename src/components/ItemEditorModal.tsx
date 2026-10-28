@@ -938,19 +938,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
 
           {/* 2. Store Pricing & Package Size Normalization */}
           <div className="pt-2 border-t border-slate-200">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-              <div>
-                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Store className="w-4 h-4 text-emerald-600" />
-                  <span>Store Prices, Sizes & Aisles</span>
-                </label>
-                <p className="text-[11px] text-slate-500">
-                  Select package unit once for all stores & size comparisons
-                </p>
-              </div>
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                <Store className="w-4 h-4 text-emerald-600" />
+                <span>Store Prices</span>
+              </label>
 
               {/* Single Common Unit Selector */}
-              <div className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-xl border border-slate-200 transition">
+              <div className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-xl border border-slate-200 transition shrink-0">
                 <label htmlFor="common-unit-select" className="text-[11px] font-bold text-slate-600 uppercase tracking-wider cursor-pointer">
                   Unit:
                 </label>
