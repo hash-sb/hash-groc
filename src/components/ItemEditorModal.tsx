@@ -1214,8 +1214,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                               <div className="flex items-center gap-1 shrink-0">
                                 {optUnitPrice ? (
                                   <>
-                                    <span className="h-9 px-2 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg shrink-0 inline-flex items-center justify-center whitespace-nowrap">
-                                      {formatUnitPrice(optUnitPrice, commonUnit)}
+                                    <span
+                                      className="h-9 px-2 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg shrink-0 inline-flex items-center justify-center whitespace-nowrap"
+                                      title={formatUnitPrice(optUnitPrice, commonUnit)}
+                                    >
+                                      ${optUnitPrice < 1 ? optUnitPrice.toFixed(3) : optUnitPrice.toFixed(2)}
                                     </span>
                                     {isOptimal && (
                                       <span
