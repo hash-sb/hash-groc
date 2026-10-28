@@ -1571,14 +1571,19 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                           {opt.label || `${opt.packageSize} ${opt.packageUnit}`}
                         </span>
                         {isBestValue && (
-                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-black bg-emerald-600 text-white shadow-2xs">
-                            <Sparkles className="w-2.5 h-2.5" />
-                            Best Price
+                          <span
+                            className="inline-flex items-center p-0.5 text-emerald-600 shrink-0"
+                            title="Lowest price (best value)"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
                           </span>
                         )}
                         {opt.isLowestCashOutlay && !isBestValue && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                            Lowest Upfront Cash
+                          <span
+                            className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0"
+                            title="Lowest upfront cash"
+                          >
+                            $
                           </span>
                         )}
                       </div>

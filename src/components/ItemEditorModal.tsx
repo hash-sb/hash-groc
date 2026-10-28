@@ -13,6 +13,7 @@ import {
   Repeat,
   ShoppingCart,
   Tag,
+  Sparkles,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -1009,8 +1010,11 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                       </div>
 
                       {isLowest && isAvailable && (
-                        <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-1 py-0.2 rounded shrink-0">
-                          Best
+                        <span
+                          className="inline-flex items-center p-0.5 text-emerald-600 shrink-0"
+                          title="Lowest price across stores"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
                         </span>
                       )}
                     </div>
@@ -1214,16 +1218,21 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                       {formatUnitPrice(optUnitPrice, commonUnit)}
                                     </span>
                                     {isOptimal && (
-                                      <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-1.5 py-0.5 rounded-full shadow-2xs shrink-0 flex items-center gap-0.5 whitespace-nowrap">
-                                        <span>★</span>
-                                        <span>Best</span>
+                                      <span
+                                        className="inline-flex items-center p-0.5 text-emerald-600 shrink-0"
+                                        title="Lowest price (best value)"
+                                      >
+                                        <Sparkles className="w-3.5 h-3.5" />
                                       </span>
                                     )}
                                     {hasMultipleSizes &&
                                       optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
                                       !isOptimal && (
-                                        <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0 whitespace-nowrap">
-                                          Lowest $
+                                        <span
+                                          className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0 whitespace-nowrap"
+                                          title="Lowest upfront cash"
+                                        >
+                                          $
                                         </span>
                                       )}
                                   </>
