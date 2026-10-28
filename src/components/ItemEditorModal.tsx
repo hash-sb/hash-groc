@@ -1134,7 +1134,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                 : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
                             }`}
                           >
-                            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] gap-1.5 sm:gap-2 items-center">
+                            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_58px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_66px] gap-1.5 sm:gap-2 items-center">
                               {/* Column 1: Shelf Price ($) */}
                               <div className="relative min-w-0">
                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">
@@ -1211,43 +1211,44 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                               </div>
 
                               {/* Column 3: Read-Only Result (Unit Price / Value) */}
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center gap-1 shrink-0 w-[82px]">
                                 {optUnitPrice ? (
-                                  <>
+                                  <span
+                                    className="w-[58px] h-9 px-1 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg shrink-0 inline-flex items-center justify-center whitespace-nowrap"
+                                    title={formatUnitPrice(optUnitPrice, commonUnit)}
+                                  >
+                                    ${optUnitPrice < 1 ? optUnitPrice.toFixed(3) : optUnitPrice.toFixed(2)}
+                                  </span>
+                                ) : (
+                                  <span className="w-[58px] h-9 text-xs text-slate-400 italic inline-flex items-center justify-center shrink-0">
+                                    —
+                                  </span>
+                                )}
+                                <div className="w-5 flex items-center justify-center shrink-0">
+                                  {isOptimal && (
                                     <span
-                                      className="h-9 px-2 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg shrink-0 inline-flex items-center justify-center whitespace-nowrap"
-                                      title={formatUnitPrice(optUnitPrice, commonUnit)}
+                                      className="inline-flex items-center p-0.5 text-emerald-600"
+                                      title="Lowest price (best value)"
                                     >
-                                      ${optUnitPrice < 1 ? optUnitPrice.toFixed(3) : optUnitPrice.toFixed(2)}
+                                      <Sparkles className="w-3.5 h-3.5" />
                                     </span>
-                                    {isOptimal && (
+                                  )}
+                                  {hasMultipleSizes &&
+                                    optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
+                                    !isOptimal && (
                                       <span
-                                        className="inline-flex items-center p-0.5 text-emerald-600 shrink-0"
-                                        title="Lowest price (best value)"
+                                        className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 whitespace-nowrap"
+                                        title="Lowest upfront cash"
                                       >
-                                        <Sparkles className="w-3.5 h-3.5" />
+                                        $
                                       </span>
                                     )}
-                                    {hasMultipleSizes &&
-                                      optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
-                                      !isOptimal && (
-                                        <span
-                                          className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0 whitespace-nowrap"
-                                          title="Lowest upfront cash"
-                                        >
-                                          $
-                                        </span>
-                                      )}
-                                  </>
-                                ) : (
-                                  <span className="h-9 px-2 text-xs text-slate-400 italic inline-flex items-center justify-center">—</span>
-                                )}
+                                </div>
                               </div>
 
                               {/* Column 4: Row Actions (Tag button + Remove alternative size) */}
-                              <div className="flex items-center gap-0.5 justify-end shrink-0">
-                                {/* If label is not open, offer subtle tag icon button */}
-                                {!isLabelOpen && (
+                              <div className="flex items-center gap-0.5 justify-end shrink-0 w-[58px] sm:w-[66px]">
+                                {!isLabelOpen ? (
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -1262,6 +1263,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                   >
                                     <Tag className="w-3.5 h-3.5" />
                                   </button>
+                                ) : (
+                                  <span className="w-7 sm:w-8 shrink-0" aria-hidden="true" />
                                 )}
 
                                 {hasMultipleSizes && idx > 0 ? (
@@ -1274,7 +1277,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 ) : (
-                                  !isLabelOpen ? null : <span className="w-7 sm:w-8 shrink-0" />
+                                  <span className="w-7 sm:w-8 shrink-0" aria-hidden="true" />
                                 )}
                               </div>
                             </div>
