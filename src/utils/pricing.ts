@@ -1100,6 +1100,22 @@ export function isCheapestAtStore(
   const optResult = getOptimalStorePackage(item, targetShopId)
   const bestOpt = optResult.bestOption
   const effectivePrice = bestOpt.price > 0 ? bestOpt.price : (targetDetail.price || 0)
+
+  // Check if any available store has a recorded price for this item
+  const hasAnyPrice = shops.some((s) => {
+    const d = item.shops[s.id]
+    if (!d || !d.available) return false
+    const opt = getOptimalStorePackage(item, s.id)
+    const price = opt.bestOption.price > 0 ? opt.bestOption.price : (d.price || 0)
+    return price > 0
+  })
+
+  // If no store has a price entered anywhere, keep the item visible at any store that carries it
+  if (!hasAnyPrice) {
+    return true
+  }
+
+  // If other stores have prices, but this store has no price, this store is not the cheapest
   if (effectivePrice <= 0) {
     return false
   }
