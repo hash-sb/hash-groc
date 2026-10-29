@@ -29,6 +29,7 @@ import {
   SlidersHorizontal,
   Layers,
   Undo2,
+  Trash2,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
@@ -197,6 +198,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     itemName: string
     previousInCart: boolean
   } | null>(null)
+  const [undoRemoveState, setUndoRemoveState] = useState<{
+    itemId: string
+    itemName: string
+    previousQuantity: number
+  } | null>(null)
+  const [zeroQtyConfirmItem, setZeroQtyConfirmItem] = useState<{
+    item: ShoppingItem
+    previousQuantity: number
+  } | null>(null)
 
   useEffect(() => {
     if (toastMessage) {
@@ -204,6 +214,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         setToastMessage(null)
         setUndoMoveState(null)
         setUndoCheckState(null)
+        setUndoRemoveState(null)
       }, 5000)
       return () => clearTimeout(timer)
     }
@@ -236,12 +247,41 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     if (isNaN(newPacks) || newPacks < 0) return
     triggerHaptic(15)
     if (newPacks === 0) {
-      if (window.confirm(`Remove "${item.name}" from your shopping list?`)) {
-        await updateItem(item.id, { isNeeded: false, inCart: false })
-      }
+      setZeroQtyConfirmItem({
+        item,
+        previousQuantity: item.quantity || 1,
+      })
       return
     }
     await updateItem(item.id, { quantity: newPacks })
+  }
+
+  const handleConfirmRemoveZeroQty = async () => {
+    if (!zeroQtyConfirmItem) return
+    const { item, previousQuantity } = zeroQtyConfirmItem
+    triggerHaptic(25)
+    await updateItem(item.id, { isNeeded: false, inCart: false })
+    setZeroQtyConfirmItem(null)
+
+    setUndoMoveState(null)
+    setUndoCheckState(null)
+    setUndoRemoveState({
+      itemId: item.id,
+      itemName: item.name,
+      previousQuantity,
+    })
+    setToastMessage(`Removed "${item.name}" from shopping list`)
+  }
+
+  const handleUndoRemove = async () => {
+    if (!undoRemoveState) return
+    triggerHaptic(20)
+    await updateItem(undoRemoveState.itemId, {
+      isNeeded: true,
+      quantity: undoRemoveState.previousQuantity,
+    })
+    setToastMessage(`Restored "${undoRemoveState.itemName}" to list`)
+    setUndoRemoveState(null)
   }
 
   // All needed items on active shopping list
@@ -389,6 +429,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     await toggleInCart(itemId)
 
     setUndoMoveState(null)
+    setUndoRemoveState(null)
     setUndoCheckState({
       itemId,
       itemName: item.name,
@@ -412,6 +453,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         : `Unchecked "${undoCheckState.itemName}"`
     )
     setUndoCheckState(null)
+    setUndoRemoveState(null)
   }
 
   const scrollToAisle = (loc: string) => {
@@ -568,6 +610,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
     // Save previous state for 1-tap Undo
     setUndoCheckState(null)
+    setUndoRemoveState(null)
     setUndoMoveState({
       itemId: item.id,
       itemName: item.name,
@@ -592,6 +635,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     setToastMessage(`Restored "${undoMoveState.itemName}" to ${currentShop.name}`)
     setUndoMoveState(null)
     setUndoCheckState(null)
+    setUndoRemoveState(null)
   }
 
   const openShelfPriceModal = (item: ShoppingItem) => {
@@ -1570,10 +1614,16 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold flex items-center gap-2.5 backdrop-blur animate-in fade-in slide-in-from-bottom-2 max-w-[92vw]">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="truncate">{toastMessage}</span>
-          {(undoMoveState || undoCheckState) && (
+          {(undoMoveState || undoCheckState || undoRemoveState) && (
             <button
               type="button"
-              onClick={undoMoveState ? handleUndoMove : handleUndoCheck}
+              onClick={
+                undoMoveState
+                  ? handleUndoMove
+                  : undoCheckState
+                  ? handleUndoCheck
+                  : handleUndoRemove
+              }
               className="ml-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-bold rounded-lg border border-slate-600 transition text-[11px] shrink-0 flex items-center gap-1 active:scale-95 cursor-pointer shadow-xs"
               title="Undo this action"
             >
@@ -1955,6 +2005,65 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               >
                 <DollarSign className="w-4 h-4 text-emerald-600" />
                 <span>Update Shelf / Sale Price</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 11. Zero-Quantity Removal Confirmation Modal */}
+      {zeroQtyConfirmItem && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in duration-150"
+          onClick={() => setZeroQtyConfirmItem(null)}
+        >
+          <div
+            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-2xs">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
+                    Remove from List?
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">Quantity set to 0</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setZeroQtyConfirmItem(null)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-xs text-slate-600 leading-relaxed">
+              Setting quantity to <b className="text-slate-900 font-bold">0</b> will remove{' '}
+              <span className="font-bold text-slate-900">"{zeroQtyConfirmItem.item.name}"</span> from your active shopping list.
+              The item will remain saved in your catalog for future trips.
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setZeroQtyConfirmItem(null)}
+                className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-slate-700 font-bold text-xs transition cursor-pointer text-center"
+              >
+                Keep Item
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveZeroQty}
+                className="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs transition cursor-pointer shadow-sm active:scale-98 flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Remove from List</span>
               </button>
             </div>
           </div>
