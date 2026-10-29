@@ -306,15 +306,18 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
 
       {/* 4. The Price Comparison Grid / Matrix (Requirement 8) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[75vh]">
           <table className="w-full border-collapse text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700">
-                <th className="py-3 px-4 font-bold text-slate-900 sticky left-0 bg-slate-50 z-10 min-w-[200px]">
+            <thead className="sticky top-0 z-20">
+              <tr className="bg-slate-50 text-slate-700">
+                <th className="py-3 px-4 font-bold text-slate-900 sticky top-0 left-0 bg-slate-50 z-30 min-w-[200px] border-b border-r border-slate-200 shadow-2xs">
                   Product / Item
                 </th>
                 {shops.map((shop) => (
-                  <th key={shop.id} className="py-3 px-4 font-bold text-slate-900 min-w-[150px]">
+                  <th
+                    key={shop.id}
+                    className="py-3 px-4 font-bold text-slate-900 min-w-[150px] sticky top-0 bg-slate-50 z-20 border-b border-slate-200 shadow-2xs"
+                  >
                     <div className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0" />
                       <span>{shop.name}</span>
