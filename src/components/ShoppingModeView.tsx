@@ -28,10 +28,11 @@ import {
   MoreVertical,
   SlidersHorizontal,
   Layers,
+  Undo2,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
-import type { ShoppingItem, PurchasedItemRecord } from '../types'
+import type { ShoppingItem, PurchasedItemRecord, Shop, ItemShopDetail } from '../types'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import {
   compareShopPrices,
@@ -186,10 +187,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   // Feature 3: Out of stock state & feedback toast
   const [outOfStockItem, setOutOfStockItem] = useState<ShoppingItem | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [undoMoveState, setUndoMoveState] = useState<{
+    itemId: string
+    itemName: string
+    previousShops: Record<string, ItemShopDetail>
+  } | null>(null)
 
   useEffect(() => {
     if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(null), 3500)
+      const timer = setTimeout(() => {
+        setToastMessage(null)
+        setUndoMoveState(null)
+      }, 5000)
       return () => clearTimeout(timer)
     }
   }, [toastMessage])
@@ -378,7 +387,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   const handleMoveOutOfStock = async (item: ShoppingItem, targetShopId?: string) => {
     const currentDetail = item.shops[currentShop.id] || { available: true, price: null, location: '' }
-    const updatedShops = {
+    const updatedShops: Record<string, ItemShopDetail> = {
       ...item.shops,
       [currentShop.id]: {
         ...currentDetail,
@@ -396,6 +405,13 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       targetShopName = shops.find((s) => s.id === targetShopId)?.name || 'next stop'
     }
 
+    // Save previous state for 1-tap Undo
+    setUndoMoveState({
+      itemId: item.id,
+      itemName: item.name,
+      previousShops: { ...item.shops },
+    })
+
     await updateItem(item.id, { shops: updatedShops })
     triggerHaptic(30)
     setOutOfStockItem(null)
@@ -405,6 +421,14 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     } else {
       setToastMessage(`Excluded "${item.name}" from ${currentShop.name} (kept on list)`)
     }
+  }
+
+  const handleUndoMove = async () => {
+    if (!undoMoveState) return
+    triggerHaptic(20)
+    await updateItem(undoMoveState.itemId, { shops: undoMoveState.previousShops })
+    setToastMessage(`Restored "${undoMoveState.itemName}" to ${currentShop.name}`)
+    setUndoMoveState(null)
   }
 
   const openShelfPriceModal = (item: ShoppingItem) => {
@@ -482,6 +506,32 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   // Next shop with items: first check sequence ahead, then wrap around if earlier stops still have items
   const nextShop = shopsAfterCurrentWithItems[0] || shopsBeforeCurrentWithItems[0] || null
   const nextShopItemCount = nextShop ? getShopPendingItemCount(nextShop.id) : 0
+
+  // Helper to determine the best target shop when shifting an out-of-stock item
+  const getTargetShopForMove = (item: ShoppingItem): Shop | null => {
+    // 1. Next scheduled shop in sequence if not current shop and carries the item
+    if (nextShop && nextShop.id !== currentShop.id) {
+      const detail = item.shops[nextShop.id]
+      if (detail ? detail.available !== false : true) {
+        return nextShop
+      }
+    }
+
+    // 2. Any other shop ahead in sequence that carries this item
+    const nextInSequence = shops
+      .slice(currentShopIndex + 1)
+      .find((s) => (item.shops[s.id]?.available ?? true))
+    if (nextInSequence) return nextInSequence
+
+    // 3. Any shop before current in sequence that carries this item
+    const prevInSequence = shops
+      .slice(0, Math.max(0, currentShopIndex))
+      .find((s) => (item.shops[s.id]?.available ?? true))
+    if (prevInSequence) return prevInSequence
+
+    // 4. Any other shop in system
+    return shops.find((s) => s.id !== currentShop.id) || null
+  }
 
   const handleSaveReceiptAndCheckout = async () => {
     if (cartItems.length > 0) {
@@ -1220,6 +1270,26 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                               )}
                             </button>
 
+                            {/* 1-Tap Out of Stock / Move to Next Store Button */}
+                            {!isPicked && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const target = getTargetShopForMove(item)
+                                  handleMoveOutOfStock(item, target?.id)
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer active:scale-90"
+                                title={
+                                  getTargetShopForMove(item)
+                                    ? `Out of stock at ${currentShop.name}? 1-Tap to move to ${getTargetShopForMove(item)?.name}`
+                                    : `Out of stock? Tap to exclude from ${currentShop.name} today`
+                                }
+                                aria-label="Out of stock move"
+                              >
+                                <PackageX className="w-4 h-4" />
+                              </button>
+                            )}
+
                             {/* Vertical 3-Dot Item Actions Menu */}
                             <button
                               type="button"
@@ -1386,9 +1456,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
       {/* 9. Toast Notification Banner */}
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold flex items-center gap-2 backdrop-blur animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold flex items-center gap-2.5 backdrop-blur animate-in fade-in slide-in-from-bottom-2 max-w-[92vw]">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
+          <span className="truncate">{toastMessage}</span>
+          {undoMoveState && (
+            <button
+              type="button"
+              onClick={handleUndoMove}
+              className="ml-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-bold rounded-lg border border-slate-600 transition text-[11px] shrink-0 flex items-center gap-1 active:scale-95 cursor-pointer shadow-xs"
+              title="Undo moving this item"
+            >
+              <Undo2 className="w-3 h-3" />
+              <span>Undo</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -1696,19 +1777,52 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 <span>Edit Item & Aisles</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const it = itemMenuModal
-                  setItemMenuModal(null)
-                  triggerHaptic(15)
-                  setOutOfStockItem(it)
-                }}
-                className="w-full px-3 py-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
-              >
-                <PackageX className="w-4 h-4 text-rose-500" />
-                <span>Mark Out of Stock / Move Stop</span>
-              </button>
+              {/* 1. Instant 1-Tap Out of Stock Move */}
+              {(() => {
+                const target = getTargetShopForMove(itemMenuModal)
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const it = itemMenuModal
+                      setItemMenuModal(null)
+                      handleMoveOutOfStock(it, target?.id)
+                    }}
+                    className="w-full px-3 py-2.5 text-left text-xs font-semibold text-rose-700 bg-rose-50/70 hover:bg-rose-100 rounded-xl flex items-center justify-between transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <PackageX className="w-4 h-4 text-rose-500 shrink-0" />
+                      <span className="truncate">
+                        {target
+                          ? `Out of stock → Move to ${target.name}`
+                          : `Out of stock → Exclude from ${currentShop.name}`}
+                      </span>
+                    </div>
+                    {target && (
+                      <span className="text-[10px] font-extrabold uppercase bg-rose-200 text-rose-900 px-1.5 py-0.2 rounded-full shrink-0">
+                        1-Tap
+                      </span>
+                    )}
+                  </button>
+                )
+              })()}
+
+              {/* 2. Choose other stores or exclude (if multiple stores exist) */}
+              {shops.filter((s) => s.id !== currentShop.id).length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const it = itemMenuModal
+                    setItemMenuModal(null)
+                    triggerHaptic(15)
+                    setOutOfStockItem(it)
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+                >
+                  <Store className="w-4 h-4 text-slate-400" />
+                  <span>Choose Another Store to Move...</span>
+                </button>
+              )}
 
               <button
                 type="button"
