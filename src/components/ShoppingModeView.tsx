@@ -192,12 +192,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     itemName: string
     previousShops: Record<string, ItemShopDetail>
   } | null>(null)
+  const [undoCheckState, setUndoCheckState] = useState<{
+    itemId: string
+    itemName: string
+    previousInCart: boolean
+  } | null>(null)
 
   useEffect(() => {
     if (toastMessage) {
       const timer = setTimeout(() => {
         setToastMessage(null)
         setUndoMoveState(null)
+        setUndoCheckState(null)
       }, 5000)
       return () => clearTimeout(timer)
     }
@@ -376,8 +382,36 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   }
 
   const handleToggleInCart = async (itemId: string) => {
+    const item = items.find((i) => i.id === itemId)
+    if (!item) return
+    const wasInCart = Boolean(item.inCart)
     triggerHaptic(25)
     await toggleInCart(itemId)
+
+    setUndoMoveState(null)
+    setUndoCheckState({
+      itemId,
+      itemName: item.name,
+      previousInCart: wasInCart,
+    })
+
+    if (!wasInCart) {
+      setToastMessage(`Checked off "${item.name}"`)
+    } else {
+      setToastMessage(`Unchecked "${item.name}"`)
+    }
+  }
+
+  const handleUndoCheck = async () => {
+    if (!undoCheckState) return
+    triggerHaptic(20)
+    await updateItem(undoCheckState.itemId, { inCart: undoCheckState.previousInCart })
+    setToastMessage(
+      undoCheckState.previousInCart
+        ? `Re-checked "${undoCheckState.itemName}"`
+        : `Unchecked "${undoCheckState.itemName}"`
+    )
+    setUndoCheckState(null)
   }
 
   const scrollToAisle = (loc: string) => {
@@ -533,6 +567,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     }
 
     // Save previous state for 1-tap Undo
+    setUndoCheckState(null)
     setUndoMoveState({
       itemId: item.id,
       itemName: item.name,
@@ -556,6 +591,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     await updateItem(undoMoveState.itemId, { shops: undoMoveState.previousShops })
     setToastMessage(`Restored "${undoMoveState.itemName}" to ${currentShop.name}`)
     setUndoMoveState(null)
+    setUndoCheckState(null)
   }
 
   const openShelfPriceModal = (item: ShoppingItem) => {
@@ -1534,12 +1570,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold flex items-center gap-2.5 backdrop-blur animate-in fade-in slide-in-from-bottom-2 max-w-[92vw]">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="truncate">{toastMessage}</span>
-          {undoMoveState && (
+          {(undoMoveState || undoCheckState) && (
             <button
               type="button"
-              onClick={handleUndoMove}
+              onClick={undoMoveState ? handleUndoMove : handleUndoCheck}
               className="ml-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-bold rounded-lg border border-slate-600 transition text-[11px] shrink-0 flex items-center gap-1 active:scale-95 cursor-pointer shadow-xs"
-              title="Undo moving this item"
+              title="Undo this action"
             >
               <Undo2 className="w-3 h-3" />
               <span>Undo</span>
