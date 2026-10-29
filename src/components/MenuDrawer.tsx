@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   X,
   ShoppingCart,
@@ -11,6 +11,7 @@ import {
   RotateCcw,
   BookmarkCheck,
   Check,
+  Download,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -42,6 +43,48 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   } = useShopping()
   const { user, signInWithGoogle, signOut, isConfigured } = useAuth()
   const [savedFeedback, setSavedFeedback] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [isInstalled, setIsInstalled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      Boolean((window.navigator as unknown as { standalone?: boolean }).standalone)
+    )
+  })
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+
+    const handleAppInstalled = () => {
+      setIsInstalled(true)
+      setDeferredPrompt(null)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+    window.addEventListener('appinstalled', handleAppInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
+  }, [])
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      const choice = await deferredPrompt.userChoice
+      if (choice && choice.outcome === 'accepted') {
+        setIsInstalled(true)
+      }
+      setDeferredPrompt(null)
+    } else {
+      alert(
+        'To install HashGroc:\n\n• On iPhone/iPad (Safari): Tap the Share button (square with arrow), then select "Add to Home Screen".\n• On Android/Chrome: Tap browser menu (⋮), then "Install app" or "Add to Home screen".'
+      )
+    }
+  }
 
   const neededCount = items.filter((i) => i.isNeeded).length
   const inCartCount = items.filter((i) => i.isNeeded && i.inCart).length
@@ -253,6 +296,32 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
             </button>
+
+            {/* 5. Install Offline App (PWA) */}
+            {!isInstalled && (
+              <button
+                onClick={handleInstallApp}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/70 border border-emerald-200 transition text-left group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-2xs">
+                    <Download className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-emerald-950 flex items-center gap-1.5">
+                      <span>Install App</span>
+                      <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 bg-emerald-200 text-emerald-900 rounded-full">
+                        Offline Ready
+                      </span>
+                    </div>
+                    <div className="text-xs text-emerald-700">
+                      Works without cellular reception in stores
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-emerald-600" />
+              </button>
+            )}
           </div>
 
           {/* List Templates & Defaults Section */}

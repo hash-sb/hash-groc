@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   ShoppingCart,
   CheckSquare,
   Menu,
+  WifiOff,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -14,6 +15,21 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onOpenMenu }) => {
   const { mode, setMode, items } = useShopping()
   const { user } = useAuth()
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true
+  })
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   const neededCount = items.filter((i) => i.isNeeded).length
 
@@ -55,8 +71,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMenu }) => {
             )}
           </div>
 
-          {/* Right Area: Single Menu Button */}
+          {/* Right Area: Single Menu Button + Offline Indicator */}
           <div className="flex items-center gap-1.5">
+            {!isOnline && (
+              <div
+                className="flex items-center gap-1 px-2 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold shadow-2xs"
+                title="Working offline. Changes are saved locally and will sync when reconnected."
+              >
+                <WifiOff className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="hidden sm:inline">Offline</span>
+              </div>
+            )}
+
             <button
               onClick={onOpenMenu}
               className="p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1.5 shadow-2xs"
