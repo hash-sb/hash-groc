@@ -388,6 +388,104 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     }
   }
 
+  // Feature 5: Multi-store stop sequencing (Finding the next shop that actually has items to pick)
+  const getShopPendingItemCount = (shopId: string) => {
+    return allNeededItems.filter((item) => {
+      // Items currently in cart at the active stop are about to be checked out / purchased
+      if (item.inCart) return false
+      const detail = item.shops[shopId]
+      const isCarried = detail ? detail.available : true
+      if (!isCarried) return false
+      if (saveMode) return isCheapestAtStore(item, shopId, shops)
+      return true
+    }).length
+  }
+
+  const currentShopIndex = shops.findIndex((s) => s.id === currentShop.id)
+  const shopsAfterCurrentWithItems = shops
+    .slice(currentShopIndex + 1)
+    .filter((s) => getShopPendingItemCount(s.id) > 0)
+  const shopsBeforeCurrentWithItems = shops
+    .slice(0, Math.max(0, currentShopIndex))
+    .filter((s) => getShopPendingItemCount(s.id) > 0)
+
+  // Next shop with items: first check sequence ahead, then wrap around if earlier stops still have items
+  const nextShop = shopsAfterCurrentWithItems[0] || shopsBeforeCurrentWithItems[0] || null
+  const nextShopItemCount = nextShop ? getShopPendingItemCount(nextShop.id) : 0
+
+  // Helper to determine the best target shop when shifting an out-of-stock item
+  const getTargetShopForMove = (item: ShoppingItem): Shop | null => {
+    const otherShops = shops.filter((s) => s.id !== currentShop.id)
+    if (otherShops.length === 0) return null
+
+    // Create a copy simulating that the item is out of stock at currentShop
+    const itemWithoutCurrentShop: ShoppingItem = {
+      ...item,
+      shops: {
+        ...item.shops,
+        [currentShop.id]: {
+          ...(item.shops[currentShop.id] || { available: true, price: null, location: '' }),
+          available: false,
+        },
+      },
+    }
+
+    // 1. If Save Mode is active, pick the store where the item will actually be routed (lowest price store)
+    if (saveMode) {
+      const cheapestShop = otherShops.find((s) =>
+        isCheapestAtStore(itemWithoutCurrentShop, s.id, shops)
+      )
+      if (cheapestShop) return cheapestShop
+    }
+
+    // 2. Find any other store carrying the item with the lowest price
+    const carryingOtherShops = otherShops.filter(
+      (s) => item.shops[s.id]?.available !== false
+    )
+
+    const pricedShops = carryingOtherShops
+      .map((shop) => {
+        const opt = getOptimalStorePackage(item, shop.id)
+        const price = opt.bestOption.price > 0 ? opt.bestOption.price : (item.shops[shop.id]?.price || 0)
+        const fulfillmentCost = opt.bestOption.fulfillmentCost || (price * (item.quantity || 1))
+        const unitPrice = opt.bestOption.normalizedUnitPrice ?? opt.bestOption.unitPrice ?? null
+        return {
+          shop,
+          price,
+          unitPrice,
+          fulfillmentCost,
+        }
+      })
+      .filter((entry) => entry.price > 0)
+
+    if (pricedShops.length > 0) {
+      pricedShops.sort((a, b) => {
+        if (a.unitPrice !== null && b.unitPrice !== null && Math.abs(a.unitPrice - b.unitPrice) > 0.0001) {
+          return a.unitPrice - b.unitPrice
+        }
+        return a.fulfillmentCost - b.fulfillmentCost
+      })
+      return pricedShops[0].shop
+    }
+
+    // 3. Fallback: Next stop in itinerary sequence carrying the item
+    if (nextShop && nextShop.id !== currentShop.id && (item.shops[nextShop.id]?.available ?? true)) {
+      return nextShop
+    }
+
+    const nextInSequence = shops
+      .slice(currentShopIndex + 1)
+      .find((s) => item.shops[s.id]?.available !== false)
+    if (nextInSequence) return nextInSequence
+
+    const prevInSequence = shops
+      .slice(0, Math.max(0, currentShopIndex))
+      .find((s) => item.shops[s.id]?.available !== false)
+    if (prevInSequence) return prevInSequence
+
+    return carryingOtherShops[0] || otherShops[0] || null
+  }
+
   const handleMoveOutOfStock = async (item: ShoppingItem, targetShopId?: string) => {
     const currentDetail = item.shops[currentShop.id] || { available: true, price: null, location: '' }
     const updatedShops: Record<string, ItemShopDetail> = {
@@ -398,14 +496,40 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       },
     }
 
-    let targetShopName = ''
+    // If an explicit targetShop was chosen, make sure it is marked available at target
     if (targetShopId) {
       const targetDetail = item.shops[targetShopId] || { available: true, price: null, location: '' }
       updatedShops[targetShopId] = {
         ...targetDetail,
-        available: true, // Make sure it is included at target store
+        available: true,
       }
-      targetShopName = shops.find((s) => s.id === targetShopId)?.name || 'next stop'
+    }
+
+    // Determine the actual store where the item will now be placed
+    let destinationShop: Shop | null = null
+
+    const simulatedItem: ShoppingItem = {
+      ...item,
+      shops: updatedShops,
+    }
+
+    if (saveMode) {
+      // In Save Mode, the item goes to whichever remaining store is cheapest
+      const otherShops = shops.filter((s) => s.id !== currentShop.id)
+      const cheapestRemainingShop = otherShops.find((s) =>
+        isCheapestAtStore(simulatedItem, s.id, shops)
+      )
+      if (cheapestRemainingShop) {
+        destinationShop = cheapestRemainingShop
+      }
+    }
+
+    if (!destinationShop && targetShopId) {
+      destinationShop = shops.find((s) => s.id === targetShopId) || null
+    }
+
+    if (!destinationShop) {
+      destinationShop = getTargetShopForMove(item)
     }
 
     // Save previous state for 1-tap Undo
@@ -419,8 +543,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     triggerHaptic(30)
     setOutOfStockItem(null)
 
-    if (targetShopId) {
-      setToastMessage(`Moved "${item.name}" to ${targetShopName}`)
+    if (destinationShop) {
+      setToastMessage(`Moved "${item.name}" to ${destinationShop.name}`)
     } else {
       setToastMessage(`Excluded "${item.name}" from ${currentShop.name} (kept on list)`)
     }
@@ -483,58 +607,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   // Feature 2: Next pending aisle for runner navigation
   const nextPendingAisle = locationGroups.find((g) => g.pickedCount < g.totalCount)
-
-  // Count items still needed to be picked at a specific shop (excluding items already in cart at current stop)
-  const getShopPendingItemCount = (shopId: string) => {
-    return allNeededItems.filter((item) => {
-      // Items currently in cart at the active stop are about to be checked out / purchased
-      if (item.inCart) return false
-      const detail = item.shops[shopId]
-      const isCarried = detail ? detail.available : true
-      if (!isCarried) return false
-      if (saveMode) return isCheapestAtStore(item, shopId, shops)
-      return true
-    }).length
-  }
-
-  // Feature 5: Multi-store stop sequencing (Finding the next shop that actually has items to pick)
-  const currentShopIndex = shops.findIndex((s) => s.id === currentShop.id)
-  const shopsAfterCurrentWithItems = shops
-    .slice(currentShopIndex + 1)
-    .filter((s) => getShopPendingItemCount(s.id) > 0)
-  const shopsBeforeCurrentWithItems = shops
-    .slice(0, Math.max(0, currentShopIndex))
-    .filter((s) => getShopPendingItemCount(s.id) > 0)
-
-  // Next shop with items: first check sequence ahead, then wrap around if earlier stops still have items
-  const nextShop = shopsAfterCurrentWithItems[0] || shopsBeforeCurrentWithItems[0] || null
-  const nextShopItemCount = nextShop ? getShopPendingItemCount(nextShop.id) : 0
-
-  // Helper to determine the best target shop when shifting an out-of-stock item
-  const getTargetShopForMove = (item: ShoppingItem): Shop | null => {
-    // 1. Next scheduled shop in sequence if not current shop and carries the item
-    if (nextShop && nextShop.id !== currentShop.id) {
-      const detail = item.shops[nextShop.id]
-      if (detail ? detail.available !== false : true) {
-        return nextShop
-      }
-    }
-
-    // 2. Any other shop ahead in sequence that carries this item
-    const nextInSequence = shops
-      .slice(currentShopIndex + 1)
-      .find((s) => (item.shops[s.id]?.available ?? true))
-    if (nextInSequence) return nextInSequence
-
-    // 3. Any shop before current in sequence that carries this item
-    const prevInSequence = shops
-      .slice(0, Math.max(0, currentShopIndex))
-      .find((s) => (item.shops[s.id]?.available ?? true))
-    if (prevInSequence) return prevInSequence
-
-    // 4. Any other shop in system
-    return shops.find((s) => s.id !== currentShop.id) || null
-  }
 
   const handleSaveReceiptAndCheckout = async () => {
     if (cartItems.length > 0) {
@@ -1512,23 +1584,32 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 .filter((s) => s.id !== currentShop.id)
                 .map((targetShop) => {
                   const isNextStop = nextShop?.id === targetShop.id
+                  const bestTarget = outOfStockItem ? getTargetShopForMove(outOfStockItem) : null
+                  const isLowestPrice = bestTarget?.id === targetShop.id
                   return (
                     <button
                       key={targetShop.id}
                       onClick={() => handleMoveOutOfStock(outOfStockItem, targetShop.id)}
                       className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition ${
-                        isNextStop
-                          ? 'bg-emerald-50/70 border-emerald-300 hover:bg-emerald-100/70 text-emerald-900'
+                        isLowestPrice
+                          ? 'bg-emerald-50/80 border-emerald-300 hover:bg-emerald-100/70 text-emerald-950'
+                          : isNextStop
+                          ? 'bg-indigo-50/50 border-indigo-200 hover:bg-indigo-100/60 text-indigo-950'
                           : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <Store className={`w-4 h-4 ${isNextStop ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        <Store className={`w-4 h-4 ${isLowestPrice ? 'text-emerald-600' : isNextStop ? 'text-indigo-600' : 'text-slate-400'}`} />
                         <div>
-                          <div className="text-xs font-bold">
-                            Move to {targetShop.name}
-                            {isNextStop && (
-                              <span className="ml-1.5 text-[10px] font-extrabold uppercase bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
+                          <div className="text-xs font-bold flex items-center gap-1.5 flex-wrap">
+                            <span>Move to {targetShop.name}</span>
+                            {isLowestPrice && (
+                              <span className="text-[10px] font-extrabold uppercase bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
+                                Lowest Price
+                              </span>
+                            )}
+                            {!isLowestPrice && isNextStop && (
+                              <span className="text-[10px] font-extrabold uppercase bg-indigo-600 text-white px-1.5 py-0.2 rounded-full">
                                 Next Stop
                               </span>
                             )}
