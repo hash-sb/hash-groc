@@ -10,6 +10,7 @@ import { ItemEditorModal } from './components/ItemEditorModal'
 import { ShopManagerModal } from './components/ShopManagerModal'
 import { HouseholdModal } from './components/HouseholdModal'
 import { FirebaseConfigModal } from './components/FirebaseConfigModal'
+import { BackupModal } from './components/BackupModal'
 import type { ShoppingItem } from './types'
 
 const AppContent: React.FC = () => {
@@ -22,6 +23,7 @@ const AppContent: React.FC = () => {
   const [isStoreManagerOpen, setIsStoreManagerOpen] = useState(false)
   const [isHouseholdModalOpen, setIsHouseholdModalOpen] = useState(false)
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false)
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false)
 
   if (loading) {
     return (
@@ -79,6 +81,7 @@ const AppContent: React.FC = () => {
         onOpenStoreManager={() => setIsStoreManagerOpen(true)}
         onOpenHousehold={() => setIsHouseholdModalOpen(true)}
         onOpenConfig={() => setIsConfigModalOpen(true)}
+        onOpenBackupModal={() => setIsBackupModalOpen(true)}
       />
 
       {/* Item Create / Edit Modal */}
@@ -107,6 +110,11 @@ const AppContent: React.FC = () => {
       {/* Cloud Config Modal */}
       {isConfigModalOpen && (
         <FirebaseConfigModal onClose={() => setIsConfigModalOpen(false)} />
+      )}
+
+      {/* Backup & Restore Modal */}
+      {isBackupModalOpen && (
+        <BackupModal onClose={() => setIsBackupModalOpen(false)} />
       )}
     </div>
   )

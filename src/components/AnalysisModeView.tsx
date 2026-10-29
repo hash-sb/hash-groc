@@ -10,6 +10,7 @@ import {
   Edit2,
   Wallet,
   Layers,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { SpendingHistoryView } from './SpendingHistoryView'
@@ -27,13 +28,34 @@ interface AnalysisModeViewProps {
 }
 
 export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }) => {
-  const { items, shops, categories, receipts } = useShopping()
+  const { items, shops, categories, receipts, exportToCSV } = useShopping()
 
   const [analysisTab, setAnalysisTab] = useState<'matrix' | 'spending'>('spending')
   const [activeTab, setActiveTab] = useState<'needed' | 'catalog'>('needed')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [copiedShare, setCopiedShare] = useState(false)
+  const [downloadedCsv, setDownloadedCsv] = useState(false)
+
+  const handleExportCSV = () => {
+    try {
+      const csvContent = exportToCSV()
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const dateStr = new Date().toISOString().slice(0, 10)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `hashgroc-catalog-matrix-${dateStr}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setDownloadedCsv(true)
+      setTimeout(() => setDownloadedCsv(false), 2500)
+    } catch (err: any) {
+      alert(`CSV export failed: ${err.message || 'Unknown error'}`)
+    }
+  }
 
   // Filtered items for matrix
   const matrixItems = useMemo(() => {
@@ -185,22 +207,42 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
           </div>
         </div>
 
-        <button
-          onClick={handleShareSummary}
-          className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm"
-        >
-          {copiedShare ? (
-            <>
-              <Check className="w-4 h-4 text-emerald-400" />
-              <span>Summary Copied!</span>
-            </>
-          ) : (
-            <>
-              <Share2 className="w-4 h-4" />
-              <span>Copy Family Trip Summary</span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer"
+            title="Download CSV spreadsheet for Excel or Google Sheets"
+          >
+            {downloadedCsv ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>CSV Exported!</span>
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Export CSV</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleShareSummary}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer"
+          >
+            {copiedShare ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>Summary Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span>Copy Summary</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* 2. Basket Cost Breakdown Cards */}

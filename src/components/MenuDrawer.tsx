@@ -12,6 +12,7 @@ import {
   BookmarkCheck,
   Check,
   Download,
+  HardDrive,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -22,6 +23,7 @@ interface MenuDrawerProps {
   onOpenStoreManager: () => void
   onOpenHousehold: () => void
   onOpenConfig: () => void
+  onOpenBackupModal: () => void
 }
 
 export const MenuDrawer: React.FC<MenuDrawerProps> = ({
@@ -30,6 +32,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onOpenStoreManager,
   onOpenHousehold,
   onOpenConfig,
+  onOpenBackupModal,
 }) => {
   const {
     items,
@@ -297,7 +300,29 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
             </button>
 
-            {/* 5. Install Offline App (PWA) */}
+            {/* 5. Backup & Export Data */}
+            <button
+              onClick={() => {
+                onOpenBackupModal()
+                onClose()
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition text-left group border border-transparent hover:border-slate-200"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
+                  <HardDrive className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-slate-900">Backup & Export Data</div>
+                  <div className="text-xs text-slate-500">
+                    JSON snapshot, CSV spreadsheet, restore
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
+            </button>
+
+            {/* 6. Install Offline App (PWA) */}
             {!isInstalled && (
               <button
                 onClick={handleInstallApp}

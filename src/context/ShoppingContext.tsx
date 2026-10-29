@@ -3,6 +3,7 @@ import type { AppMode, ItemShopDetail, Shop, ShoppingItem, Household, TripReceip
 import { INITIAL_ITEMS, INITIAL_SHOPS } from '../data/seedData'
 import { db, isConfigured } from '../firebase/config'
 import { useAuth } from '../firebase/AuthContext'
+import { getOptimalStorePackage } from '../utils/pricing'
 import {
   collection,
   doc,
@@ -77,6 +78,25 @@ interface ShoppingContextType {
   restoreDefaultList: () => Promise<void>
   clearCustomDefault: () => Promise<void>
   resetToSampleData: () => Promise<void>
+  // Backup & Export operations
+  exportBackupData: () => {
+    version: number
+    exportedAt: number
+    exportedAtFormatted: string
+    appName: string
+    data: {
+      items: ShoppingItem[]
+      shops: Shop[]
+      categories: string[]
+      receipts: TripReceipt[]
+      householdName?: string
+    }
+  }
+  exportToCSV: () => string
+  importBackupData: (
+    backup: any,
+    mode: 'replace' | 'merge'
+  ) => Promise<{ itemsCount: number; shopsCount: number }>
 }
 
 const ShoppingContext = createContext<ShoppingContextType | undefined>(undefined)
@@ -896,6 +916,209 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCustomDefaultSavedAt(null)
   }
 
+  const exportBackupData = () => {
+    const now = Date.now()
+    return {
+      version: 1,
+      exportedAt: now,
+      exportedAtFormatted: new Date(now).toISOString(),
+      appName: 'HashGroc',
+      data: {
+        items,
+        shops,
+        categories: customCategories.length > 0 ? customCategories : DEFAULT_CATEGORIES,
+        receipts,
+        householdName: household.name,
+      },
+    }
+  }
+
+  const exportToCSV = (): string => {
+    const escapeCsv = (val: string | number | null | undefined): string => {
+      if (val === null || val === undefined) return '""'
+      const str = String(val).replace(/"/g, '""')
+      return `"${str}"`
+    }
+
+    const shopHeaders = shops.flatMap((s) => [
+      `"${s.name} Price ($)"`,
+      `"${s.name} Aisle"`,
+      `"${s.name} Carried"`,
+    ])
+
+    const headers = [
+      '"Item Name"',
+      '"Category"',
+      '"Quantity"',
+      '"Unit"',
+      '"On Shopping List"',
+      '"Weekly Staple"',
+      '"Notes"',
+      ...shopHeaders,
+    ]
+
+    const rows = items.map((item) => {
+      const shopValues = shops.flatMap((s) => {
+        const detail = item.shops[s.id]
+        const optResult = getOptimalStorePackage(item, s.id)
+        const bestOpt = optResult.bestOption
+        const price = bestOpt.price > 0 ? bestOpt.price : (detail?.price ?? null)
+        const priceStr = price !== null ? price.toFixed(2) : ''
+        const aisle = detail?.location || ''
+        const carried = detail?.available !== false ? 'Yes' : 'No'
+        return [escapeCsv(priceStr), escapeCsv(aisle), escapeCsv(carried)]
+      })
+
+      return [
+        escapeCsv(item.name),
+        escapeCsv(item.category),
+        item.quantity || 1,
+        escapeCsv(item.unit),
+        item.isNeeded ? '"Yes"' : '"No"',
+        item.isWeekly ? '"Yes"' : '"No"',
+        escapeCsv(item.notes || ''),
+        ...shopValues,
+      ].join(',')
+    })
+
+    return [headers.join(','), ...rows].join('\r\n')
+  }
+
+  const importBackupData = async (
+    rawBackup: any,
+    mode: 'replace' | 'merge' = 'replace'
+  ): Promise<{ itemsCount: number; shopsCount: number }> => {
+    if (!rawBackup || typeof rawBackup !== 'object') {
+      throw new Error('Invalid backup file: Not a valid JSON object.')
+    }
+
+    const backupData = rawBackup.data || rawBackup
+    const importedItems: ShoppingItem[] = Array.isArray(backupData.items) ? backupData.items : []
+    const importedShops: Shop[] = Array.isArray(backupData.shops) ? backupData.shops : []
+    const importedCats: string[] = Array.isArray(backupData.categories) ? backupData.categories : []
+    const importedReceipts: TripReceipt[] = Array.isArray(backupData.receipts) ? backupData.receipts : []
+
+    if (importedItems.length === 0 && importedShops.length === 0) {
+      throw new Error('Invalid backup file: No items or stores found in file.')
+    }
+
+    let finalItems: ShoppingItem[] = []
+    let finalShops: Shop[] = []
+    let finalCats: string[] = []
+    let finalReceipts: TripReceipt[] = []
+
+    if (mode === 'replace') {
+      finalItems = importedItems.map((it, idx) => ({
+        ...it,
+        id: it.id || `item-imported-${Date.now()}-${idx}`,
+        createdAt: it.createdAt || Date.now(),
+        updatedAt: Date.now(),
+      }))
+      finalShops = importedShops.length > 0 ? importedShops : shops
+      finalCats = importedCats.length > 0 ? importedCats : (customCategories.length > 0 ? customCategories : DEFAULT_CATEGORIES)
+      finalReceipts = importedReceipts.length > 0 ? importedReceipts : receipts
+    } else {
+      // Merge mode: preserve existing, add non-duplicate items and stores
+      finalShops = [...shops]
+      importedShops.forEach((impShop) => {
+        const exists = finalShops.some(
+          (s) => s.id === impShop.id || s.name.trim().toLowerCase() === impShop.name.trim().toLowerCase()
+        )
+        if (!exists) finalShops.push(impShop)
+      })
+
+      finalItems = [...items]
+      importedItems.forEach((impItem) => {
+        const existingIdx = finalItems.findIndex(
+          (it) => it.id === impItem.id || it.name.trim().toLowerCase() === impItem.name.trim().toLowerCase()
+        )
+        if (existingIdx >= 0) {
+          const existing = finalItems[existingIdx]
+          const mergedShops = { ...existing.shops }
+          Object.entries(impItem.shops || {}).forEach(([shopId, detail]) => {
+            if (!mergedShops[shopId] || mergedShops[shopId].price === null) {
+              mergedShops[shopId] = detail
+            }
+          })
+          finalItems[existingIdx] = {
+            ...existing,
+            shops: mergedShops,
+            updatedAt: Date.now(),
+          }
+        } else {
+          finalItems.push({
+            ...impItem,
+            id: impItem.id || `item-imported-${Date.now()}-${Math.random()}`,
+            createdAt: impItem.createdAt || Date.now(),
+            updatedAt: Date.now(),
+          })
+        }
+      })
+
+      finalCats = Array.from(new Set([...customCategories, ...importedCats]))
+      const receiptIds = new Set(receipts.map((r) => r.id))
+      finalReceipts = [...receipts]
+      importedReceipts.forEach((r) => {
+        if (!receiptIds.has(r.id)) {
+          finalReceipts.push(r)
+        }
+      })
+    }
+
+    if (isConfigured && db) {
+      const hhId = household.id
+      const itemsCol = collection(db, 'households', hhId, 'items')
+      const shopsCol = collection(db, 'households', hhId, 'shops')
+      const hhDoc = doc(db, 'households', hhId)
+      const receiptsCol = collection(db, 'households', hhId, 'receipts')
+
+      if (mode === 'replace') {
+        const existingItemsSnap = await getDocs(itemsCol)
+        const batchDel = writeBatch(db)
+        existingItemsSnap.forEach((d) => batchDel.delete(d.ref))
+        await batchDel.commit()
+      }
+
+      const CHUNK_SIZE = 400
+      for (let i = 0; i < finalItems.length; i += CHUNK_SIZE) {
+        const chunk = finalItems.slice(i, i + CHUNK_SIZE)
+        const batch = writeBatch(db)
+        chunk.forEach((item) => {
+          batch.set(doc(itemsCol, item.id), item)
+        })
+        await batch.commit()
+      }
+
+      const shopBatch = writeBatch(db)
+      finalShops.forEach((s, idx) => {
+        shopBatch.set(doc(shopsCol, s.id), { ...s, orderIndex: s.orderIndex ?? idx })
+      })
+      shopBatch.set(hhDoc, { customCategories: finalCats }, { merge: true })
+      await shopBatch.commit()
+
+      if (finalReceipts.length > 0) {
+        const rBatch = writeBatch(db)
+        finalReceipts.forEach((r) => {
+          rBatch.set(doc(receiptsCol, r.id), r)
+        })
+        await rBatch.commit()
+      }
+    }
+
+    setShops(finalShops)
+    setItems(finalItems)
+    setCustomCategories(finalCats)
+    setReceipts(finalReceipts)
+    persistLocally(finalShops, finalItems)
+    localStorage.setItem(STORAGE_KEY_CUSTOM_CATS, JSON.stringify(finalCats))
+    localStorage.setItem(STORAGE_KEY_RECEIPTS, JSON.stringify(finalReceipts))
+
+    return {
+      itemsCount: finalItems.length,
+      shopsCount: finalShops.length,
+    }
+  }
+
   const selectWeeklyItems = async (resetOthers: boolean = false): Promise<number> => {
     let count = 0
     if (isConfigured && db) {
@@ -1300,6 +1523,9 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       restoreDefaultList,
       clearCustomDefault,
       resetToSampleData,
+      exportBackupData,
+      exportToCSV,
+      importBackupData,
     }),
     [
       mode,
