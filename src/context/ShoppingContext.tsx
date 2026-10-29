@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState, useRef } from 'react'
 import type { AppMode, ItemShopDetail, Shop, ShoppingItem, Household, TripReceipt } from '../types'
 import { INITIAL_ITEMS, INITIAL_SHOPS } from '../data/seedData'
 import { db, isConfigured } from '../firebase/config'
@@ -297,6 +297,8 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   })
   const [shops, setShops] = useState<Shop[]>([])
   const [items, setItems] = useState<ShoppingItem[]>([])
+  const itemsRef = useRef<ShoppingItem[]>(items)
+  itemsRef.current = items
   const [customCategories, setCustomCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [receipts, setReceipts] = useState<TripReceipt[]>(() => {
@@ -682,9 +684,12 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (isConfigured && db) {
       await setDoc(doc(db, 'households', household.id, 'items', id), patch, { merge: true })
     } else {
-      const updated = items.map((item) => (item.id === id ? { ...item, ...patch } : item))
-      setItems(updated)
-      persistLocally(undefined, updated)
+      setItems((prev) => {
+        const updated = prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+        itemsRef.current = updated
+        persistLocally(undefined, updated)
+        return updated
+      })
     }
   }
 
@@ -692,21 +697,24 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (isConfigured && db) {
       await deleteDoc(doc(db, 'households', household.id, 'items', id))
     } else {
-      const updated = items.filter((item) => item.id !== id)
-      setItems(updated)
-      persistLocally(undefined, updated)
+      setItems((prev) => {
+        const updated = prev.filter((item) => item.id !== id)
+        itemsRef.current = updated
+        persistLocally(undefined, updated)
+        return updated
+      })
     }
   }
 
   const changeItemQuantity = async (id: string, delta: number) => {
-    const item = items.find((i) => i.id === id)
+    const item = itemsRef.current.find((i) => i.id === id)
     if (!item) return
     const newQty = Math.max(1, (item.quantity || 1) + delta)
     await updateItem(id, { quantity: newQty })
   }
 
   const toggleNeeded = async (id: string) => {
-    const current = items.find((i) => i.id === id)
+    const current = itemsRef.current.find((i) => i.id === id)
     if (!current) return
     const nextNeeded = !current.isNeeded
     await updateItem(id, {
@@ -716,7 +724,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }
 
   const toggleInCart = async (id: string) => {
-    const current = items.find((i) => i.id === id)
+    const current = itemsRef.current.find((i) => i.id === id)
     if (!current) return
     // Haptic feedback for mobile phones!
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -734,7 +742,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     shopId: string,
     detail: Partial<ItemShopDetail>
   ) => {
-    const item = items.find((i) => i.id === itemId)
+    const item = itemsRef.current.find((i) => i.id === itemId)
     if (!item) return
 
     const existingDetail = item.shops[shopId] || {
