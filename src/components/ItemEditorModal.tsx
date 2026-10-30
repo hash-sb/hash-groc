@@ -26,6 +26,7 @@ import {
 } from '../utils/pricing'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
+import { getItemBarcodes } from '../utils/barcode'
 
 interface ItemEditorModalProps {
   item?: ShoppingItem | null
@@ -56,7 +57,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   const [category, setCategory] = useState(liveItem?.category || (categories[0] || 'Produce'))
   const [quantity, setQuantity] = useState(liveItem?.quantity || 1)
   const [notes, setNotes] = useState(liveItem?.notes || '')
-  const [barcode, setBarcode] = useState(liveItem?.barcode || '')
+  const [barcodes, setBarcodes] = useState<string[]>(() => (liveItem ? getItemBarcodes(liveItem) : []))
+  const [newBarcodeInput, setNewBarcodeInput] = useState('')
   const [imageUrl, setImageUrl] = useState(liveItem?.imageUrl || '')
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false)
   const [isNeeded, setIsNeeded] = useState(liveItem ? liveItem.isNeeded : true)
@@ -91,7 +93,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       setCategory(liveItem.category || (categories[0] || 'Produce'))
       setQuantity(liveItem.quantity || 1)
       setNotes(liveItem.notes || '')
-      setBarcode(liveItem.barcode || '')
+      setBarcodes(getItemBarcodes(liveItem))
       setImageUrl(liveItem.imageUrl || '')
       setIsNeeded(liveItem.isNeeded)
       setIsWeekly(Boolean(liveItem.isWeekly))
@@ -318,13 +320,15 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       }
     }
 
+    const cleanedBarcodes = Array.from(new Set(barcodes.map((b) => b.trim()).filter(Boolean)))
     const payload = {
       name: name.trim(),
       category,
       quantity: Number(quantity) || 1,
       unit: commonUnit,
       notes: notes.trim(),
-      barcode: barcode.trim() || undefined,
+      barcodes: cleanedBarcodes,
+      barcode: cleanedBarcodes[0] || undefined,
       imageUrl: imageUrl.trim() || undefined,
       isNeeded,
       isWeekly,
@@ -903,23 +907,80 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
               />
             </div>
 
-            {/* Barcode field with Scan button */}
+            {/* Barcode Manager (Supports multiple store barcodes) */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Barcode (UPC / EAN)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Barcodes ({barcodes.length})
+                </label>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  Add barcodes across stores (Walmart, Aldi, etc.)
+                </span>
+              </div>
+
+              {/* Linked Barcode Chips */}
+              {barcodes.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {barcodes.map((b, idx) => (
+                    <span
+                      key={`${b}-${idx}`}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-mono font-semibold text-slate-800 shadow-2xs"
+                    >
+                      <Barcode className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{b}</span>
+                      <button
+                        type="button"
+                        onClick={() => setBarcodes((prev) => prev.filter((code) => code !== b))}
+                        className="p-0.5 rounded-md hover:bg-slate-200 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                        title="Remove barcode"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Input & Scan Button */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Barcode className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                   <input
                     type="text"
                     inputMode="numeric"
-                    placeholder="e.g. 049000006346"
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
+                    placeholder="Type or paste barcode..."
+                    value={newBarcodeInput}
+                    onChange={(e) => setNewBarcodeInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const code = newBarcodeInput.trim()
+                        if (code && !barcodes.includes(code)) {
+                          setBarcodes((prev) => [...prev, code])
+                          setNewBarcodeInput('')
+                        }
+                      }
+                    }}
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm font-mono"
                   />
                 </div>
+
+                {newBarcodeInput.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const code = newBarcodeInput.trim()
+                      if (code && !barcodes.includes(code)) {
+                        setBarcodes((prev) => [...prev, code])
+                        setNewBarcodeInput('')
+                      }
+                    }}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+                  >
+                    Add
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setIsBarcodeModalOpen(true)}
@@ -1565,7 +1626,10 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           onClose={() => setIsBarcodeModalOpen(false)}
           currentShopId={activeShop?.id}
           onBarcodeSelected={(scannedCode, prod) => {
-            setBarcode(scannedCode)
+            const code = scannedCode.trim()
+            if (code) {
+              setBarcodes((prev) => (prev.includes(code) ? prev : [...prev, code]))
+            }
             if (prod?.name && !name.trim()) {
               setName(prod.name)
             }

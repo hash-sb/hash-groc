@@ -4,6 +4,7 @@ import { INITIAL_ITEMS, INITIAL_SHOPS } from '../data/seedData'
 import { db, isConfigured } from '../firebase/config'
 import { useAuth } from '../firebase/AuthContext'
 import { getOptimalStorePackage } from '../utils/pricing'
+import { getItemBarcodes } from '../utils/barcode'
 import {
   collection,
   doc,
@@ -978,12 +979,13 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return [escapeCsv(priceStr), escapeCsv(aisle), escapeCsv(carried)]
       })
 
+      const allBarcodes = getItemBarcodes(item)
       return [
         escapeCsv(item.name),
         escapeCsv(item.category),
         item.quantity || 1,
         escapeCsv(item.unit),
-        escapeCsv(item.barcode || ''),
+        escapeCsv(allBarcodes.join('; ')),
         item.isNeeded ? '"Yes"' : '"No"',
         item.isWeekly ? '"Yes"' : '"No"',
         escapeCsv(item.notes || ''),
@@ -1018,12 +1020,17 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let finalReceipts: TripReceipt[] = []
 
     if (mode === 'replace') {
-      finalItems = importedItems.map((it, idx) => ({
-        ...it,
-        id: it.id || `item-imported-${Date.now()}-${idx}`,
-        createdAt: it.createdAt || Date.now(),
-        updatedAt: Date.now(),
-      }))
+      finalItems = importedItems.map((it, idx) => {
+        const barcodes = getItemBarcodes(it)
+        return {
+          ...it,
+          barcodes,
+          barcode: barcodes[0] || undefined,
+          id: it.id || `item-imported-${Date.now()}-${idx}`,
+          createdAt: it.createdAt || Date.now(),
+          updatedAt: Date.now(),
+        }
+      })
       finalShops = importedShops.length > 0 ? importedShops : shops
       finalCats = importedCats.length > 0 ? importedCats : (customCategories.length > 0 ? customCategories : DEFAULT_CATEGORIES)
       finalReceipts = importedReceipts.length > 0 ? importedReceipts : receipts
@@ -1050,15 +1057,23 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               mergedShops[shopId] = detail
             }
           })
+          const mergedBarcodes = Array.from(
+            new Set([...getItemBarcodes(existing), ...getItemBarcodes(impItem)])
+          )
           finalItems[existingIdx] = {
             ...existing,
+            barcodes: mergedBarcodes,
+            barcode: mergedBarcodes[0] || undefined,
             shops: mergedShops,
             updatedAt: Date.now(),
           }
         } else {
+          const barcodes = getItemBarcodes(impItem)
           finalItems.push({
             ...impItem,
-            id: impItem.id || `item-imported-${Date.now()}-${Math.random()}`,
+            barcodes,
+            barcode: barcodes[0] || undefined,
+            id: impItem.id || `item-imported-${Date.now()}-${finalItems.length}`,
             createdAt: impItem.createdAt || Date.now(),
             updatedAt: Date.now(),
           })

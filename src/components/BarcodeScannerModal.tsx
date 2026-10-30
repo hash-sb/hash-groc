@@ -22,6 +22,7 @@ import type { ShoppingItem } from '../types'
 import { useShopping } from '../context/ShoppingContext'
 import { compareShopPrices, formatPrice } from '../utils/pricing'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
+import { doesItemMatchBarcode, appendBarcodeToItem, getItemBarcodes } from '../utils/barcode'
 
 interface ScannedProductOFF {
   barcode: string
@@ -163,12 +164,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // Re-sync matchedItem if items update in context
   useEffect(() => {
     if (activeBarcode) {
-      const cleaned = activeBarcode.trim()
-      const found = items.find((i) => {
-        if (!i.barcode) return false
-        const b = i.barcode.trim()
-        return b === cleaned || b === cleaned.replace(/^0+/, '') || cleaned === b.replace(/^0+/, '')
-      })
+      const found = items.find((i) => doesItemMatchBarcode(i, activeBarcode))
       setMatchedItem(found || null)
     }
   }, [items, activeBarcode])
@@ -369,11 +365,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     setShowLinkSelector(false)
 
     // 1. Check local catalog
-    const localMatch = items.find((i) => {
-      if (!i.barcode) return false
-      const b = i.barcode.trim()
-      return b === code || b === code.replace(/^0+/, '') || code === b.replace(/^0+/, '')
-    })
+    const localMatch = items.find((i) => doesItemMatchBarcode(i, code))
 
     if (localMatch) {
       setMatchedItem(localMatch)
@@ -477,6 +469,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       category: onlineProduct.suggestedCategory || categories[0] || 'Produce',
       quantity: 1,
       unit,
+      barcodes: [onlineProduct.barcode],
       barcode: onlineProduct.barcode,
       imageUrl: onlineProduct.imageUrl,
       isNeeded: true,
@@ -501,8 +494,10 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // Action: Link scanned barcode to an existing item
   const handleLinkToItem = async (targetItem: ShoppingItem) => {
     if (!activeBarcode) return
+    const updatedBarcodes = appendBarcodeToItem(targetItem, activeBarcode)
     const updates: Partial<ShoppingItem> = {
-      barcode: activeBarcode,
+      barcodes: updatedBarcodes,
+      barcode: updatedBarcodes[0] || activeBarcode,
       imageUrl: onlineProduct?.imageUrl || targetItem.imageUrl,
       isNeeded: true,
       ...(currentShopId ? { inCart: true } : {}),
@@ -540,6 +535,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       category: categoryToUse,
       quantity: 1,
       unit,
+      barcodes: [activeBarcode],
       barcode: activeBarcode,
       imageUrl: onlineProduct?.imageUrl || undefined,
       isNeeded: true,
@@ -858,7 +854,14 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                             {matchedItem.category}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 font-mono mt-0.5">Barcode: {activeBarcode}</div>
+                        <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 font-mono mt-0.5">
+                          <span>Barcode: {activeBarcode}</span>
+                          {getItemBarcodes(matchedItem).length > 1 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
+                              +{getItemBarcodes(matchedItem).length - 1} more linked
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
