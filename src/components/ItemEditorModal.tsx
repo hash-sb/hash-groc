@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Tag,
   Sparkles,
+  Barcode,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -24,6 +25,7 @@ import {
   UNIT_GROUPS,
 } from '../utils/pricing'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
+import { BarcodeScannerModal } from './BarcodeScannerModal'
 
 interface ItemEditorModalProps {
   item?: ShoppingItem | null
@@ -54,6 +56,9 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
   const [category, setCategory] = useState(liveItem?.category || (categories[0] || 'Produce'))
   const [quantity, setQuantity] = useState(liveItem?.quantity || 1)
   const [notes, setNotes] = useState(liveItem?.notes || '')
+  const [barcode, setBarcode] = useState(liveItem?.barcode || '')
+  const [imageUrl, setImageUrl] = useState(liveItem?.imageUrl || '')
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false)
   const [isNeeded, setIsNeeded] = useState(liveItem ? liveItem.isNeeded : true)
   const [isWeekly, setIsWeekly] = useState(Boolean(liveItem?.isWeekly))
 
@@ -86,6 +91,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       setCategory(liveItem.category || (categories[0] || 'Produce'))
       setQuantity(liveItem.quantity || 1)
       setNotes(liveItem.notes || '')
+      setBarcode(liveItem.barcode || '')
+      setImageUrl(liveItem.imageUrl || '')
       setIsNeeded(liveItem.isNeeded)
       setIsWeekly(Boolean(liveItem.isWeekly))
 
@@ -317,6 +324,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       quantity: Number(quantity) || 1,
       unit: commonUnit,
       notes: notes.trim(),
+      barcode: barcode.trim() || undefined,
+      imageUrl: imageUrl.trim() || undefined,
       isNeeded,
       isWeekly,
       inCart: item ? item.inCart : false,
@@ -892,6 +901,35 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm"
               />
+            </div>
+
+            {/* Barcode field with Scan button */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Barcode (UPC / EAN)
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Barcode className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="e.g. 049000006346"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm font-mono"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBarcodeModalOpen(true)}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0 active:scale-95"
+                  title="Scan barcode with camera"
+                >
+                  <Barcode className="w-4 h-4 text-emerald-600" />
+                  <span>Scan</span>
+                </button>
+              </div>
             </div>
 
             {/* Shopping List & Weekly Staple Toggles on the same row */}
@@ -1516,6 +1554,28 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
           onApply={(val) => {
             calcModal.onApply(val)
             setCalcModal(null)
+          }}
+        />
+      )}
+
+      {/* Barcode Scanner Modal */}
+      {isBarcodeModalOpen && (
+        <BarcodeScannerModal
+          isOpen={isBarcodeModalOpen}
+          onClose={() => setIsBarcodeModalOpen(false)}
+          currentShopId={activeShop?.id}
+          onBarcodeSelected={(scannedCode, prod) => {
+            setBarcode(scannedCode)
+            if (prod?.name && !name.trim()) {
+              setName(prod.name)
+            }
+            if (prod?.imageUrl) {
+              setImageUrl(prod.imageUrl)
+            }
+            if (prod?.suggestedCategory && (!category || category === 'Other')) {
+              setCategory(prod.suggestedCategory)
+            }
+            setIsBarcodeModalOpen(false)
           }}
         />
       )}

@@ -41,6 +41,8 @@ export interface ShoppingItem {
   inCart: boolean // True if picked up in the current shopping session
   isWeekly?: boolean // True if recurring weekly staple
   notes?: string
+  barcode?: string // UPC / EAN / Code-128 barcode
+  imageUrl?: string // Optional product image URL (from barcode lookup)
   shops: Record<string, ItemShopDetail> // Keyed by Shop.id
   createdAt: number
   updatedAt: number

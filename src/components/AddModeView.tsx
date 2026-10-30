@@ -18,11 +18,13 @@ import {
   Square,
   FileText,
   Tag,
+  Barcode,
 } from 'lucide-react'
 import type { ShoppingItem } from '../types'
 import { useShopping } from '../context/ShoppingContext'
 import { WeeklyManagerModal } from './WeeklyManagerModal'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
+import { BarcodeScannerModal } from './BarcodeScannerModal'
 
 interface AddModeViewProps {
   onOpenCreateModal: () => void
@@ -81,6 +83,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   // Calculator modal for list mode quantity editing
   const [calcItem, setCalcItem] = useState<ShoppingItem | null>(null)
   const [isQuickAddCalcOpen, setIsQuickAddCalcOpen] = useState<boolean>(false)
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState<boolean>(false)
 
   // Persist lock items setting
   useEffect(() => {
@@ -315,6 +318,19 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             title="Add item to list"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
+          </button>
+
+          {/* Scan Barcode Button */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(25)
+              setIsBarcodeScannerOpen(true)
+            }}
+            className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl transition flex items-center justify-center shadow-2xs shrink-0 cursor-pointer active:scale-95"
+            title="Scan barcode from pantry or store"
+          >
+            <Barcode className="w-4 h-4 text-emerald-600" />
           </button>
         </div>
       </form>
@@ -1029,6 +1045,14 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             setQuickQuantity(newQty)
             setIsQuickAddCalcOpen(false)
           }}
+        />
+      )}
+
+      {/* Barcode Scanner Modal */}
+      {isBarcodeScannerOpen && (
+        <BarcodeScannerModal
+          isOpen={isBarcodeScannerOpen}
+          onClose={() => setIsBarcodeScannerOpen(false)}
         />
       )}
     </div>

@@ -30,11 +30,13 @@ import {
   Layers,
   Undo2,
   Trash2,
+  Barcode,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
 import type { ShoppingItem, PurchasedItemRecord, Shop, ItemShopDetail } from '../types'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
+import { BarcodeScannerModal } from './BarcodeScannerModal'
 import {
   compareShopPrices,
   formatPrice,
@@ -222,6 +224,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   // Fast In-Store Shelf Price Modal (Calculator)
   const [shelfPriceItem, setShelfPriceItem] = useState<ShoppingItem | null>(null)
+
+  // In-Store Barcode Scanner Modal
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState<boolean>(false)
 
   // Feature: Interactive Package Size Picker & Quick Quantity (Calculator)
   const [sizePickerItem, setSizePickerItem] = useState<{
@@ -953,6 +958,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5">
+              {/* In-store Barcode Scanner */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(20)
+                  setIsBarcodeScannerOpen(true)
+                }}
+                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 active:scale-95 transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                title="Scan barcode in-store to check off or compare prices"
+              >
+                <Barcode className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Scan</span>
+              </button>
+
               {/* Feature 2: Next pending aisle jump pill */}
               {nextPendingAisle && (
                 <button
@@ -1501,18 +1520,32 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={handleFinishTrip}
-            disabled={cartItems.length === 0}
-            className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-md shrink-0 ${
-              cartItems.length > 0
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-95 cursor-pointer'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Finish Stop</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(20)
+                setIsBarcodeScannerOpen(true)
+              }}
+              className="p-2.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"
+              title="Scan barcode to check off item or compare prices"
+            >
+              <Barcode className="w-5 h-5 text-emerald-600" />
+            </button>
+
+            <button
+              onClick={handleFinishTrip}
+              disabled={cartItems.length === 0}
+              className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-md shrink-0 ${
+                cartItems.length > 0
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-95 cursor-pointer'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Finish Stop</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2068,6 +2101,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 10. Barcode Scanner Modal */}
+      {isBarcodeScannerOpen && (
+        <BarcodeScannerModal
+          isOpen={isBarcodeScannerOpen}
+          onClose={() => setIsBarcodeScannerOpen(false)}
+          currentShopId={currentShop.id}
+        />
       )}
     </div>
   )
