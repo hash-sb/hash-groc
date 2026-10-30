@@ -382,8 +382,24 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     const localMatch = items.find((i) => doesItemMatchBarcode(i, code))
 
     if (localMatch) {
-      setMatchedItem(localMatch)
       setIsSearchingOnline(false)
+
+      if (!currentShopId && !onBarcodeSelected) {
+        // In List Mode: automatically add item to shopping list with quantity 1
+        const updatedMatch: ShoppingItem = {
+          ...localMatch,
+          isNeeded: true,
+          quantity: 1,
+        }
+        setMatchedItem(updatedMatch)
+        await updateItem(localMatch.id, {
+          isNeeded: true,
+          quantity: 1,
+        })
+        setActionNotice(`Added "${localMatch.name}" (qty 1) to shopping list!`)
+      } else {
+        setMatchedItem(localMatch)
+      }
 
       // If user passed onBarcodeSelected callback (e.g. from ItemEditorModal)
       if (onBarcodeSelected) {
@@ -717,9 +733,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // Action: Add item to shopping list (matching List menu style)
   const handleAddItem = async (item: ShoppingItem) => {
     triggerHaptic(25)
+    const newQty = Math.max(1, item.quantity || 1)
+    setMatchedItem((prev) => (prev ? { ...prev, isNeeded: true, quantity: newQty } : prev))
     await updateItem(item.id, {
       isNeeded: true,
-      quantity: Math.max(1, item.quantity || 1),
+      quantity: newQty,
     })
     setActionNotice(`Added "${item.name}" to shopping list!`)
   }
@@ -728,12 +746,16 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const handleIncrement = async (item: ShoppingItem) => {
     triggerHaptic(20)
     if (!item.isNeeded) {
+      const newQty = Math.max(1, item.quantity || 1)
+      setMatchedItem((prev) => (prev ? { ...prev, isNeeded: true, quantity: newQty } : prev))
       await updateItem(item.id, {
         isNeeded: true,
-        quantity: Math.max(1, item.quantity || 1),
+        quantity: newQty,
       })
       setActionNotice(`Added "${item.name}" to shopping list!`)
     } else {
+      const newQty = (item.quantity || 1) + 1
+      setMatchedItem((prev) => (prev ? { ...prev, quantity: newQty } : prev))
       await changeItemQuantity(item.id, 1)
     }
   }
@@ -743,9 +765,12 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     triggerHaptic(20)
     const currentQty = item.quantity || 1
     if (currentQty > 1) {
+      const newQty = currentQty - 1
+      setMatchedItem((prev) => (prev ? { ...prev, quantity: newQty } : prev))
       await changeItemQuantity(item.id, -1)
     } else {
       // Reached 1 -> pressing minus removes item from the list
+      setMatchedItem((prev) => (prev ? { ...prev, isNeeded: false, inCart: false } : prev))
       await updateItem(item.id, {
         isNeeded: false,
         inCart: false,
@@ -996,51 +1021,53 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                         </button>
 
                         {/* Quantity Stepper (when needed) or [+] (when quantity is 0 / not needed) */}
-                        {matchedItem.isNeeded && (matchedItem.quantity || 1) > 0 ? (
-                          <div className="h-9 flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleDecrement(matchedItem)}
-                              className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
-                              title={matchedItem.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
-                            >
-                              <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
-                            </button>
+                        <div className="w-28 h-9 shrink-0 flex items-center justify-start">
+                          {matchedItem.isNeeded && (matchedItem.quantity || 1) > 0 ? (
+                            <div className="h-9 w-full flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => handleDecrement(matchedItem)}
+                                className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                                title={matchedItem.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
+                              >
+                                <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => setIsQuantityKeypadOpen(true)}
-                              className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 transition cursor-pointer select-none"
-                              title="Click to set quantity with calculator"
-                            >
-                              {matchedItem.quantity}
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsQuantityKeypadOpen(true)}
+                                className="flex-1 px-1 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 transition cursor-pointer select-none"
+                                title="Click to set quantity with calculator"
+                              >
+                                {matchedItem.quantity}
+                              </button>
 
+                              <button
+                                type="button"
+                                onClick={() => handleIncrement(matchedItem)}
+                                className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                                title="Increase quantity"
+                              >
+                                <Plus className="w-4 h-4 stroke-[2.5]" />
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => handleIncrement(matchedItem)}
-                              className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
-                              title="Increase quantity"
+                              onClick={() => handleAddItem(matchedItem)}
+                              className="w-9 h-9 rounded-xl font-bold transition-all flex items-center justify-center shrink-0 shadow-2xs border bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 cursor-pointer active:scale-95"
+                              title="Add to shopping list"
                             >
                               <Plus className="w-4 h-4 stroke-[2.5]" />
                             </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleAddItem(matchedItem)}
-                            className="w-9 h-9 rounded-xl font-bold transition-all flex items-center justify-center shrink-0 shadow-2xs border bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 cursor-pointer active:scale-95"
-                            title="Add to shopping list"
-                          >
-                            <Plus className="w-4 h-4 stroke-[2.5]" />
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </>
                     ) : (
-                      // In Add / List Mode: ONLY show Stepper (when needed) or [+] (when quantity is 0 / not needed)
-                      <>
+                      // In Add / List Mode: Fixed w-28 slot so Scan Next button size NEVER changes
+                      <div className="w-28 h-9 shrink-0 flex items-center justify-start">
                         {matchedItem.isNeeded && (matchedItem.quantity || 1) > 0 ? (
-                          <div className="h-9 flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs shrink-0">
+                          <div className="h-9 w-full flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
                             <button
                               type="button"
                               onClick={() => handleDecrement(matchedItem)}
@@ -1053,7 +1080,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setIsQuantityKeypadOpen(true)}
-                              className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 transition cursor-pointer select-none"
+                              className="flex-1 px-1 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 transition cursor-pointer select-none"
                               title="Click to set quantity with calculator"
                             >
                               {matchedItem.quantity}
@@ -1078,7 +1105,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                             <Plus className="w-4 h-4 stroke-[2.5]" />
                           </button>
                         )}
-                      </>
+                      </div>
                     )}
 
                     <button
@@ -1328,9 +1355,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           mode="quantity"
           onApply={async (newQty) => {
             if (newQty <= 0) {
+              setMatchedItem((prev) => (prev ? { ...prev, isNeeded: false, inCart: false } : prev))
               await updateItem(matchedItem.id, { isNeeded: false, inCart: false })
               setActionNotice(`Removed "${matchedItem.name}" from shopping list`)
             } else {
+              setMatchedItem((prev) => (prev ? { ...prev, isNeeded: true, quantity: newQty } : prev))
               await updateItem(matchedItem.id, { isNeeded: true, quantity: newQty })
               setActionNotice(`Set quantity of "${matchedItem.name}" to ${newQty}`)
             }
