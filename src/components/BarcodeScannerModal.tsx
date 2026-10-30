@@ -976,12 +976,12 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                   {/* Actions for Matched Item */}
                   <div className="flex items-center gap-2 pt-1 flex-wrap sm:flex-nowrap">
                     {currentShopId ? (
-                      // In Shop Mode: In-Cart Toggle + Stepper matching main app
+                      // In Shop Mode: In-Cart Toggle + Stepper / [+] matching main app
                       <>
                         <button
                           type="button"
                           onClick={handleToggleCart}
-                          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 h-9 ${
                             matchedItem.inCart
                               ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                               : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
@@ -995,94 +995,96 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                           <span>{matchedItem.inCart ? 'In Cart' : 'Put in Cart'}</span>
                         </button>
 
-                        {/* Quantity Stepper matching List menu style */}
-                        <div className="h-9 flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleDecrement(matchedItem)}
-                            className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition cursor-pointer"
-                            title="Decrease quantity"
-                          >
-                            <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
-                          </button>
+                        {/* Quantity Stepper (when needed) or [+] (when quantity is 0 / not needed) */}
+                        {matchedItem.isNeeded && (matchedItem.quantity || 1) > 0 ? (
+                          <div className="h-9 flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleDecrement(matchedItem)}
+                              className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                              title={matchedItem.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
+                            >
+                              <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setIsQuantityKeypadOpen(true)}
-                            className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-200/60 transition cursor-pointer select-none"
-                            title="Click to set quantity with calculator"
-                          >
-                            {matchedItem.quantity}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsQuantityKeypadOpen(true)}
+                              className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 transition cursor-pointer select-none"
+                              title="Click to set quantity with calculator"
+                            >
+                              {matchedItem.quantity}
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleIncrement(matchedItem)}
-                            className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-200 active:bg-slate-300 transition cursor-pointer"
-                            title="Increase quantity"
-                          >
-                            <Plus className="w-4 h-4 stroke-[2.5]" />
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      // In Add / List Mode: Exactly matches the List Menu row
-                      <div className="flex-1 flex items-center gap-2 min-w-0">
-                        {matchedItem.isNeeded ? (
-                          <div className="flex-1 flex items-center justify-between gap-2 bg-emerald-50/70 border border-emerald-200 rounded-xl px-3 py-1 shadow-2xs min-w-0">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                              <span className="text-xs font-bold text-emerald-950 truncate">On Shopping List</span>
-                            </div>
-
-                            {/* Stepper with exact List menu style */}
-                            <div className="h-8 sm:h-9 flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleDecrement(matchedItem)}
-                                className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
-                                title={matchedItem.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
-                              >
-                                <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setIsQuantityKeypadOpen(true)}
-                                className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 transition cursor-pointer select-none"
-                                title="Click to set quantity with calculator"
-                              >
-                                {matchedItem.quantity}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleIncrement(matchedItem)}
-                                className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
-                                title="Increase quantity"
-                              >
-                                <Plus className="w-4 h-4 stroke-[2.5]" />
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleIncrement(matchedItem)}
+                              className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                              title="Increase quantity"
+                            >
+                              <Plus className="w-4 h-4 stroke-[2.5]" />
+                            </button>
                           </div>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleAddItem(matchedItem)}
-                            className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                            className="w-9 h-9 rounded-xl font-bold transition-all flex items-center justify-center shrink-0 shadow-2xs border bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 cursor-pointer active:scale-95"
                             title="Add to shopping list"
                           >
                             <Plus className="w-4 h-4 stroke-[2.5]" />
-                            <span>Add to Shopping List</span>
                           </button>
                         )}
-                      </div>
+                      </>
+                    ) : (
+                      // In Add / List Mode: ONLY show Stepper (when needed) or [+] (when quantity is 0 / not needed)
+                      <>
+                        {matchedItem.isNeeded && (matchedItem.quantity || 1) > 0 ? (
+                          <div className="h-9 flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleDecrement(matchedItem)}
+                              className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                              title={matchedItem.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
+                            >
+                              <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setIsQuantityKeypadOpen(true)}
+                              className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 transition cursor-pointer select-none"
+                              title="Click to set quantity with calculator"
+                            >
+                              {matchedItem.quantity}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleIncrement(matchedItem)}
+                              className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                              title="Increase quantity"
+                            >
+                              <Plus className="w-4 h-4 stroke-[2.5]" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleAddItem(matchedItem)}
+                            className="w-9 h-9 rounded-xl font-bold transition-all flex items-center justify-center shrink-0 shadow-2xs border bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 cursor-pointer active:scale-95"
+                            title="Add to shopping list"
+                          >
+                            <Plus className="w-4 h-4 stroke-[2.5]" />
+                          </button>
+                        )}
+                      </>
                     )}
 
                     <button
                       type="button"
                       onClick={resumeScanner}
-                      className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
+                      className="flex-1 py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-95 h-9"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
                       <span>Scan Next</span>
