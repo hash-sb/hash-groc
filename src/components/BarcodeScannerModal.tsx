@@ -146,6 +146,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // Link to existing item UI
   const [showLinkSelector, setShowLinkSelector] = useState<boolean>(false)
   const [linkSearchQuery, setLinkSearchQuery] = useState<string>('')
+  const [linkCategory, setLinkCategory] = useState<string>('')
 
   // Price keypad for live shelf price update
   const [showPriceKeypad, setShowPriceKeypad] = useState<boolean>(false)
@@ -426,15 +427,18 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         }
 
         setOnlineProduct(scannedProduct)
+        setLinkCategory(suggestedCategory)
 
         if (onBarcodeSelected) {
           onBarcodeSelected(code, scannedProduct)
         }
       } else {
         setOnlineError('Product not found in online grocery database.')
+        setLinkCategory(categories[0] || 'Produce')
       }
     } catch {
       setOnlineError('Could not connect to online product database. You can still add it manually.')
+      setLinkCategory(categories[0] || 'Produce')
     } finally {
       setIsSearchingOnline(false)
     }
@@ -458,6 +462,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     setOnlineProduct(null)
     setOnlineError(null)
     setShowLinkSelector(false)
+    setLinkSearchQuery('')
+    setLinkCategory('')
     setShowPriceKeypad(false)
   }
 
@@ -495,12 +501,200 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // Action: Link scanned barcode to an existing item
   const handleLinkToItem = async (targetItem: ShoppingItem) => {
     if (!activeBarcode) return
-    await updateItem(targetItem.id, {
+    const updates: Partial<ShoppingItem> = {
       barcode: activeBarcode,
       imageUrl: onlineProduct?.imageUrl || targetItem.imageUrl,
-    })
+      isNeeded: true,
+      ...(currentShopId ? { inCart: true } : {}),
+    }
+    await updateItem(targetItem.id, updates)
     setActionNotice(`Linked barcode to "${targetItem.name}"`)
     setShowLinkSelector(false)
+    setLinkSearchQuery('')
+
+    if (onBarcodeSelected) {
+      onBarcodeSelected(activeBarcode, {
+        name: targetItem.name,
+        category: targetItem.category,
+        imageUrl: onlineProduct?.imageUrl || targetItem.imageUrl,
+      })
+    }
+  }
+
+  // Action: Create a new custom item and immediately link the active barcode to it
+  const handleCreateAndLinkItem = async (customName: string, selectedCategory?: string) => {
+    const trimmed = customName.trim()
+    if (!activeBarcode || !trimmed) return
+
+    const categoryToUse =
+      selectedCategory ||
+      linkCategory ||
+      onlineProduct?.suggestedCategory ||
+      categories[0] ||
+      'Produce'
+
+    const unit = onlineProduct?.packageUnit || 'items'
+
+    const payload = {
+      name: trimmed,
+      category: categoryToUse,
+      quantity: 1,
+      unit,
+      barcode: activeBarcode,
+      imageUrl: onlineProduct?.imageUrl || undefined,
+      isNeeded: true,
+      inCart: currentShopId ? true : false,
+      shops: currentShopId
+        ? {
+            [currentShopId]: {
+              available: true,
+              price: null,
+              location: '',
+              packageSize: onlineProduct?.packageSize || null,
+              packageUnit: unit,
+            },
+          }
+        : {},
+    }
+
+    await addItem(payload)
+    setActionNotice(`Created "${trimmed}" & linked barcode!`)
+    setShowLinkSelector(false)
+    setLinkSearchQuery('')
+
+    if (onBarcodeSelected) {
+      onBarcodeSelected(activeBarcode, {
+        name: trimmed,
+        category: categoryToUse,
+        imageUrl: onlineProduct?.imageUrl,
+        packageSize: onlineProduct?.packageSize,
+        packageUnit: unit,
+      })
+    }
+  }
+
+  // Shared Link Selector with Custom Short Name Support
+  const renderLinkSelector = () => {
+    if (!showLinkSelector) return null
+
+    const query = linkSearchQuery.trim()
+    const filteredItems = items.filter((i) =>
+      i.name.toLowerCase().includes(query.toLowerCase())
+    )
+    const exactMatch = items.find(
+      (i) => i.name.trim().toLowerCase() === query.toLowerCase()
+    )
+
+    return (
+      <div className="mt-3 p-3 sm:p-3.5 bg-white border border-slate-200 rounded-2xl space-y-3 animate-in fade-in duration-150 shadow-xs">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <Tag className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{onlineProduct ? 'Custom Short Name or Link Catalog Item' : 'Add Item or Link Barcode'}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowLinkSelector(false)
+              setLinkSearchQuery('')
+            }}
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+            title="Close"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Search or Custom Short Name Input */}
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+          <input
+            type="text"
+            autoFocus
+            placeholder="Type custom short name (e.g. Milk, Coke, Salsa)..."
+            value={linkSearchQuery}
+            onChange={(e) => setLinkSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                if (query) {
+                  if (exactMatch) {
+                    handleLinkToItem(exactMatch)
+                  } else {
+                    handleCreateAndLinkItem(query, linkCategory)
+                  }
+                }
+              }
+            }}
+            className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium bg-slate-50/50 focus:bg-white transition"
+          />
+        </div>
+
+        {/* Option 1: Create New Item with this Custom Short Name (if not exact match) */}
+        {query && !exactMatch && (
+          <div className="p-2.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-emerald-950 truncate">
+                New item: <span className="text-emerald-700">"{query}"</span>
+              </span>
+              <select
+                value={linkCategory || (categories[0] || 'Produce')}
+                onChange={(e) => setLinkCategory(e.target.value)}
+                className="text-[11px] font-bold bg-white border border-emerald-300 text-emerald-900 rounded-lg px-2 py-0.5 focus:outline-none shrink-0"
+                title="Category for new item"
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCreateAndLinkItem(query, linkCategory)}
+              className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Add as "{query}" & Link Barcode</span>
+            </button>
+          </div>
+        )}
+
+        {/* Option 2: Link to an existing item from catalog */}
+        <div className="space-y-1">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            {query ? 'Matching Existing Items:' : 'Or link to existing catalog item:'}
+          </div>
+          {filteredItems.length > 0 ? (
+            <div className="max-h-36 overflow-y-auto space-y-1 divide-y divide-slate-100">
+              {filteredItems.slice(0, 8).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleLinkToItem(item)}
+                  className="w-full text-left px-2.5 py-1.5 hover:bg-emerald-50/70 rounded-lg text-xs flex items-center justify-between text-slate-800 font-semibold cursor-pointer group transition"
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="group-hover:text-emerald-700 truncate">{item.name}</span>
+                    {item.barcode && <span className="text-[10px] text-slate-400 font-mono">(linked)</span>}
+                  </div>
+                  <span className="text-[10px] text-slate-400 shrink-0 ml-2">{item.category}</span>
+                </button>
+              ))}
+            </div>
+          ) : query ? (
+            <div className="text-[11px] text-slate-400 italic text-center py-1">
+              No existing catalog items match "{query}".
+            </div>
+          ) : (
+            <div className="text-[11px] text-slate-400 italic text-center py-1">
+              Type a custom name above to create and link.
+            </div>
+          )}
+        </div>
+      </div>
+    )
   }
 
   // Action: Toggle item in cart (Shop Mode)
@@ -865,10 +1059,20 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => setShowLinkSelector(!showLinkSelector)}
-                      className="py-2.5 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                      onClick={() => {
+                        setShowLinkSelector(!showLinkSelector)
+                        if (!showLinkSelector && onlineProduct?.suggestedCategory) {
+                          setLinkCategory(onlineProduct.suggestedCategory)
+                        }
+                      }}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                        showLinkSelector
+                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                          : 'bg-white hover:bg-slate-100 border border-slate-300 text-slate-700'
+                      }`}
+                      title="Use custom short name or link to an existing item"
                     >
-                      <span>Link to Item</span>
+                      <span>Custom Name / Link</span>
                     </button>
 
                     <button
@@ -881,38 +1085,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Dropdown to link to existing catalog item */}
-                  {showLinkSelector && (
-                    <div className="mt-3 p-3 bg-white border border-slate-200 rounded-xl space-y-2 animate-in fade-in duration-150">
-                      <div className="text-xs font-bold text-slate-700">Choose item from your catalog to attach this barcode:</div>
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Search items..."
-                          value={linkSearchQuery}
-                          onChange={(e) => setLinkSearchQuery(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                      <div className="max-h-36 overflow-y-auto space-y-1 divide-y divide-slate-100">
-                        {items
-                          .filter((i) => i.name.toLowerCase().includes(linkSearchQuery.toLowerCase()))
-                          .slice(0, 8)
-                          .map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleLinkToItem(item)}
-                              className="w-full text-left px-2 py-1.5 hover:bg-emerald-50 rounded text-xs flex items-center justify-between text-slate-800 font-semibold cursor-pointer"
-                            >
-                              <span>{item.name}</span>
-                              <span className="text-[10px] text-slate-400">{item.category}</span>
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Shared Link Selector with Custom Short Name Support */}
+                  {renderLinkSelector()}
                 </div>
               )}
 
@@ -936,11 +1110,16 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                   <div className="flex items-center gap-2 pt-1 flex-wrap sm:flex-nowrap">
                     <button
                       type="button"
-                      onClick={() => setShowLinkSelector(!showLinkSelector)}
+                      onClick={() => {
+                        setShowLinkSelector(!showLinkSelector)
+                        if (!showLinkSelector && !linkCategory) {
+                          setLinkCategory(categories[0] || 'Produce')
+                        }
+                      }}
                       className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
                     >
                       <Plus className="w-4 h-4 stroke-[2.5]" />
-                      <span>Link to Existing Item</span>
+                      <span>Add Custom Item or Link</span>
                     </button>
 
                     <button
@@ -953,37 +1132,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                     </button>
                   </div>
 
-                  {showLinkSelector && (
-                    <div className="mt-3 p-3 bg-white border border-slate-200 rounded-xl space-y-2 animate-in fade-in duration-150">
-                      <div className="text-xs font-bold text-slate-700">Select an existing item to associate barcode:</div>
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Search items..."
-                          value={linkSearchQuery}
-                          onChange={(e) => setLinkSearchQuery(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                      <div className="max-h-36 overflow-y-auto space-y-1">
-                        {items
-                          .filter((i) => i.name.toLowerCase().includes(linkSearchQuery.toLowerCase()))
-                          .slice(0, 8)
-                          .map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleLinkToItem(item)}
-                              className="w-full text-left px-2 py-1.5 hover:bg-emerald-50 rounded text-xs flex items-center justify-between text-slate-800 font-semibold cursor-pointer"
-                            >
-                              <span>{item.name}</span>
-                              <span className="text-[10px] text-slate-400">{item.category}</span>
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Shared Link Selector with Custom Short Name Support */}
+                  {renderLinkSelector()}
                 </div>
               )}
             </div>
