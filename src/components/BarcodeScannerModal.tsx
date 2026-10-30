@@ -6,8 +6,11 @@ import {
   FlashlightOff,
   SwitchCamera,
   Check,
+  CheckCircle2,
+  Circle,
   Plus,
-  ShoppingCart,
+  Minus,
+  Link2,
   DollarSign,
   Tag,
   Search,
@@ -123,7 +126,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   currentShopId,
   onBarcodeSelected,
 }) => {
-  const { items, shops, categories, addItem, updateItem, toggleInCart, toggleNeeded, changeItemQuantity, updateItemShopDetail } =
+  const { items, shops, categories, addItem, updateItem, toggleInCart, changeItemQuantity, updateItemShopDetail } =
     useShopping()
 
   const [scannerError, setScannerError] = useState<string | null>(null)
@@ -149,11 +152,22 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const [linkSearchQuery, setLinkSearchQuery] = useState<string>('')
   const [linkCategory, setLinkCategory] = useState<string>('')
 
-  // Price keypad for live shelf price update
+  // Price and quantity keypad modals
   const [showPriceKeypad, setShowPriceKeypad] = useState<boolean>(false)
+  const [isQuantityKeypadOpen, setIsQuantityKeypadOpen] = useState<boolean>(false)
 
   // Feedback action toast
   const [actionNotice, setActionNotice] = useState<string | null>(null)
+
+  const triggerHaptic = (ms: number = 20) => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(ms)
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null)
   const scannerContainerId = 'hashgroc-barcode-scanner-viewport'
@@ -700,17 +714,44 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     setActionNotice(matchedItem.inCart ? `Removed "${matchedItem.name}" from cart` : `Checked "${matchedItem.name}" in cart!`)
   }
 
-  // Action: Toggle Needed (Add Mode)
-  const handleToggleNeeded = async () => {
-    if (!matchedItem) return
-    await toggleNeeded(matchedItem.id)
-    setActionNotice(matchedItem.isNeeded ? `Removed "${matchedItem.name}" from list` : `Added "${matchedItem.name}" to list!`)
+  // Action: Add item to shopping list (matching List menu style)
+  const handleAddItem = async (item: ShoppingItem) => {
+    triggerHaptic(25)
+    await updateItem(item.id, {
+      isNeeded: true,
+      quantity: Math.max(1, item.quantity || 1),
+    })
+    setActionNotice(`Added "${item.name}" to shopping list!`)
   }
 
-  // Action: Adjust Quantity
-  const handleQuantityDelta = async (delta: number) => {
-    if (!matchedItem) return
-    await changeItemQuantity(matchedItem.id, delta)
+  // Action: Increment quantity (matching List menu style)
+  const handleIncrement = async (item: ShoppingItem) => {
+    triggerHaptic(20)
+    if (!item.isNeeded) {
+      await updateItem(item.id, {
+        isNeeded: true,
+        quantity: Math.max(1, item.quantity || 1),
+      })
+      setActionNotice(`Added "${item.name}" to shopping list!`)
+    } else {
+      await changeItemQuantity(item.id, 1)
+    }
+  }
+
+  // Action: Decrement quantity (matching List menu style)
+  const handleDecrement = async (item: ShoppingItem) => {
+    triggerHaptic(20)
+    const currentQty = item.quantity || 1
+    if (currentQty > 1) {
+      await changeItemQuantity(item.id, -1)
+    } else {
+      // Reached 1 -> pressing minus removes item from the list
+      await updateItem(item.id, {
+        isNeeded: false,
+        inCart: false,
+      })
+      setActionNotice(`Removed "${item.name}" from shopping list`)
+    }
   }
 
   // Action: Update live store price
@@ -935,54 +976,105 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                   {/* Actions for Matched Item */}
                   <div className="flex items-center gap-2 pt-1 flex-wrap sm:flex-nowrap">
                     {currentShopId ? (
-                      // In Shop Mode
-                      <button
-                        type="button"
-                        onClick={handleToggleCart}
-                        className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 cursor-pointer shadow-xs ${
-                          matchedItem.inCart
-                            ? 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300'
-                            : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
-                        }`}
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                        <span>{matchedItem.inCart ? 'Already In Cart (Uncheck)' : 'Put in Cart'}</span>
-                      </button>
-                    ) : (
-                      // In Add / Catalog Mode
-                      <div className="flex-1 flex items-center gap-2">
+                      // In Shop Mode: In-Cart Toggle + Stepper matching main app
+                      <>
                         <button
                           type="button"
-                          onClick={handleToggleNeeded}
-                          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
-                            matchedItem.isNeeded
+                          onClick={handleToggleCart}
+                          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
+                            matchedItem.inCart
                               ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+                              : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                           }`}
                         >
-                          <Check className="w-4 h-4" />
-                          <span>{matchedItem.isNeeded ? 'On Shopping List' : 'Add to Shopping List'}</span>
+                          {matchedItem.inCart ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          ) : (
+                            <Circle className="w-4 h-4 text-emerald-200" />
+                          )}
+                          <span>{matchedItem.inCart ? 'In Cart' : 'Put in Cart'}</span>
                         </button>
-                        {matchedItem.isNeeded && (
-                          <div className="flex items-center border border-slate-300 rounded-xl bg-white overflow-hidden shadow-2xs">
-                            <button
-                              type="button"
-                              onClick={() => handleQuantityDelta(-1)}
-                              className="px-2.5 py-2 hover:bg-slate-100 text-xs font-bold text-slate-700"
-                            >
-                              -
-                            </button>
-                            <span className="px-2 text-xs font-bold text-slate-900 min-w-[24px] text-center">
-                              {matchedItem.quantity}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleQuantityDelta(1)}
-                              className="px-2.5 py-2 hover:bg-slate-100 text-xs font-bold text-slate-700"
-                            >
-                              +
-                            </button>
+
+                        {/* Quantity Stepper matching List menu style */}
+                        <div className="h-9 flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleDecrement(matchedItem)}
+                            className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition cursor-pointer"
+                            title="Decrease quantity"
+                          >
+                            <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setIsQuantityKeypadOpen(true)}
+                            className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-200/60 transition cursor-pointer select-none"
+                            title="Click to set quantity with calculator"
+                          >
+                            {matchedItem.quantity}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleIncrement(matchedItem)}
+                            className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-200 active:bg-slate-300 transition cursor-pointer"
+                            title="Increase quantity"
+                          >
+                            <Plus className="w-4 h-4 stroke-[2.5]" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      // In Add / List Mode: Exactly matches the List Menu row
+                      <div className="flex-1 flex items-center gap-2 min-w-0">
+                        {matchedItem.isNeeded ? (
+                          <div className="flex-1 flex items-center justify-between gap-2 bg-emerald-50/70 border border-emerald-200 rounded-xl px-3 py-1 shadow-2xs min-w-0">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span className="text-xs font-bold text-emerald-950 truncate">On Shopping List</span>
+                            </div>
+
+                            {/* Stepper with exact List menu style */}
+                            <div className="h-8 sm:h-9 flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleDecrement(matchedItem)}
+                                className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                                title={matchedItem.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
+                              >
+                                <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setIsQuantityKeypadOpen(true)}
+                                className="min-w-[28px] sm:min-w-[32px] px-1.5 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 transition cursor-pointer select-none"
+                                title="Click to set quantity with calculator"
+                              >
+                                {matchedItem.quantity}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleIncrement(matchedItem)}
+                                className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                                title="Increase quantity"
+                              >
+                                <Plus className="w-4 h-4 stroke-[2.5]" />
+                              </button>
+                            </div>
                           </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleAddItem(matchedItem)}
+                            className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                            title="Add to shopping list"
+                          >
+                            <Plus className="w-4 h-4 stroke-[2.5]" />
+                            <span>Add to Shopping List</span>
+                          </button>
                         )}
                       </div>
                     )}
@@ -1068,14 +1160,15 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                           setLinkCategory(onlineProduct.suggestedCategory)
                         }
                       }}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                      className={`py-2.5 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs ${
                         showLinkSelector
                           ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                           : 'bg-white hover:bg-slate-100 border border-slate-300 text-slate-700'
                       }`}
-                      title="Use custom short name or link to an existing item"
+                      title="Link barcode to an existing item or create with a custom short name"
                     >
-                      <span>Custom Name / Link</span>
+                      <Link2 className="w-4 h-4" />
+                      <span>Link</span>
                     </button>
 
                     <button
@@ -1119,10 +1212,15 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                           setLinkCategory(categories[0] || 'Produce')
                         }
                       }}
-                      className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
+                        showLinkSelector
+                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                      }`}
+                      title="Link this barcode to an existing item or create with a custom short name"
                     >
-                      <Plus className="w-4 h-4 stroke-[2.5]" />
-                      <span>Add Custom Item or Link</span>
+                      <Link2 className="w-4 h-4" />
+                      <span>Link</span>
                     </button>
 
                     <button
@@ -1213,6 +1311,29 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           initialValue={matchedItem.shops[currentShopId]?.price ?? 0}
           mode="price"
           onApply={handleApplyShelfPrice}
+        />
+      )}
+
+      {/* Keypad Modal for Quick Quantity Updates */}
+      {isQuantityKeypadOpen && matchedItem && (
+        <KeypadCalculatorModal
+          isOpen={isQuantityKeypadOpen}
+          onClose={() => setIsQuantityKeypadOpen(false)}
+          title="Set Quantity"
+          itemName={matchedItem.name}
+          storeName=""
+          initialValue={matchedItem.quantity || 1}
+          mode="quantity"
+          onApply={async (newQty) => {
+            if (newQty <= 0) {
+              await updateItem(matchedItem.id, { isNeeded: false, inCart: false })
+              setActionNotice(`Removed "${matchedItem.name}" from shopping list`)
+            } else {
+              await updateItem(matchedItem.id, { isNeeded: true, quantity: newQty })
+              setActionNotice(`Set quantity of "${matchedItem.name}" to ${newQty}`)
+            }
+            setIsQuantityKeypadOpen(false)
+          }}
         />
       )}
     </div>
