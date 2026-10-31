@@ -1021,13 +1021,13 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                         </button>
 
                         {/* Quantity Stepper (when needed) or [+] (when quantity is 0 / not needed) */}
-                        <div className="w-28 h-9 shrink-0 flex items-center justify-start">
+                        <div className="w-28 h-9 shrink-0 flex items-center justify-end">
                           {matchedItem.isNeeded && (matchedItem.quantity || 1) > 0 ? (
                             <div className="h-9 w-full flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
                               <button
                                 type="button"
                                 onClick={() => handleDecrement(matchedItem)}
-                                className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                                className="w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
                                 title={matchedItem.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
                               >
                                 <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -1045,7 +1045,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleIncrement(matchedItem)}
-                                className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                                className="w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
                                 title="Increase quantity"
                               >
                                 <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -1064,14 +1064,14 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                         </div>
                       </>
                     ) : (
-                      // In Add / List Mode: Fixed w-28 slot so Scan Next button size NEVER changes
-                      <div className="w-28 h-9 shrink-0 flex items-center justify-start">
+                      // In Add / List Mode: Fixed w-28 slot with justify-end so [+] stays in the exact same location
+                      <div className="w-28 h-9 shrink-0 flex items-center justify-end">
                         {matchedItem.isNeeded && (matchedItem.quantity || 1) > 0 ? (
                           <div className="h-9 w-full flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
                             <button
                               type="button"
                               onClick={() => handleDecrement(matchedItem)}
-                              className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                              className="w-9 h-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
                               title={matchedItem.quantity <= 1 ? 'Remove from shopping list' : 'Decrease quantity'}
                             >
                               <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -1089,7 +1089,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleIncrement(matchedItem)}
-                              className="w-8 sm:w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
+                              className="w-9 h-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer"
                               title="Increase quantity"
                             >
                               <Plus className="w-4 h-4 stroke-[2.5]" />
