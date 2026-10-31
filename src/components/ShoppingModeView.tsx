@@ -28,6 +28,7 @@ import {
   MoreVertical,
   SlidersHorizontal,
   Layers,
+  Hash,
   Undo2,
   Trash2,
   Barcode,
@@ -1251,7 +1252,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       const comp = compareShopPrices(item, currentShop.id, shops)
                       const shopDetail = item.shops[currentShop.id]
                       const optResult = getOptimalStorePackage(item, currentShop.id)
-                      const bestOpt = optResult.bestOption
                       const activeOpt = optResult.selectedOption
                       const itemUnitPrice = activeOpt.price > 0 ? activeOpt.price : (shopDetail?.price || null)
                       const packsNeeded = activeOpt.packsNeeded
@@ -1283,27 +1283,24 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                               : 'hover:bg-slate-50/60 bg-white'
                           }`}
                         >
-                          {/* Left: Checkbox & Item details */}
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleInCart(item.id)}
-                              className="transition shrink-0 cursor-pointer p-0.5 active:scale-90"
-                              title={isPicked ? 'Mark as unpicked' : 'Mark as picked into cart'}
-                            >
+                          {/* Left: Generous single tap zone to toggle in/out of cart */}
+                          <div
+                            onClick={() => handleToggleInCart(item.id)}
+                            className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer select-none py-0.5"
+                          >
+                            <div className="shrink-0 p-0.5 transition active:scale-90">
                               {isPicked ? (
                                 <CheckCircle2 className="w-6 h-6 text-emerald-600 fill-emerald-100" />
                               ) : (
                                 <Circle className="w-6 h-6 text-slate-300 hover:text-emerald-600" />
                               )}
-                            </button>
+                            </div>
 
                             <div className="min-w-0 flex-1">
                               {/* Row 1: Item Name, Best Price badge (icon only), Cheaper elsewhere tag */}
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span
-                                  onClick={() => handleToggleInCart(item.id)}
-                                  className={`text-sm tracking-tight cursor-pointer select-none ${
+                                  className={`text-sm tracking-tight ${
                                     isPicked
                                       ? 'line-through text-slate-400 font-medium'
                                       : 'text-slate-900 font-bold'
@@ -1343,126 +1340,54 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 )}
                               </div>
 
-                              {/* Row 2: Packs count (number only) & Quantity Size (always show!) */}
-                              <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                                {/* Packs count (number only, tap to change) */}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setQuickQuantityItem({
-                                      item,
-                                      currentQty: packsNeeded,
-                                    })
-                                  }
-                                  className={`inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded-lg text-xs font-bold font-mono border transition cursor-pointer active:scale-95 ${
-                                    isPicked
-                                      ? 'bg-slate-100 text-slate-400 border-slate-200/60'
-                                      : 'bg-slate-100 hover:bg-slate-200/80 text-slate-800 border-slate-200'
+                              {/* Row 2: Clean unified subtitle for Quantity, Package Size & Notes */}
+                              <div className="flex items-center gap-2 flex-wrap mt-0.5 text-xs">
+                                <span
+                                  className={`font-semibold ${
+                                    isPicked ? 'text-slate-400 line-through' : 'text-slate-600'
                                   }`}
-                                  title="Tap to change quantity / packs needed"
                                 >
-                                  <span>{Number(packsNeeded.toFixed(2))}</span>
-                                </button>
-
-                                {/* Quantity Size (Always show!) */}
-                                {optResult.hasMultipleOptions ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setSizePickerItem({
-                                        item,
-                                        options: optResult.allOptions,
-                                        bestOptId: bestOpt.id,
-                                        activeOptId: activeOpt.id,
-                                      })
-                                    }
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border transition cursor-pointer active:scale-95 ${
-                                      isPicked
-                                        ? 'bg-slate-100 text-slate-400 border-slate-200/60'
-                                        : activeOpt.id === bestOpt.id
-                                        ? 'bg-indigo-50/90 hover:bg-indigo-100 text-indigo-900 border-indigo-200'
-                                        : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200'
-                                    }`}
-                                    title="Tap to switch package size"
-                                  >
-                                    <Layers className="w-3 h-3 text-indigo-600 shrink-0" />
-                                    <span>
-                                      {hasCustomLabel && formattedSize
-                                        ? `${formattedSize} (${rawLabel})`
-                                        : (rawLabel || formattedSize)}
-                                    </span>
-                                    <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0 ml-0.5" />
-                                  </button>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200/60">
-                                    <span>{itemSizeText}</span>
-                                  </span>
-                                )}
+                                  {packsNeeded > 1
+                                    ? `${Number(packsNeeded.toFixed(2))} × ${itemSizeText}`
+                                    : itemSizeText}
+                                </span>
 
                                 {item.notes && (
                                   <span
-                                    className={`text-[11px] italic truncate max-w-[140px] ${
+                                    className={`text-[11px] italic truncate max-w-[160px] ${
                                       isPicked ? 'text-slate-400 line-through' : 'text-slate-500'
                                     }`}
                                     title={item.notes}
                                   >
-                                    {item.notes}
+                                    • {item.notes}
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
 
-                          {/* Right: Price box & Vertical 3-dot item menu */}
-                          <div className={`shrink-0 flex items-center gap-1 sm:gap-1.5 ${isPicked ? 'opacity-60' : ''}`}>
+                          {/* Right: Clean Price & Vertical 3-dot item menu */}
+                          <div className={`shrink-0 flex items-center gap-1 sm:gap-2 ${isPicked ? 'opacity-60' : ''}`}>
                             <button
                               type="button"
                               onClick={() => openShelfPriceModal(item)}
                               className="group flex flex-col items-end px-2 py-1 rounded-xl border border-transparent hover:border-emerald-300 hover:bg-emerald-50/40 active:scale-95 transition text-right cursor-pointer"
                               title="Tap to enter shelf / sale price"
                             >
-                              <div className="flex items-center gap-1">
-                                <span
-                                  className={`text-sm font-extrabold tracking-tight ${
-                                    isPicked ? 'line-through text-slate-400' : 'text-slate-900'
-                                  }`}
-                                >
-                                  {formatPrice(totalItemPrice)}
-                                </span>
-                              </div>
+                              <span
+                                className={`text-sm font-extrabold tracking-tight ${
+                                  isPicked ? 'line-through text-slate-400' : 'text-slate-900'
+                                }`}
+                              >
+                                {formatPrice(totalItemPrice)}
+                              </span>
 
                               {packsNeeded !== 1 && itemUnitPrice !== null && (
-                                <div className="text-[10px] text-slate-400 font-medium">
+                                <span className="text-[10px] text-slate-400 font-medium">
                                   ({Number(packsNeeded.toFixed(2))} × {formatPrice(itemUnitPrice)})
-                                </div>
-                              )}
-
-                              {(activeOpt.unitPrice || shopDetail?.unitPrice) && (
-                                <div className="text-[9px] text-indigo-700/80 font-mono font-medium">
-                                  {formatUnitPrice(activeOpt.unitPrice || shopDetail?.unitPrice, activeOpt.packageUnit || shopDetail?.packageUnit)}
-                                </div>
+                                </span>
                               )}
                             </button>
-
-                            {/* 1-Tap Out of Stock / Move to Next Store Button */}
-                            {!isPicked && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const target = getTargetShopForMove(item)
-                                  handleMoveOutOfStock(item, target?.id)
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer active:scale-90"
-                                title={
-                                  getTargetShopForMove(item)
-                                    ? `Out of stock at ${currentShop.name}? 1-Tap to move to ${getTargetShopForMove(item)?.name}`
-                                    : `Out of stock? Tap to exclude from ${currentShop.name} today`
-                                }
-                                aria-label="Out of stock move"
-                              >
-                                <PackageX className="w-4 h-4" />
-                              </button>
-                            )}
 
                             {/* Vertical 3-Dot Item Actions Menu */}
                             <button
@@ -1471,8 +1396,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 triggerHaptic(15)
                                 setItemMenuModal(item)
                               }}
-                              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer active:scale-90"
                               title="Item actions"
+                              aria-label="Item actions"
                             >
                               <MoreVertical className="w-4 h-4" />
                             </button>
@@ -1967,19 +1893,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             <div className="space-y-1">
-              <button
-                type="button"
-                onClick={() => {
-                  const it = itemMenuModal
-                  setItemMenuModal(null)
-                  onEditItem(it, currentShop.id)
-                }}
-                className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
-              >
-                <Edit2 className="w-4 h-4 text-emerald-600" />
-                <span>Edit Item & Aisles</span>
-              </button>
-
               {/* 1. Instant 1-Tap Out of Stock Move */}
               {(() => {
                 const target = getTargetShopForMove(itemMenuModal)
@@ -2010,7 +1923,78 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 )
               })()}
 
-              {/* 2. Choose other stores or exclude (if multiple stores exist) */}
+              {/* 2. Change Quantity / Packs */}
+              {(() => {
+                const opt = getOptimalStorePackage(itemMenuModal, currentShop.id)
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const it = itemMenuModal
+                      setItemMenuModal(null)
+                      setQuickQuantityItem({
+                        item: it,
+                        currentQty: opt.selectedOption.packsNeeded,
+                      })
+                    }}
+                    className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center justify-between transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Hash className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Change Quantity / Packs Needed</span>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
+                      {Number(opt.selectedOption.packsNeeded.toFixed(2))} pk
+                    </span>
+                  </button>
+                )
+              })()}
+
+              {/* 3. Switch Package Size (if multiple options available) */}
+              {(() => {
+                const opt = getOptimalStorePackage(itemMenuModal, currentShop.id)
+                if (!opt.hasMultipleOptions) return null
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const it = itemMenuModal
+                      setItemMenuModal(null)
+                      setSizePickerItem({
+                        item: it,
+                        options: opt.allOptions,
+                        bestOptId: opt.bestOption.id,
+                        activeOptId: opt.selectedOption.id,
+                      })
+                    }}
+                    className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center justify-between transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Layers className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span>Switch Package Size</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md shrink-0">
+                      {opt.allOptions.length} sizes
+                    </span>
+                  </button>
+                )
+              })()}
+
+              {/* 4. Update Shelf Price */}
+              <button
+                type="button"
+                onClick={() => {
+                  const it = itemMenuModal
+                  setItemMenuModal(null)
+                  openShelfPriceModal(it)
+                }}
+                className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+              >
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+                <span>Update Shelf / Sale Price</span>
+              </button>
+
+              {/* 5. Choose other stores or exclude (if multiple stores exist) */}
               {shops.filter((s) => s.id !== currentShop.id).length > 1 && (
                 <button
                   type="button"
@@ -2027,17 +2011,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 </button>
               )}
 
+              {/* 6. Edit Item & Aisles */}
               <button
                 type="button"
                 onClick={() => {
                   const it = itemMenuModal
                   setItemMenuModal(null)
-                  openShelfPriceModal(it)
+                  onEditItem(it, currentShop.id)
                 }}
-                className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
+                className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer border-t border-slate-100 pt-2 mt-1"
               >
-                <DollarSign className="w-4 h-4 text-emerald-600" />
-                <span>Update Shelf / Sale Price</span>
+                <Edit2 className="w-4 h-4 text-slate-400" />
+                <span>Edit Full Item Details & Aisles</span>
               </button>
             </div>
           </div>
