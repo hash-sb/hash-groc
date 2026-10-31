@@ -736,59 +736,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   return (
     <div className="pb-32 pt-3 max-w-4xl mx-auto px-3 sm:px-6">
-      {/* 1. Store Stops Bar & Quick Controls */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <Store className="w-4 h-4 text-emerald-600" />
-              <span>Store Stops</span>
-            </label>
-          </div>
-
-          {/* Quick Header Micro-Chips: Save Mode & Hide Empty */}
-          <div className="flex items-center gap-1.5">
-            {/* Save Mode Micro-Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(15)
-                setSaveMode((prev) => !prev)
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition border ${
-                saveMode
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-              }`}
-              title="Save Mode: Only show items cheapest at this store"
-            >
-              <Zap className={`w-3.5 h-3.5 ${saveMode ? 'text-amber-300 fill-amber-300' : 'text-slate-400'}`} />
-              <span>Best Prices Only</span>
-            </button>
-
-            {/* Hide Empty Stores Toggle */}
-            <button
-              type="button"
-              onClick={() => setHideEmptyStores((prev) => !prev)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-semibold transition border ${
-                hideEmptyStores
-                  ? 'bg-slate-800 text-white border-slate-800 shadow-2xs'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-              }`}
-              title="Toggle hiding stores without any items to shop"
-            >
-              {hideEmptyStores ? (
-                <EyeOff className="w-3.5 h-3.5" />
-              ) : (
-                <Eye className="w-3.5 h-3.5 text-slate-400" />
-              )}
-              <span>Hide empty</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Store Tabs (Clean, swipeable pills) */}
-        <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar">
+      {/* 1. Collapsed Unified Header: Store Tabs (Left) + Next Aisle & Options (Right) */}
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        {/* Left: Scrollable Store Tabs */}
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
           {visibleShops.map((shop) => {
             const isSelected = shop.id === currentShop.id
             const count = getShopItemCount(shop.id)
@@ -804,74 +755,127 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             return (
               <button
                 key={shop.id}
+                type="button"
                 onClick={() => setSelectedShopId(shop.id)}
-                className={`px-3 py-1.5 rounded-xl border shrink-0 transition-all text-left flex items-center gap-2 ${
+                className={`px-3 py-1.5 rounded-xl border shrink-0 transition-all text-left flex items-center gap-1.5 cursor-pointer select-none ${
                   isSelected
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-xs ring-2 ring-emerald-500/20'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-2xs ring-1 ring-emerald-500/20'
                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold tracking-tight">{shop.name}</span>
-                  <div className="text-[10px] text-slate-500">
-                    {isFullyPicked ? (
-                      <span className="text-emerald-700 font-semibold">✓ Done ({count})</span>
-                    ) : (
-                      <span>
-                        {count} {count === 1 ? 'item' : 'items'}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <span className="text-xs font-bold tracking-tight truncate max-w-[110px] sm:max-w-none">
+                  {shop.name}
+                </span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
+                    isFullyPicked
+                      ? 'bg-emerald-200 text-emerald-900'
+                      : isSelected
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {isFullyPicked ? `✓ ${count}` : count}
+                </span>
               </button>
             )
           })}
 
           <button
+            type="button"
             onClick={onOpenStoreModal}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-white/50 shrink-0 text-xs font-semibold transition"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-dashed border-slate-300 text-slate-400 hover:text-slate-700 hover:border-slate-400 bg-white/50 shrink-0 text-xs font-semibold transition cursor-pointer"
             title="Manage stores"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Store</span>
+          </button>
+        </div>
+
+        {/* Right: Next Aisle jump & View Options '···' */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Next pending aisle jump pill */}
+          {nextPendingAisle && (
+            <button
+              type="button"
+              onClick={() => scrollToAisle(nextPendingAisle.location)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 active:scale-95 transition flex items-center gap-1 shadow-2xs cursor-pointer shrink-0"
+              title={`Jump to next aisle: ${nextPendingAisle.location}`}
+            >
+              <Navigation className="w-3 h-3 text-emerald-400" />
+              <span className="hidden sm:inline">Next:</span>
+              <span>{nextPendingAisle.location}</span>
+            </button>
+          )}
+
+          {/* View Options '···' Button */}
+          <button
+            type="button"
+            onClick={() => setShowOptionsPopover(!showOptionsPopover)}
+            className={`p-2 rounded-xl border transition shadow-2xs flex items-center justify-center relative cursor-pointer ${
+              showOptionsPopover || hideCheckedItems || saveMode || hideEmptyStores || (keepScreenAwake && wakeLockActive)
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+            }`}
+            title="Shopping View Options & Settings"
+            aria-label="Shopping View Options & Settings"
+          >
+            <MoreVertical className="w-4 h-4" />
+            {/* Subtle active badge dot if any view option is set */}
+            {(hideCheckedItems || saveMode || hideEmptyStores || (keepScreenAwake && wakeLockActive)) && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-600 rounded-full border-2 border-white" />
+            )}
           </button>
         </div>
       </div>
 
-      {/* Save Mode 1-line Hint when items are hidden */}
-      {saveMode && savedForOtherStores.length > 0 && (
-        <div className="mb-3 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200/70 text-xs text-indigo-900 flex items-center justify-between">
-          <span className="text-[11px]">
-            💡 <strong>{savedForOtherStores.length}</strong> {savedForOtherStores.length === 1 ? 'item was' : 'items were'} cheaper elsewhere and hidden here.
-          </span>
-          <button
-            onClick={() => setSaveMode(false)}
-            className="text-[11px] font-bold underline text-indigo-700 hover:text-indigo-900 shrink-0 ml-2 cursor-pointer"
-          >
-            Show All
-          </button>
-        </div>
-      )}
-
-      {/* Items Not Carried at this Store Banner (Compact) */}
-      {unavailableItems.length > 0 && (
-        <div className="mb-3 bg-amber-50/90 border border-amber-200/80 rounded-xl px-3 py-2 text-xs text-amber-900 flex items-center justify-between gap-2 shadow-2xs">
-          <div className="flex items-center gap-2 min-w-0 truncate">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="truncate">
-              <strong>{unavailableItems.length}</strong> {unavailableItems.length === 1 ? 'item not' : 'items not'} carried here:{' '}
-              <span className="text-amber-800">
-                {unavailableItems.map((i) => i.name).slice(0, 2).join(', ')}
-                {unavailableItems.length > 2 && ` +${unavailableItems.length - 2} more`}
-              </span>
-            </span>
+      {/* 2. Compact 1-Line Status Strip for Skipped or Unavailable Items */}
+      {(unavailableItems.length > 0 || (saveMode && savedForOtherStores.length > 0)) && (
+        <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-xs text-amber-900 flex items-center justify-between gap-2 shadow-2xs">
+          <div className="flex items-center gap-1.5 min-w-0 truncate text-[11px]">
+            {unavailableItems.length > 0 ? (
+              <>
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="truncate">
+                  <strong>{unavailableItems.length}</strong> {unavailableItems.length === 1 ? 'item not' : 'items not'} carried here
+                  <span className="text-amber-800/80 ml-1">
+                    ({unavailableItems.map((i) => i.name).slice(0, 2).join(', ')}{unavailableItems.length > 2 ? ` +${unavailableItems.length - 2}` : ''})
+                  </span>
+                </span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">
+                  <strong>{savedForOtherStores.length}</strong> {savedForOtherStores.length === 1 ? 'item is' : 'items are'} cheaper at other stops
+                </span>
+              </>
+            )}
           </div>
-          <button
-            onClick={() => setShowUnavailableDrawer(!showUnavailableDrawer)}
-            className="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline shrink-0 ml-1 cursor-pointer"
-          >
-            {showUnavailableDrawer ? 'Hide' : 'View'}
-          </button>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {saveMode && savedForOtherStores.length > 0 && unavailableItems.length > 0 && (
+              <span className="text-[10px] text-indigo-700 font-semibold bg-indigo-100/70 px-1.5 py-0.2 rounded">
+                +{savedForOtherStores.length} cheaper elsewhere
+              </span>
+            )}
+            {unavailableItems.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowUnavailableDrawer(!showUnavailableDrawer)}
+                className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+              >
+                {showUnavailableDrawer ? 'Hide' : 'View'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSaveMode(false)}
+                className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+              >
+                Show All
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -947,225 +951,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
           )}
 
-          {/* View Options Toolbar: Next Aisle pill & Subtle '···' View Options Dropdown */}
-          <div className="flex items-center justify-between mb-2 gap-2 pt-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Aisles & Items
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400">
-                ({cartItems.length} of {availableItems.length} picked)
-              </span>
-            </div>
 
-            <div className="flex items-center gap-1.5">
-              {/* In-store Barcode Scanner */}
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(20)
-                  setIsBarcodeScannerOpen(true)
-                }}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 active:scale-95 transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                title="Scan barcode in-store to check off or compare prices"
-              >
-                <Barcode className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Scan</span>
-              </button>
-
-              {/* Feature 2: Next pending aisle jump pill */}
-              {nextPendingAisle && (
-                <button
-                  type="button"
-                  onClick={() => scrollToAisle(nextPendingAisle.location)}
-                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-900 text-white hover:bg-slate-800 active:scale-95 transition flex items-center gap-1 shadow-2xs"
-                  title={`Scroll directly to next pending aisle: ${nextPendingAisle.location}`}
-                >
-                  <Navigation className="w-3 h-3 text-emerald-400" />
-                  <span>Next: {nextPendingAisle.location}</span>
-                  <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
-                </button>
-              )}
-
-              {/* 3 Vertical Dots View Options Button & Modal */}
-              <div className="shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowOptionsPopover(!showOptionsPopover)}
-                  className={`p-1.5 rounded-xl border transition shadow-2xs flex items-center justify-center relative cursor-pointer ${
-                    showOptionsPopover || hideCheckedItems || (keepScreenAwake && wakeLockActive)
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
-                  }`}
-                  title="Shopping View Options & Settings"
-                  aria-label="Shopping View Options & Settings"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                  {/* Subtle active badge dot if non-default option is set */}
-                  {hideCheckedItems && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-600 rounded-full border-2 border-white" />
-                  )}
-                </button>
-
-                {/* Modal Window Dialog (Similar to WeeklyManagerModal) */}
-                {showOptionsPopover && (
-                  <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
-                    onClick={(e) => {
-                      if (e.target === e.currentTarget) setShowOptionsPopover(false)
-                    }}
-                  >
-                    <div className="relative bg-white rounded-3xl w-full max-w-md max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
-                      {/* Header */}
-                      <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-                            <SlidersHorizontal className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
-                              Shopping View Options
-                            </h2>
-                            <p className="text-xs text-slate-500">
-                              In-store view and trip settings
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowOptionsPopover(false)}
-                          className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
-                          title="Close"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      {/* Scrollable Body */}
-                      <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5 flex-1">
-                        {/* Option 1: Keep Screen Awake */}
-                        <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                              {keepScreenAwake ? (
-                                <Sun className="w-4 h-4 text-amber-500 shrink-0" />
-                              ) : (
-                                <Moon className="w-4 h-4 text-slate-400 shrink-0" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-800">Keep Screen Awake</div>
-                              <div className="text-[10px] text-slate-400">
-                                {keepScreenAwake ? 'Screen stays on while shopping' : 'Standard phone sleep'}
-                              </div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={keepScreenAwake}
-                            onChange={(e) => {
-                              triggerHaptic(15)
-                              setKeepScreenAwake(e.target.checked)
-                            }}
-                            className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 shrink-0 ml-2 cursor-pointer"
-                          />
-                        </label>
-
-                        {/* Option 2: Auto-collapse Done */}
-                        <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                              <ChevronUp className="w-4 h-4 text-blue-500 shrink-0" />
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-800">Auto-collapse Done</div>
-                              <div className="text-[10px] text-slate-400">
-                                Fold aisles once all items are picked
-                              </div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={autoCollapseCompleted}
-                            onChange={(e) => {
-                              triggerHaptic(15)
-                              setAutoCollapseCompleted(e.target.checked)
-                            }}
-                            className="w-4 h-4 rounded text-blue-500 focus:ring-blue-400 accent-blue-500 shrink-0 ml-2 cursor-pointer"
-                          />
-                        </label>
-
-                        {/* Option 3: Checked at bottom */}
-                        <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                              <ArrowDownNarrowWide className="w-4 h-4 text-slate-600 shrink-0" />
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-800">Checked at bottom</div>
-                              <div className="text-[10px] text-slate-400">
-                                Sort crossed-off items to bottom
-                              </div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={moveCheckedToBottom}
-                            onChange={(e) => {
-                              triggerHaptic(15)
-                              setMoveCheckedToBottom(e.target.checked)
-                            }}
-                            className="w-4 h-4 rounded text-slate-600 focus:ring-slate-500 accent-slate-600 shrink-0 ml-2 cursor-pointer"
-                          />
-                        </label>
-
-                        {/* Option 4: Hide checked */}
-                        <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                              {hideCheckedItems ? (
-                                <EyeOff className="w-4 h-4 text-emerald-600 shrink-0" />
-                              ) : (
-                                <Eye className="w-4 h-4 text-slate-400 shrink-0" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-800">Hide checked items</div>
-                              <div className="text-[10px] text-slate-400">
-                                {hideCheckedItems
-                                  ? `Hidden (${cartItems.length} picked)`
-                                  : 'Show all picked items'}
-                              </div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={hideCheckedItems}
-                            onChange={(e) => {
-                              triggerHaptic(15)
-                              setHideCheckedItems(e.target.checked)
-                            }}
-                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2 cursor-pointer"
-                          />
-                        </label>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setShowOptionsPopover(false)}
-                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer"
-                        >
-                          Done
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* When all items are checked and hideCheckedItems is ON */}
           {hideCheckedItems && locationGroups.length === 0 && (
@@ -2082,6 +1868,226 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Remove from List</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 12. Shopping View Options Modal */}
+      {showOptionsPopover && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowOptionsPopover(false)
+          }}
+        >
+          <div
+            className="relative bg-white rounded-3xl w-full max-w-md max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <SlidersHorizontal className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    Shopping View Options
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    In-store view & trip settings
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOptionsPopover(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5 flex-1">
+              {/* Option 1: Best Prices Only (Save Mode) */}
+              <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                    saveMode ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-400'
+                  }`}>
+                    <Zap className="w-4 h-4 fill-current" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-800">Best Prices Only (Save Mode)</div>
+                    <div className="text-[10px] text-slate-400">
+                      Only show items that are cheapest at this store
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={saveMode}
+                  onChange={(e) => {
+                    triggerHaptic(15)
+                    setSaveMode(e.target.checked)
+                  }}
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2 cursor-pointer"
+                />
+              </label>
+
+              {/* Option 2: Hide Empty Stores */}
+              <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                    hideEmptyStores ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-400'
+                  }`}>
+                    {hideEmptyStores ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-800">Hide Empty Stores</div>
+                    <div className="text-[10px] text-slate-400">
+                      Hide store tabs that have 0 items left to shop
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={hideEmptyStores}
+                  onChange={(e) => {
+                    triggerHaptic(15)
+                    setHideEmptyStores(e.target.checked)
+                  }}
+                  className="w-4 h-4 rounded text-slate-800 focus:ring-slate-700 accent-slate-800 shrink-0 ml-2 cursor-pointer"
+                />
+              </label>
+
+              {/* Option 3: Keep Screen Awake */}
+              <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                    keepScreenAwake ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-400'
+                  }`}>
+                    {keepScreenAwake ? (
+                      <Sun className="w-4 h-4 text-amber-500 shrink-0" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-slate-400 shrink-0" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-800">Keep Screen Awake</div>
+                    <div className="text-[10px] text-slate-400">
+                      {keepScreenAwake ? 'Screen stays on while shopping' : 'Standard phone sleep'}
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={keepScreenAwake}
+                  onChange={(e) => {
+                    triggerHaptic(15)
+                    setKeepScreenAwake(e.target.checked)
+                  }}
+                  className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 shrink-0 ml-2 cursor-pointer"
+                />
+              </label>
+
+              {/* Option 4: Auto-collapse Done */}
+              <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                    autoCollapseCompleted ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-white border-slate-200 text-slate-400'
+                  }`}>
+                    <ChevronUp className="w-4 h-4 text-blue-500 shrink-0" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-800">Auto-collapse Done</div>
+                    <div className="text-[10px] text-slate-400">
+                      Fold aisles once all items are picked
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={autoCollapseCompleted}
+                  onChange={(e) => {
+                    triggerHaptic(15)
+                    setAutoCollapseCompleted(e.target.checked)
+                  }}
+                  className="w-4 h-4 rounded text-blue-500 focus:ring-blue-400 accent-blue-500 shrink-0 ml-2 cursor-pointer"
+                />
+              </label>
+
+              {/* Option 5: Checked at bottom */}
+              <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                    moveCheckedToBottom ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-400'
+                  }`}>
+                    <ArrowDownNarrowWide className="w-4 h-4 text-slate-600 shrink-0" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-800">Checked at bottom</div>
+                    <div className="text-[10px] text-slate-400">
+                      Sort crossed-off items to bottom
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={moveCheckedToBottom}
+                  onChange={(e) => {
+                    triggerHaptic(15)
+                    setMoveCheckedToBottom(e.target.checked)
+                  }}
+                  className="w-4 h-4 rounded text-slate-600 focus:ring-slate-500 accent-slate-600 shrink-0 ml-2 cursor-pointer"
+                />
+              </label>
+
+              {/* Option 6: Hide checked */}
+              <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                    hideCheckedItems ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-400'
+                  }`}>
+                    {hideCheckedItems ? (
+                      <EyeOff className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <Eye className="w-4 h-4 text-slate-400 shrink-0" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-800">Hide checked items</div>
+                    <div className="text-[10px] text-slate-400">
+                      {hideCheckedItems
+                        ? `Hidden (${cartItems.length} picked)`
+                        : 'Show all picked items'}
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={hideCheckedItems}
+                  onChange={(e) => {
+                    triggerHaptic(15)
+                    setHideCheckedItems(e.target.checked)
+                  }}
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2 cursor-pointer"
+                />
+              </label>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowOptionsPopover(false)}
+                className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer shadow-xs text-center"
+              >
+                Done
               </button>
             </div>
           </div>
