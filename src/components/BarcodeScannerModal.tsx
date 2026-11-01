@@ -126,7 +126,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   currentShopId,
   onBarcodeSelected,
 }) => {
-  const { items, shops, categories, addItem, updateItem, toggleInCart, changeItemQuantity, updateItemShopDetail } =
+  const { items, shops, categories, addItem, updateItem, changeItemQuantity, updateItemShopDetail } =
     useShopping()
 
   const [scannerError, setScannerError] = useState<string | null>(null)
@@ -397,6 +397,43 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           quantity: 1,
         })
         setActionNotice(`Added "${localMatch.name}" (qty 1) to shopping list!`)
+      } else if (currentShopId && !onBarcodeSelected) {
+        // In Shopping Mode: automatically check off into cart, or add to trip & cart if not on list
+        const qty = Math.max(1, localMatch.quantity || 1)
+        const updates: Partial<ShoppingItem> = {
+          isNeeded: true,
+          inCart: true,
+          quantity: qty,
+        }
+        const currentDetail = localMatch.shops[currentShopId]
+        if (!currentDetail || currentDetail.available === false) {
+          updates.shops = {
+            ...localMatch.shops,
+            [currentShopId]: {
+              ...(currentDetail || {
+                price: null,
+                unitPrice: null,
+                location: localMatch.category || 'Other',
+                packageSize: 1,
+                packageUnit: localMatch.unit || 'ea',
+              }),
+              available: true,
+            },
+          }
+        }
+        await updateItem(localMatch.id, updates)
+        const updatedMatch: ShoppingItem = {
+          ...localMatch,
+          ...updates,
+          shops: updates.shops || localMatch.shops,
+        }
+        setMatchedItem(updatedMatch)
+        triggerHaptic(35)
+        setActionNotice(
+          localMatch.isNeeded
+            ? `Checked "${localMatch.name}" into cart!`
+            : `Added "${localMatch.name}" to trip & checked into cart!`
+        )
       } else {
         setMatchedItem(localMatch)
       }
@@ -726,8 +763,15 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // Action: Toggle item in cart (Shop Mode)
   const handleToggleCart = async () => {
     if (!matchedItem) return
-    await toggleInCart(matchedItem.id)
-    setActionNotice(matchedItem.inCart ? `Removed "${matchedItem.name}" from cart` : `Checked "${matchedItem.name}" in cart!`)
+    const nextInCart = !matchedItem.inCart
+    const updates: Partial<ShoppingItem> = {
+      inCart: nextInCart,
+      isNeeded: true,
+      quantity: Math.max(1, matchedItem.quantity || 1),
+    }
+    await updateItem(matchedItem.id, updates)
+    setMatchedItem((prev) => (prev ? { ...prev, ...updates } : prev))
+    setActionNotice(nextInCart ? `Checked "${matchedItem.name}" in cart!` : `Removed "${matchedItem.name}" from cart`)
   }
 
   // Action: Add item to shopping list (matching List menu style)

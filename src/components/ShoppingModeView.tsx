@@ -15,6 +15,8 @@ import {
   ArrowRight,
   DollarSign,
   Plus,
+  Minus,
+  Search,
   Zap,
   Eye,
   EyeOff,
@@ -64,12 +66,21 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     saveMode,
     setSaveMode,
     items,
+    categories,
+    quickAddItem,
     updateItem,
     toggleInCart,
     updateItemShopDetail,
     clearCart,
     recordTripReceipt,
   } = useShopping()
+
+  // In-Store Quick Add Sheet (Solution 1)
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState<boolean>(false)
+  const [quickAddSearch, setQuickAddSearch] = useState<string>('')
+  const [quickAddCategory, setQuickAddCategory] = useState<string>('Other')
+  const [quickAddQty, setQuickAddQty] = useState<number>(1)
+  const [quickAddDirectCart, setQuickAddDirectCart] = useState<boolean>(true)
 
   const [showUnavailableDrawer, setShowUnavailableDrawer] = useState<boolean>(false)
   const [showTripSummary, setShowTripSummary] = useState<boolean>(false)
@@ -468,6 +479,84 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       triggerHaptic(15)
     }
+  }
+
+  // Quick Add Helpers & Handlers (Solution 1)
+  const quickAddMatches = useMemo(() => {
+    const q = quickAddSearch.trim().toLowerCase()
+    if (!q) {
+      return items.filter((item) => !item.isNeeded).slice(0, 20)
+    }
+    return items.filter((item) => {
+      return (
+        item.name.toLowerCase().includes(q) ||
+        item.category?.toLowerCase().includes(q)
+      )
+    })
+  }, [items, quickAddSearch])
+
+  const quickAddExactMatch = useMemo(() => {
+    const q = quickAddSearch.trim().toLowerCase()
+    if (!q) return null
+    return items.find((item) => item.name.trim().toLowerCase() === q)
+  }, [items, quickAddSearch])
+
+  const quickAddCategoryOptions = useMemo(() => {
+    const cats = categories && categories.length > 0 ? categories : ['Produce', 'Dairy', 'Meat', 'Bakery', 'Pantry', 'Frozen', 'Household', 'Other']
+    if (cats.some((c) => c.toLowerCase() === 'other')) return cats
+    return [...cats, 'Other']
+  }, [categories])
+
+  const handleQuickAddExisting = async (item: ShoppingItem, inCart: boolean) => {
+    triggerHaptic(30)
+    const updates: Partial<ShoppingItem> = {
+      isNeeded: true,
+      inCart,
+      quantity: Math.max(1, item.quantity || 1),
+    }
+    const currentDetail = item.shops[currentShop.id]
+    if (!currentDetail || currentDetail.available === false) {
+      updates.shops = {
+        ...item.shops,
+        [currentShop.id]: {
+          ...(currentDetail || {
+            price: null,
+            unitPrice: null,
+            location: item.category || 'Other',
+            packageSize: 1,
+            packageUnit: item.unit || 'ea',
+          }),
+          available: true,
+        },
+      }
+    }
+    await updateItem(item.id, updates)
+    setToastMessage(inCart ? `Added "${item.name}" to cart!` : `Added "${item.name}" to shopping trip!`)
+    setQuickAddSearch('')
+  }
+
+  const handleQuickCreateNew = async (inCart: boolean) => {
+    const name = quickAddSearch.trim()
+    if (!name) return
+    triggerHaptic(35)
+    const newId = await quickAddItem(name, quickAddCategory || 'Other', quickAddQty)
+    await updateItem(newId, {
+      isNeeded: true,
+      inCart,
+      shops: {
+        [currentShop.id]: {
+          available: true,
+          price: null,
+          unitPrice: null,
+          location: quickAddCategory || 'Other',
+          packageSize: 1,
+          packageUnit: 'ea',
+        },
+      },
+    })
+    setToastMessage(inCart ? `Added "${name}" to cart!` : `Added "${name}" to shopping trip!`)
+    setQuickAddSearch('')
+    setQuickAddQty(1)
   }
 
   // Feature 5: Multi-store stop sequencing (Finding the next shop that actually has items to pick)
@@ -1232,30 +1321,53 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Quick Add item to trip button (Solution 1) */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(20)
+                setIsQuickAddOpen(true)
+              }}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 active:scale-95 transition flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"
+              title="Add item to trip (Search catalog or create new)"
+              aria-label="Add item to trip"
+            >
+              <Plus className="w-5 h-5 stroke-[2.5]" />
+            </button>
+
+            {/* In-store Barcode Scanner (Solution 3) */}
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(20)
                 setIsBarcodeScannerOpen(true)
               }}
-              className="p-2.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"
-              title="Scan barcode to check off item or compare prices"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 active:scale-95 transition flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"
+              title="Scan barcode to check off or add item"
+              aria-label="Scan barcode"
             >
               <Barcode className="w-5 h-5 text-emerald-600" />
             </button>
 
+            {/* Finish Stop Button (Icon Only) */}
             <button
+              type="button"
               onClick={handleFinishTrip}
               disabled={cartItems.length === 0}
-              className={`px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-md shrink-0 ${
+              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl transition shadow-md shrink-0 flex items-center justify-center active:scale-95 ${
                 cartItems.length > 0
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-95 cursor-pointer'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 cursor-pointer'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
               }`}
+              title={
+                cartItems.length > 0
+                  ? `Finish shopping at ${currentShop.name} (${cartItems.length} items picked)`
+                  : 'Pick at least 1 item to finish stop'
+              }
+              aria-label="Finish stop"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Finish Stop</span>
+              <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
             </button>
           </div>
         </div>
@@ -2086,6 +2198,276 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 type="button"
                 onClick={() => setShowOptionsPopover(false)}
                 className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer shadow-xs text-center"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 13. In-Store Quick Add Modal (Solution 1) */}
+      {isQuickAddOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsQuickAddOpen(false)}
+        >
+          <div
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl border border-slate-100 overflow-hidden text-left flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <Plus className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    Add to Trip
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Adding for <span className="font-bold text-slate-800">{currentShop.name}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQuickAddOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search / Add Form Area */}
+            <div className="p-3 sm:p-4 border-b border-slate-100 bg-slate-50/70 space-y-2.5 shrink-0">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (!quickAddSearch.trim()) return
+                  if (quickAddExactMatch) {
+                    handleQuickAddExisting(quickAddExactMatch, quickAddDirectCart)
+                  } else {
+                    handleQuickCreateNew(quickAddDirectCart)
+                  }
+                }}
+                className="flex items-center gap-2 bg-white border border-slate-300 rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition shadow-2xs"
+              >
+                <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1.5" />
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Search catalog or type new item..."
+                  value={quickAddSearch}
+                  onChange={(e) => setQuickAddSearch(e.target.value)}
+                  className="flex-1 px-1.5 py-1 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
+                />
+                {quickAddSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setQuickAddSearch('')}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={!quickAddSearch.trim()}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{quickAddExactMatch ? 'Add' : 'Create'}</span>
+                </button>
+              </form>
+
+              {/* Direct In-Cart Switch */}
+              <div className="flex items-center justify-between px-1 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={quickAddDirectCart}
+                    onChange={(e) => setQuickAddDirectCart(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                  />
+                  <span className="font-semibold text-slate-700">
+                    Put directly in cart (already in hand)
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Scrollable Results List */}
+            <div className="p-3 sm:p-4 overflow-y-auto space-y-3 flex-1 min-h-[200px]">
+              {/* Option to create brand new item if query has no exact match */}
+              {quickAddSearch.trim() && !quickAddExactMatch && (
+                <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                        New Item
+                      </div>
+                      <div className="text-sm font-bold text-slate-900 truncate">
+                        "{quickAddSearch.trim()}"
+                      </div>
+                    </div>
+                    {/* Quantity Stepper */}
+                    <div className="flex items-center rounded-xl border border-emerald-200 bg-white overflow-hidden shadow-2xs shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setQuickAddQty((q) => Math.max(1, q - 1))}
+                        className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="min-w-[20px] px-1 text-center font-bold text-xs text-slate-800">
+                        {quickAddQty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQuickAddQty((q) => q + 1)}
+                        className="w-7 h-7 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Category Selector */}
+                    <select
+                      value={quickAddCategory}
+                      onChange={(e) => setQuickAddCategory(e.target.value)}
+                      className="text-xs bg-white border border-emerald-200 rounded-xl px-2 py-1.5 font-semibold text-slate-700 outline-none flex-1 truncate cursor-pointer"
+                    >
+                      {quickAddCategoryOptions.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickCreateNew(false)}
+                      className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer shrink-0"
+                      title="Add to trip as pending"
+                    >
+                      + To List
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickCreateNew(true)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
+                      title="Add to trip and mark picked in cart"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>In Cart</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Matching Catalog Items */}
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1 mb-2">
+                  {quickAddSearch.trim()
+                    ? `Catalog Matches (${quickAddMatches.length})`
+                    : 'Catalog Items Not on Trip (Tap to Add)'}
+                </div>
+
+                {quickAddMatches.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-slate-400 font-medium">
+                    {quickAddSearch.trim()
+                      ? 'No existing catalog items match your search.'
+                      : 'All catalog items are currently on your shopping list!'}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {quickAddMatches.map((item) => {
+                      const detail = item.shops[currentShop.id]
+                      const price = detail?.price
+                      const location = detail?.location || item.category || 'Other'
+                      const isAlreadyOnTrip = item.isNeeded
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between gap-2 transition"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                              {item.name}
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 truncate">
+                              <span className="font-medium text-emerald-700">{location}</span>
+                              {price !== null && price !== undefined && (
+                                <>
+                                  <span>•</span>
+                                  <span className="font-semibold text-slate-700">
+                                    {formatPrice(price)}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isAlreadyOnTrip ? (
+                              item.inCart ? (
+                                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                  <span>In Cart</span>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleInCart(item.id)}
+                                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                                  title="Check item into cart"
+                                >
+                                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>Put in Cart</span>
+                                </button>
+                              )
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickAddExisting(item, false)}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                                  title="Add to shopping trip"
+                                >
+                                  + List
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickAddExisting(item, true)}
+                                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-2xs transition cursor-pointer active:scale-95"
+                                  title="Add to trip and put in cart"
+                                >
+                                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>In Cart</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsQuickAddOpen(false)}
+                className="w-full sm:w-auto px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer shadow-xs text-center"
               >
                 Done
               </button>
