@@ -17,6 +17,7 @@ import {
   Plus,
   Minus,
   Search,
+  ShoppingCart,
   Zap,
   Eye,
   EyeOff,
@@ -80,7 +81,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [quickAddSearch, setQuickAddSearch] = useState<string>('')
   const [quickAddCategory, setQuickAddCategory] = useState<string>('Other')
   const [quickAddQty, setQuickAddQty] = useState<number>(1)
-  const [quickAddDirectCart, setQuickAddDirectCart] = useState<boolean>(true)
 
   const [showUnavailableDrawer, setShowUnavailableDrawer] = useState<boolean>(false)
   const [showTripSummary, setShowTripSummary] = useState<boolean>(false)
@@ -2242,18 +2242,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             {/* Search / Add Form Area (Right at the top) */}
-            <div className="p-2.5 sm:p-3 border-b border-slate-100 bg-slate-50/70 space-y-2 shrink-0">
+            <div className="p-2.5 sm:p-3 border-b border-slate-100 bg-slate-50/70 shrink-0">
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
                   if (!quickAddSearch.trim()) return
                   if (quickAddExactMatch) {
-                    handleQuickAddExisting(quickAddExactMatch, quickAddDirectCart)
+                    handleQuickAddExisting(quickAddExactMatch, false)
                   } else {
-                    handleQuickCreateNew(quickAddDirectCart)
+                    handleQuickCreateNew(false)
                   }
                 }}
-                className="flex items-center gap-1.5 sm:gap-2 bg-white border border-slate-300 rounded-xl sm:rounded-2xl p-1 sm:p-1.5 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition shadow-2xs"
+                className="flex items-center gap-1.5 sm:gap-2 bg-white border border-slate-300 rounded-xl sm:rounded-2xl p-1.5 sm:p-2 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition shadow-2xs"
               >
                 <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1.5" />
                 <input
@@ -2262,7 +2262,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   placeholder="Search catalog or type new item..."
                   value={quickAddSearch}
                   onChange={(e) => setQuickAddSearch(e.target.value)}
-                  className="flex-1 px-1.5 py-1 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
+                  className="flex-1 px-1.5 py-0.5 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
                 />
                 {quickAddSearch && (
                   <button
@@ -2273,35 +2273,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
-                <button
-                  type="submit"
-                  disabled={!quickAddSearch.trim()}
-                  className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-xs rounded-lg sm:rounded-xl transition flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>{quickAddExactMatch ? 'Add' : 'Create'}</span>
-                </button>
               </form>
-
-              {/* Direct In-Cart Switch & Match Counter */}
-              <div className="flex items-center justify-between px-1 text-[11px] text-slate-600">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={quickAddDirectCart}
-                    onChange={(e) => setQuickAddDirectCart(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
-                  />
-                  <span className="font-semibold text-slate-700">
-                    Put directly in cart (in hand)
-                  </span>
-                </label>
-                {quickAddSearch.trim() && (
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md">
-                    {quickAddMatches.length} {quickAddMatches.length === 1 ? 'match' : 'matches'}
-                  </span>
-                )}
-              </div>
             </div>
 
             {/* Scrollable Results List (Directly below input at the top) */}
@@ -2345,7 +2317,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     <select
                       value={quickAddCategory}
                       onChange={(e) => setQuickAddCategory(e.target.value)}
-                      className="text-xs bg-white border border-emerald-200 rounded-lg px-2 py-1 font-semibold text-slate-700 outline-none flex-1 truncate cursor-pointer"
+                      className="text-xs bg-white border border-emerald-200 rounded-lg px-2 py-1 font-semibold text-slate-700 outline-none flex-1 truncate cursor-pointer h-8"
                     >
                       {quickAddCategoryOptions.map((cat) => (
                         <option key={cat} value={cat}>
@@ -2357,19 +2329,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleQuickCreateNew(false)}
-                      className="px-2 py-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer shrink-0"
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95 shadow-2xs"
                       title="Add to trip as pending"
                     >
-                      + List
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
                     </button>
                     <button
                       type="button"
                       onClick={() => handleQuickCreateNew(true)}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-lg transition flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
+                      className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white flex items-center justify-center shadow-2xs transition cursor-pointer shrink-0 active:scale-95"
                       title="Add to trip and mark picked in cart"
                     >
-                      <Check className="w-3 h-3 stroke-[2.5]" />
-                      <span>In Cart</span>
+                      <ShoppingCart className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -2422,19 +2393,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                           <div className="flex items-center gap-1.5 shrink-0">
                             {isAlreadyOnTrip ? (
                               item.inCart ? (
-                                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                                  <Check className="w-3 h-3 stroke-[3]" />
-                                  <span>In Cart</span>
+                                <span
+                                  className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center"
+                                  title="Already in cart"
+                                >
+                                  <Check className="w-4 h-4 stroke-[2.5]" />
                                 </span>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => toggleInCart(item.id)}
-                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                                  className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-2xs cursor-pointer active:scale-95 transition"
                                   title="Check item into cart"
                                 >
-                                  <Check className="w-3 h-3 stroke-[2.5]" />
-                                  <span>Put in Cart</span>
+                                  <ShoppingCart className="w-4 h-4" />
                                 </button>
                               )
                             ) : (
@@ -2442,19 +2414,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleQuickAddExisting(item, false)}
-                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition cursor-pointer active:scale-95"
                                   title="Add to shopping trip"
                                 >
-                                  + List
+                                  <Plus className="w-4 h-4 stroke-[2.5]" />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleQuickAddExisting(item, true)}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-lg flex items-center gap-1 shadow-2xs transition cursor-pointer active:scale-95"
+                                  className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white flex items-center justify-center shadow-2xs transition cursor-pointer active:scale-95"
                                   title="Add to trip and put in cart"
                                 >
-                                  <Check className="w-3 h-3 stroke-[2.5]" />
-                                  <span>In Cart</span>
+                                  <ShoppingCart className="w-4 h-4" />
                                 </button>
                               </>
                             )}
@@ -2469,8 +2440,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
             {/* Compact Footer */}
             <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
-              <span className="text-[10px] text-slate-400">
-                Tap <span className="font-semibold text-slate-600">+ List</span> or <span className="font-semibold text-emerald-700">In Cart</span>
+              <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                <span>Tap</span>
+                <span className="inline-flex items-center gap-0.5 font-bold text-slate-700 bg-slate-200/70 px-1 py-0.5 rounded">
+                  <Plus className="w-2.5 h-2.5 stroke-[2.5]" /> List
+                </span>
+                <span>or</span>
+                <span className="inline-flex items-center gap-0.5 font-bold text-emerald-800 bg-emerald-100 px-1 py-0.5 rounded">
+                  <ShoppingCart className="w-2.5 h-2.5" /> Cart
+                </span>
               </span>
               <button
                 type="button"
