@@ -22,6 +22,7 @@ import {
   getOptimalStorePackage,
   isCheapestAtStore,
 } from '../utils/pricing'
+import { matchesWordPrefix } from '../utils/search'
 
 interface AnalysisModeViewProps {
   onEditItem: (item: ShoppingItem) => void
@@ -63,12 +64,7 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
       if (activeTab === 'needed' && !item.isNeeded) return false
 
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        if (
-          !item.name.toLowerCase().includes(q) &&
-          !item.category?.toLowerCase().includes(q) &&
-          !item.notes?.toLowerCase().includes(q)
-        ) {
+        if (!matchesWordPrefix([item.name, item.category, item.notes], searchQuery)) {
           return false
         }
       }

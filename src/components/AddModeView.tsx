@@ -25,6 +25,7 @@ import { useShopping } from '../context/ShoppingContext'
 import { WeeklyManagerModal } from './WeeklyManagerModal'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
+import { matchesWordPrefix } from '../utils/search'
 
 interface AddModeViewProps {
   onOpenCreateModal: () => void
@@ -204,16 +205,13 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
   // Filter items based on activeTab and unified search/add input
   const filteredItems = useMemo(() => {
-    const query = quickInput.trim().toLowerCase()
+    const query = quickInput.trim()
     return items.filter((item) => {
       if (activeTab === 'needed' && !item.isNeeded) return false
       if (activeTab === 'weekly' && !item.isWeekly) return false
 
       if (query) {
-        return (
-          item.name.toLowerCase().includes(query) ||
-          item.category?.toLowerCase().includes(query)
-        )
+        return matchesWordPrefix([item.name, item.category], query)
       }
 
       return true

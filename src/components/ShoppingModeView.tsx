@@ -50,6 +50,7 @@ import {
   isCheapestAtStore,
   type EvaluatedPackageOption,
 } from '../utils/pricing'
+import { matchesWordPrefix, scoreWordPrefixMatch } from '../utils/search'
 
 interface ShoppingModeViewProps {
   onEditItem: (item: ShoppingItem, shopId?: string) => void
@@ -483,16 +484,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   // Quick Add Helpers & Handlers (Solution 1)
   const quickAddMatches = useMemo(() => {
-    const q = quickAddSearch.trim().toLowerCase()
+    const q = quickAddSearch.trim()
     if (!q) {
       return items.filter((item) => !item.isNeeded).slice(0, 20)
     }
-    return items.filter((item) => {
-      return (
-        item.name.toLowerCase().includes(q) ||
-        item.category?.toLowerCase().includes(q)
-      )
-    })
+    return items
+      .filter((item) => matchesWordPrefix([item.name, item.category], q))
+      .sort((a, b) => {
+        const scoreA = scoreWordPrefixMatch(a.name, a.category, q)
+        const scoreB = scoreWordPrefixMatch(b.name, b.category, q)
+        if (scoreB !== scoreA) return scoreB - scoreA
+        return a.name.localeCompare(b.name)
+      })
   }, [items, quickAddSearch])
 
   const quickAddExactMatch = useMemo(() => {

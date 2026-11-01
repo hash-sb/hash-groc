@@ -26,6 +26,7 @@ import { useShopping } from '../context/ShoppingContext'
 import { compareShopPrices, formatPrice } from '../utils/pricing'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { doesItemMatchBarcode, appendBarcodeToItem, getItemBarcodes } from '../utils/barcode'
+import { matchesWordPrefix } from '../utils/search'
 
 interface ScannedProductOFF {
   barcode: string
@@ -642,7 +643,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
     const query = linkSearchQuery.trim()
     const filteredItems = items.filter((i) =>
-      i.name.toLowerCase().includes(query.toLowerCase())
+      matchesWordPrefix([i.name, i.category], query)
     )
     const exactMatch = items.find(
       (i) => i.name.trim().toLowerCase() === query.toLowerCase()

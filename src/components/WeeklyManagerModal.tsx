@@ -11,6 +11,7 @@ import {
   Square,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
+import { matchesWordPrefix } from '../utils/search'
 
 interface WeeklyManagerModalProps {
   isOpen: boolean
@@ -53,11 +54,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
 
       // Filter by search query
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        return (
-          item.name.toLowerCase().includes(q) ||
-          item.category?.toLowerCase().includes(q)
-        )
+        return matchesWordPrefix([item.name, item.category], searchQuery)
       }
 
       return true
