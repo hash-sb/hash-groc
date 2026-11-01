@@ -489,10 +489,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       return items.filter((item) => !item.isNeeded).slice(0, 20)
     }
     return items
-      .filter((item) => matchesWordPrefix([item.name, item.category], q))
+      .filter((item) => matchesWordPrefix(item.name, q))
       .sort((a, b) => {
-        const scoreA = scoreWordPrefixMatch(a.name, a.category, q)
-        const scoreB = scoreWordPrefixMatch(b.name, b.category, q)
+        const scoreA = scoreWordPrefixMatch(a.name, q)
+        const scoreB = scoreWordPrefixMatch(b.name, q)
         if (scoreB !== scoreA) return scoreB - scoreA
         return a.name.localeCompare(b.name)
       })

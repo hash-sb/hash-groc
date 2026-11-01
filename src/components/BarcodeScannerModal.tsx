@@ -643,7 +643,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
     const query = linkSearchQuery.trim()
     const filteredItems = items.filter((i) =>
-      matchesWordPrefix([i.name, i.category], query)
+      matchesWordPrefix(i.name, query)
     )
     const exactMatch = items.find(
       (i) => i.name.trim().toLowerCase() === query.toLowerCase()

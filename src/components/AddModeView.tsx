@@ -211,7 +211,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
       if (activeTab === 'weekly' && !item.isWeekly) return false
 
       if (query) {
-        return matchesWordPrefix([item.name, item.category], query)
+        return matchesWordPrefix(item.name, query)
       }
 
       return true

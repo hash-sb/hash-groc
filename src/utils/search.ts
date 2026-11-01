@@ -44,12 +44,11 @@ export function matchesWordPrefix(
 }
 
 /**
- * Computes a relevance score for sorting matching results.
+ * Computes a relevance score for sorting matching results based on item name.
  * Higher score = higher priority in search results.
  */
 export function scoreWordPrefixMatch(
   targetName: string,
-  targetCategory: string | undefined | null,
   query: string
 ): number {
   const q = query.trim().toLowerCase()
@@ -62,11 +61,6 @@ export function scoreWordPrefixMatch(
   const nameWords = extractWords(targetName)
   if (nameWords.length > 0 && nameWords[0].startsWith(q)) return 70
   if (nameWords.some((w) => w.startsWith(q))) return 50
-
-  if (targetCategory) {
-    const catWords = extractWords(targetCategory)
-    if (catWords.some((w) => w.startsWith(q))) return 20
-  }
 
   return 10
 }

@@ -64,7 +64,7 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
       if (activeTab === 'needed' && !item.isNeeded) return false
 
       if (searchQuery.trim()) {
-        if (!matchesWordPrefix([item.name, item.category, item.notes], searchQuery)) {
+        if (!matchesWordPrefix(item.name, searchQuery)) {
           return false
         }
       }

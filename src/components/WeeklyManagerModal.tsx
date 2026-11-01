@@ -54,7 +54,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
 
       // Filter by search query
       if (searchQuery.trim()) {
-        return matchesWordPrefix([item.name, item.category], searchQuery)
+        return matchesWordPrefix(item.name, searchQuery)
       }
 
       return true
