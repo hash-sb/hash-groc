@@ -52,7 +52,6 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     removeAllQuantityDescriptions,
   } = useShopping()
 
-  const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'needed' | 'weekly'>('all')
   const [quickInput, setQuickInput] = useState('')
   const [quickCategory, setQuickCategory] = useState<string>(() => {
@@ -158,6 +157,14 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     }
   }
 
+  const handleQuickInputChange = (val: string) => {
+    // When starting to type, automatically switch to 'All' so existing catalog items are visible
+    if (val.trim() && !quickInput.trim() && activeTab !== 'all') {
+      setActiveTab('all')
+    }
+    setQuickInput(val)
+  }
+
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = quickInput.trim()
@@ -195,14 +202,14 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     })
   }
 
-  // Filter items based on activeTab and search query
+  // Filter items based on activeTab and unified search/add input
   const filteredItems = useMemo(() => {
+    const query = quickInput.trim().toLowerCase()
     return items.filter((item) => {
       if (activeTab === 'needed' && !item.isNeeded) return false
       if (activeTab === 'weekly' && !item.isWeekly) return false
 
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase()
+      if (query) {
         return (
           item.name.toLowerCase().includes(query) ||
           item.category?.toLowerCase().includes(query)
@@ -211,11 +218,12 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
       return true
     })
-  }, [items, activeTab, searchQuery])
+  }, [items, activeTab, quickInput])
 
   // Group items by category, with unchecked items sorted to bottom of each category if option checked
   const categorizedGroups = useMemo(() => {
     const groups: Record<string, { needed: ShoppingItem[]; unneeded: ShoppingItem[] }> = {}
+    const query = quickInput.trim().toLowerCase()
 
     filteredItems.forEach((item) => {
       const cat = item.category || 'Other'
@@ -233,14 +241,30 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
     return sortedCats.map((cat) => {
       const { needed, unneeded } = groups[cat]
-      needed.sort((a, b) => a.name.localeCompare(b.name))
-      unneeded.sort((a, b) => a.name.localeCompare(b.name))
+
+      const sortItems = (a: ShoppingItem, b: ShoppingItem) => {
+        if (query) {
+          const aExact = a.name.trim().toLowerCase() === query
+          const bExact = b.name.trim().toLowerCase() === query
+          if (aExact && !bExact) return -1
+          if (!aExact && bExact) return 1
+
+          const aStarts = a.name.trim().toLowerCase().startsWith(query)
+          const bStarts = b.name.trim().toLowerCase().startsWith(query)
+          if (aStarts && !bStarts) return -1
+          if (!aStarts && bStarts) return 1
+        }
+        return a.name.localeCompare(b.name)
+      }
+
+      needed.sort(sortItems)
+      unneeded.sort(sortItems)
 
       let orderedItems: ShoppingItem[] = []
       if (putUncheckedAtBottom) {
         orderedItems = [...needed, ...unneeded]
       } else {
-        orderedItems = [...needed, ...unneeded].sort((a, b) => a.name.localeCompare(b.name))
+        orderedItems = [...needed, ...unneeded].sort(sortItems)
       }
 
       return {
@@ -250,21 +274,43 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         totalCount: needed.length + unneeded.length,
       }
     })
-  }, [filteredItems, putUncheckedAtBottom])
+  }, [filteredItems, putUncheckedAtBottom, quickInput])
 
   return (
     <div className="pb-28 pt-3 max-w-2xl mx-auto px-3 sm:px-4">
-      {/* 1. Quick Add Bar: Single Line with Quantity & Category */}
-      <form onSubmit={handleQuickAdd} className="mb-4 bg-white border border-slate-300 rounded-2xl p-1.5 sm:p-2 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition">
+      {/* 1. Unified Search & Add Bar: Real-time Catalog Filter + Add */}
+      <form
+        onSubmit={handleQuickAdd}
+        className="mb-3 bg-white border border-slate-300 rounded-2xl p-1.5 sm:p-2 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition"
+      >
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Item Name Input */}
-          <input
-            type="text"
-            placeholder="Add an item to buy..."
-            value={quickInput}
-            onChange={(e) => setQuickInput(e.target.value)}
-            className="flex-1 min-w-[90px] sm:min-w-[140px] px-2 py-1 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
-          />
+          {/* Search Icon */}
+          <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1.5" />
+
+          {/* Unified Search / Add Input */}
+          <div className="flex-1 min-w-[70px] sm:min-w-[130px] flex items-center relative">
+            <input
+              type="text"
+              placeholder="Search or add an item to buy..."
+              value={quickInput}
+              onChange={(e) => handleQuickInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setQuickInput('')
+              }}
+              className="w-full pl-1 pr-6 py-1 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
+            />
+            {quickInput && (
+              <button
+                type="button"
+                onClick={() => setQuickInput('')}
+                className="absolute right-0 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                title="Clear search"
+                aria-label="Clear input"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
           {/* Quantity Stepper (No label) */}
           <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs shrink-0">
@@ -315,7 +361,13 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             type="submit"
             disabled={!quickInput.trim()}
             className="w-8 h-8 sm:w-9 sm:h-9 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl transition flex items-center justify-center shadow-xs shrink-0 cursor-pointer active:scale-95"
-            title="Add item to list"
+            title={
+              items.some(
+                (i) => i.name.trim().toLowerCase() === quickInput.trim().toLowerCase()
+              )
+                ? 'Update item quantity in list'
+                : 'Add item to list'
+            }
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
           </button>
@@ -355,29 +407,31 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         </div>
       )}
 
-      {/* 3. Clean View Controls: All / Buy / Weekly + Search + View Options (Single Line on All Screens) */}
-      <div className="flex items-center justify-between gap-1 sm:gap-2 mb-3">
+      {/* 2. Clean View Controls: All / Buy / Weekly + Options */}
+      <div className="flex items-center justify-between gap-2 mb-3">
         {/* Left: View Tabs (All vs Buy vs Weekly) */}
         <div className="flex bg-slate-200/80 p-0.5 sm:p-1 rounded-xl shrink-0 gap-0.5">
           <button
+            type="button"
             onClick={() => setActiveTab('all')}
             title={`All: Master pantry catalog (${totalCount} total items)`}
-            className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
+            className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
               activeTab === 'all'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <span>All</span>
-            <span className="text-[10px] bg-slate-100 text-slate-600 px-1 py-0.2 rounded-full font-bold">
+            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-bold">
               {totalCount}
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('needed')}
             title={`Buy: Active shopping list (${neededCount} items needed)`}
-            className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
+            className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
               activeTab === 'needed'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -385,7 +439,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           >
             <span>Buy</span>
             <span
-              className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                 activeTab === 'needed'
                   ? 'bg-white/25 text-white'
                   : 'bg-emerald-100 text-emerald-800'
@@ -396,10 +450,11 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('weekly')}
             title={`Weekly: Items consumed weekly (${weeklyCount} items)`}
             aria-label="Weekly staples"
-            className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
+            className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${
               activeTab === 'weekly'
                 ? 'bg-teal-700 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -407,7 +462,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           >
             <Repeat className="w-3.5 h-3.5" />
             <span
-              className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                 activeTab === 'weekly'
                   ? 'bg-white/25 text-white'
                   : 'bg-teal-100 text-teal-800'
@@ -418,18 +473,25 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           </button>
         </div>
 
-        {/* Right: Search & Vertical 3-Dot Options Button */}
-        <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0 justify-end">
-          <div className="relative flex-1 min-w-[60px] max-w-[120px] sm:max-w-[160px]">
-            <Search className="w-3.5 h-3.5 absolute left-2 top-2 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-6.5 sm:pl-7 pr-2 py-1 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-          </div>
+        {/* Right: Active Match Count Pill (when searching) & 3-Dot Options Button */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {quickInput.trim() && (
+            <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-xl shadow-2xs animate-in fade-in">
+              <Search className="w-3 h-3 text-emerald-600 shrink-0" />
+              <span>
+                {filteredItems.length} {filteredItems.length === 1 ? 'match' : 'matches'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setQuickInput('')}
+                className="text-emerald-600 hover:text-emerald-900 ml-0.5 p-0.5 rounded hover:bg-emerald-100 cursor-pointer"
+                title="Clear filter"
+                aria-label="Clear filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
 
           {/* 3 Vertical Dots View Options Button & Modal */}
           <div className="shrink-0">
@@ -864,18 +926,22 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-200 p-6">
           <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-2" />
           <h3 className="text-sm font-bold text-slate-800">
-            {activeTab === 'needed'
+            {quickInput.trim()
+              ? `No items matching "${quickInput.trim()}"`
+              : activeTab === 'needed'
               ? 'No items marked as needed to buy'
               : activeTab === 'weekly'
               ? 'No weekly staples marked yet'
-              : 'No items match your search'}
+              : 'No items in catalog'}
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-            {activeTab === 'needed'
+            {quickInput.trim()
+              ? 'Press the Add (+) button above or hit Enter to add this as a new item.'
+              : activeTab === 'needed'
               ? 'Tap "Select Weekly" above or browse "All Items" to pick items for your trip.'
               : activeTab === 'weekly'
               ? 'Quickly pick staples using the Rapid Checklist, or mark items in All Items.'
-              : 'Try clearing your search query.'}
+              : 'Add items using the bar above to get started.'}
           </p>
           {activeTab === 'weekly' && (
             <div className="mt-4">
