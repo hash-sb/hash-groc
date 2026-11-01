@@ -2329,7 +2329,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleQuickCreateNew(false)}
-                      className="w-8 h-8 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95 shadow-2xs"
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
                       title="Add to trip as pending"
                     >
                       <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -2337,7 +2337,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleQuickCreateNew(true)}
-                      className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white flex items-center justify-center shadow-2xs transition cursor-pointer shrink-0 active:scale-95"
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-emerald-700 hover:text-emerald-800 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
                       title="Add to trip and mark picked in cart"
                     >
                       <ShoppingCart className="w-4 h-4" />
@@ -2403,7 +2403,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => toggleInCart(item.id)}
-                                  className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-2xs cursor-pointer active:scale-95 transition"
+                                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-emerald-700 hover:text-emerald-800 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
                                   title="Check item into cart"
                                 >
                                   <ShoppingCart className="w-4 h-4" />
@@ -2414,7 +2414,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleQuickAddExisting(item, false)}
-                                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition cursor-pointer active:scale-95"
+                                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
                                   title="Add to shopping trip"
                                 >
                                   <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -2422,7 +2422,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleQuickAddExisting(item, true)}
-                                  className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white flex items-center justify-center shadow-2xs transition cursor-pointer active:scale-95"
+                                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-emerald-700 hover:text-emerald-800 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
                                   title="Add to trip and put in cart"
                                 >
                                   <ShoppingCart className="w-4 h-4" />
@@ -2446,7 +2446,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   <Plus className="w-2.5 h-2.5 stroke-[2.5]" /> List
                 </span>
                 <span>or</span>
-                <span className="inline-flex items-center gap-0.5 font-bold text-emerald-800 bg-emerald-100 px-1 py-0.5 rounded">
+                <span className="inline-flex items-center gap-0.5 font-bold text-emerald-800 bg-slate-200/70 px-1 py-0.5 rounded">
                   <ShoppingCart className="w-2.5 h-2.5" /> Cart
                 </span>
               </span>
