@@ -275,12 +275,14 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   }, [filteredItems, putUncheckedAtBottom, quickInput])
 
   return (
-    <div className="pb-28 pt-3 max-w-2xl mx-auto px-3 sm:px-4">
-      {/* 1. Unified Search & Add Bar: Real-time Catalog Filter + Add */}
-      <form
-        onSubmit={handleQuickAdd}
-        className="mb-3 bg-white border border-slate-300 rounded-2xl p-1.5 sm:p-2 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition"
-      >
+    <div className="pb-28 max-w-2xl mx-auto px-3 sm:px-4">
+      {/* Sticky Header Group: Add Row + All/Buy/Weekly Tabs */}
+      <div className="sticky top-[60px] z-20 bg-slate-50/95 backdrop-blur-md pt-2 pb-2 -mx-3 px-3 sm:-mx-4 sm:px-4 border-b border-slate-200/60 shadow-2xs mb-3">
+        {/* 1. Unified Search & Add Bar: Real-time Catalog Filter + Add */}
+        <form
+          onSubmit={handleQuickAdd}
+          className="mb-2 bg-white border border-slate-300 rounded-2xl p-1.5 sm:p-2 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition"
+        >
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Search Icon */}
           <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1.5" />
@@ -385,28 +387,8 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
         </div>
       </form>
 
-      {/* Dismissible Feedback Banner */}
-      {weeklyBannerMessage && (
-        <div className="mb-3 bg-teal-50 border border-teal-200 text-teal-900 rounded-xl p-3 flex items-start justify-between gap-2 shadow-xs animate-in fade-in duration-150">
-          <div className="flex items-start gap-2">
-            <Check className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
-            <div className="text-xs font-semibold leading-relaxed">
-              {weeklyBannerMessage.text}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setWeeklyBannerMessage(null)}
-            className="text-teal-700 hover:text-teal-900 p-0.5 rounded-md hover:bg-teal-100 cursor-pointer"
-            title="Dismiss"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
       {/* 2. Clean View Controls: All / Buy / Weekly + Options */}
-      <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="flex items-center justify-between gap-2">
         {/* Left: View Tabs (All vs Buy vs Weekly) */}
         <div className="flex bg-slate-200/80 p-0.5 sm:p-1 rounded-xl shrink-0 gap-0.5">
           <button
@@ -892,6 +874,27 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           </div>
         </div>
       </div>
+      </div>
+
+      {/* Dismissible Feedback Banner */}
+      {weeklyBannerMessage && (
+        <div className="mb-3 bg-teal-50 border border-teal-200 text-teal-900 rounded-xl p-3 flex items-start justify-between gap-2 shadow-xs animate-in fade-in duration-150">
+          <div className="flex items-start gap-2">
+            <Check className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
+            <div className="text-xs font-semibold leading-relaxed">
+              {weeklyBannerMessage.text}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setWeeklyBannerMessage(null)}
+            className="text-teal-700 hover:text-teal-900 p-0.5 rounded-md hover:bg-teal-100 cursor-pointer"
+            title="Dismiss"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Weekly Tab Helper Bar */}
       {activeTab === 'weekly' && (

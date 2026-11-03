@@ -855,9 +855,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   }
 
   return (
-    <div className="pb-32 pt-3 max-w-4xl mx-auto px-3 sm:px-6">
-      {/* 1. Collapsed Unified Header: Store Tabs (Left) + Next Aisle & Options (Right) */}
-      <div className="mb-2.5 flex items-center justify-between gap-2">
+    <div className="pb-32 max-w-4xl mx-auto px-3 sm:px-6">
+      {/* 1. Sticky Store Tabs Header: Store Tabs (Left) + Next Aisle & Options (Right) */}
+      <div className="sticky top-[60px] z-20 bg-slate-50/95 backdrop-blur-md pt-2 pb-2 -mx-3 px-3 sm:-mx-6 sm:px-6 mb-2.5 flex items-center justify-between gap-2 border-b border-slate-200/60 shadow-2xs">
         {/* Left: Scrollable Store Tabs */}
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
           {visibleShops.map((shop) => {
@@ -1103,7 +1103,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               <div
                 key={location}
                 id={`aisle-section-${encodeURIComponent(location)}`}
-                className={`rounded-2xl border transition-all scroll-mt-24 overflow-hidden ${
+                className={`rounded-2xl border transition-all scroll-mt-28 overflow-hidden ${
                   isAllPickedInAisle
                     ? 'bg-slate-50/50 border-slate-200/60 opacity-80'
                     : 'bg-white border-slate-200 shadow-xs'
