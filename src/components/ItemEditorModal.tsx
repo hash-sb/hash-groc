@@ -729,10 +729,21 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
 
   const openPriceCalculator = useCallback(
     (opt: StorePackageOption, idx: number) => {
+      const rawSize = hasMultipleSizes ? opt.packageSize : currentShopDetail.packageSize
+      const isQuantityMissing =
+        rawSize === null ||
+        rawSize === undefined ||
+        rawSize === ('' as unknown as number) ||
+        isNaN(Number(rawSize)) ||
+        Number(rawSize) <= 0 ||
+        ((opt.price === null || opt.price === undefined || opt.price <= 0) && Number(rawSize) === 1)
+
       const optSizeNum =
-        typeof opt.packageSize === 'number' && !isNaN(opt.packageSize)
+        typeof opt.packageSize === 'number' && !isNaN(opt.packageSize) && opt.packageSize > 0
           ? opt.packageSize
-          : typeof currentShopDetail.packageSize === 'number' && !isNaN(currentShopDetail.packageSize)
+          : typeof currentShopDetail.packageSize === 'number' &&
+            !isNaN(currentShopDetail.packageSize) &&
+            currentShopDetail.packageSize > 0
           ? currentShopDetail.packageSize
           : 1
 
@@ -746,12 +757,28 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
             : null,
         packageSize: optSizeNum,
         packageUnit: commonUnit,
-        onApply: (val) => {
-          handleUpdateOptionField(idx, { price: val > 0 ? val : null })
+        onApply: (savedPrice) => {
+          handleUpdateOptionField(idx, { price: savedPrice > 0 ? savedPrice : null })
+
+          if (savedPrice > 0 && isQuantityMissing) {
+            // Allow entering the quantity after saving the price
+            setTimeout(() => {
+              setCalcModal({
+                isOpen: true,
+                title: `Set Quantity / Size (${activeShop.name})`,
+                mode: 'quantity',
+                initialValue: 1,
+                unit: commonUnit,
+                onApply: (newSize) => {
+                  handleUpdateOptionField(idx, { packageSize: newSize > 0 ? newSize : 1 })
+                },
+              })
+            }, 120)
+          }
         },
       })
     },
-    [activeShop.name, commonUnit, currentShopDetail]
+    [activeShop.name, commonUnit, currentShopDetail, hasMultipleSizes, handleUpdateOptionField]
   )
 
   // Auto-scroll to the price section currently being displayed without opening keyboard
@@ -1328,7 +1355,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                                   onClick={() => {
                                     setCalcModal({
                                       isOpen: true,
-                                      title: `Set Package Size (${activeShop.name})`,
+                                      title: `Set Quantity / Size (${activeShop.name})`,
                                       mode: 'quantity',
                                       initialValue:
                                         typeof opt.packageSize === 'number' &&

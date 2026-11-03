@@ -518,7 +518,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           price: null,
           unitPrice: null,
           location: item.category || 'Other',
-          packageSize: 1,
+          packageSize: null,
           packageUnit: item.unit || 'ea',
         }),
         available: true,
@@ -556,7 +556,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         price: null,
         unitPrice: null,
         location: quickAddCategory || 'Other',
-        packageSize: 1,
+        packageSize: null,
         packageUnit: 'ea',
       }
     })
