@@ -31,10 +31,16 @@ import { getItemBarcodes } from '../utils/barcode'
 interface ItemEditorModalProps {
   item?: ShoppingItem | null
   initialShopId?: string
+  initialFocusField?: 'price' | 'name'
   onClose: () => void
 }
 
-export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialShopId, onClose }) => {
+export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
+  item,
+  initialShopId,
+  initialFocusField,
+  onClose,
+}) => {
   const {
     shops,
     addItem,
@@ -703,6 +709,33 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({ item, initialS
       setFocusOptionId(null)
     }
   }, [focusOptionId, renderedOptions])
+
+  // Auto-focus price field of the store currently being shopped when requested
+  const hasFocusedInitialPriceRef = useRef(false)
+  useEffect(() => {
+    if (initialFocusField !== 'price' || hasFocusedInitialPriceRef.current) return
+
+    const focusPriceBtn = () => {
+      const firstOptId = renderedOptions[0]?.id || 'primary'
+      const el = priceButtonRefs.current[firstOptId]
+      if (el) {
+        el.focus()
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        hasFocusedInitialPriceRef.current = true
+        return true
+      }
+      return false
+    }
+
+    if (!focusPriceBtn()) {
+      const t1 = setTimeout(focusPriceBtn, 100)
+      const t2 = setTimeout(focusPriceBtn, 250)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+      }
+    }
+  }, [initialFocusField, renderedOptions])
 
   // Aisle / Location modal window state
   const [isAisleModalOpen, setIsAisleModalOpen] = useState(false)

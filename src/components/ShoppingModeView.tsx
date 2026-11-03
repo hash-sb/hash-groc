@@ -53,7 +53,7 @@ import {
 import { matchesWordPrefix, scoreWordPrefixMatch } from '../utils/search'
 
 interface ShoppingModeViewProps {
-  onEditItem: (item: ShoppingItem, shopId?: string) => void
+  onEditItem: (item: ShoppingItem, shopId?: string, focusField?: 'price' | 'name') => void
   onOpenStoreModal: () => void
 }
 
@@ -513,31 +513,38 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const handleQuickAddExisting = async (item: ShoppingItem, inCart: boolean, overrideQty?: number) => {
     triggerHaptic(30)
     const qty = overrideQty !== undefined && overrideQty > 0 ? overrideQty : Math.max(1, item.quantity || 1)
+    const currentDetail = item.shops[currentShop.id]
+    const updatedShops = {
+      ...item.shops,
+      [currentShop.id]: {
+        ...(currentDetail || {
+          price: null,
+          unitPrice: null,
+          location: item.category || 'Other',
+          packageSize: 1,
+          packageUnit: item.unit || 'ea',
+        }),
+        available: true,
+      },
+    }
     const updates: Partial<ShoppingItem> = {
       isNeeded: true,
       inCart,
       quantity: qty,
-    }
-    const currentDetail = item.shops[currentShop.id]
-    if (!currentDetail || currentDetail.available === false) {
-      updates.shops = {
-        ...item.shops,
-        [currentShop.id]: {
-          ...(currentDetail || {
-            price: null,
-            unitPrice: null,
-            location: item.category || 'Other',
-            packageSize: 1,
-            packageUnit: item.unit || 'ea',
-          }),
-          available: true,
-        },
-      }
+      shops: updatedShops,
     }
     await updateItem(item.id, updates)
     setToastMessage(inCart ? `Added "${item.name}" to cart!` : `Added "${item.name}" to shopping trip!`)
     setQuickAddSearch('')
     setQuickAddQty(1)
+    setIsQuickAddOpen(false)
+
+    const updatedItem: ShoppingItem = {
+      ...item,
+      ...updates,
+      shops: updatedShops,
+    }
+    onEditItem(updatedItem, currentShop.id, 'price')
   }
 
   const handleQuickCreateNew = async (inCart: boolean) => {
@@ -545,23 +552,42 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     if (!name) return
     triggerHaptic(35)
     const newId = await quickAddItem(name, quickAddCategory || 'Other', quickAddQty)
-    await updateItem(newId, {
+    const newShops: Record<string, ItemShopDetail> = {}
+    shops.forEach((s) => {
+      newShops[s.id] = {
+        available: true,
+        price: null,
+        unitPrice: null,
+        location: quickAddCategory || 'Other',
+        packageSize: 1,
+        packageUnit: 'ea',
+      }
+    })
+    const updates: Partial<ShoppingItem> = {
       isNeeded: true,
       inCart,
-      shops: {
-        [currentShop.id]: {
-          available: true,
-          price: null,
-          unitPrice: null,
-          location: quickAddCategory || 'Other',
-          packageSize: 1,
-          packageUnit: 'ea',
-        },
-      },
-    })
+      shops: newShops,
+    }
+    await updateItem(newId, updates)
     setToastMessage(inCart ? `Added "${name}" to cart!` : `Added "${name}" to shopping trip!`)
     setQuickAddSearch('')
     setQuickAddQty(1)
+    setIsQuickAddOpen(false)
+
+    const now = Date.now()
+    const createdItem: ShoppingItem = {
+      id: newId,
+      name,
+      category: quickAddCategory || 'Other',
+      quantity: quickAddQty,
+      unit: 'pieces',
+      isNeeded: true,
+      inCart,
+      shops: newShops,
+      createdAt: now,
+      updatedAt: now,
+    }
+    onEditItem(createdItem, currentShop.id, 'price')
   }
 
   // Feature 5: Multi-store stop sequencing (Finding the next shop that actually has items to pick)
