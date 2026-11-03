@@ -510,12 +510,13 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     return [...cats, 'Other']
   }, [categories])
 
-  const handleQuickAddExisting = async (item: ShoppingItem, inCart: boolean) => {
+  const handleQuickAddExisting = async (item: ShoppingItem, inCart: boolean, overrideQty?: number) => {
     triggerHaptic(30)
+    const qty = overrideQty !== undefined && overrideQty > 0 ? overrideQty : Math.max(1, item.quantity || 1)
     const updates: Partial<ShoppingItem> = {
       isNeeded: true,
       inCart,
-      quantity: Math.max(1, item.quantity || 1),
+      quantity: qty,
     }
     const currentDetail = item.shops[currentShop.id]
     if (!currentDetail || currentDetail.available === false) {
@@ -536,6 +537,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     await updateItem(item.id, updates)
     setToastMessage(inCart ? `Added "${item.name}" to cart!` : `Added "${item.name}" to shopping trip!`)
     setQuickAddSearch('')
+    setQuickAddQty(1)
   }
 
   const handleQuickCreateNew = async (inCart: boolean) => {
@@ -2244,110 +2246,117 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               </button>
             </div>
 
-            {/* Search / Add Form Area (Right at the top) */}
-            <div className="p-2.5 sm:p-3 border-b border-slate-100 bg-slate-50/70 shrink-0">
+            {/* Unified Search & Add Form Area (Directly matches List mode pattern) */}
+            <div className="p-2 sm:p-2.5 border-b border-slate-100 bg-slate-50/70 shrink-0">
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
                   if (!quickAddSearch.trim()) return
                   if (quickAddExactMatch) {
-                    handleQuickAddExisting(quickAddExactMatch, false)
+                    handleQuickAddExisting(quickAddExactMatch, false, quickAddQty)
                   } else {
                     handleQuickCreateNew(false)
                   }
                 }}
-                className="flex items-center gap-1.5 sm:gap-2 bg-white border border-slate-300 rounded-xl sm:rounded-2xl p-1.5 sm:p-2 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition shadow-2xs"
+                className="flex items-center gap-1 sm:gap-1.5 bg-white border border-slate-300 rounded-xl sm:rounded-2xl p-1 sm:p-1.5 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition shadow-2xs"
               >
+                {/* Search Icon */}
                 <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1.5" />
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Search catalog or type new item..."
-                  value={quickAddSearch}
-                  onChange={(e) => setQuickAddSearch(e.target.value)}
-                  className="flex-1 px-1.5 py-0.5 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
-                />
-                {quickAddSearch && (
+
+                {/* Unified Search / Add Input */}
+                <div className="flex-1 min-w-[70px] sm:min-w-[120px] flex items-center relative">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Search or add item..."
+                    value={quickAddSearch}
+                    onChange={(e) => setQuickAddSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setQuickAddSearch('')
+                    }}
+                    className="w-full pl-1 pr-6 py-0.5 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
+                  />
+                  {quickAddSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickAddSearch('')}
+                      className="absolute right-0 text-slate-400 hover:text-slate-600 p-0.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Quantity Stepper (No label, consistent with List mode) */}
+                <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 overflow-hidden shadow-2xs shrink-0">
                   <button
                     type="button"
-                    onClick={() => setQuickAddSearch('')}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                    onClick={() => setQuickAddQty((q) => Math.max(1, q - 1))}
+                    className="w-6 sm:w-6.5 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition cursor-pointer"
+                    title="Decrease quantity"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <Minus className="w-3 h-3" />
                   </button>
-                )}
+                  <span className="min-w-[18px] sm:min-w-[20px] px-0.5 text-center font-bold text-xs text-slate-800 select-none">
+                    {quickAddQty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuickAddQty((q) => q + 1)}
+                    className="w-6 sm:w-6.5 h-7 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200 transition cursor-pointer"
+                    title="Increase quantity"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {/* Category Dropdown (Compact, defaults to Other) */}
+                <select
+                  value={quickAddCategory}
+                  onChange={(e) => setQuickAddCategory(e.target.value)}
+                  className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-1 sm:px-1.5 py-1 font-semibold text-slate-700 outline-none max-w-[75px] sm:max-w-[105px] truncate shrink-0 cursor-pointer h-7"
+                  title="Category"
+                >
+                  {quickAddCategoryOptions.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Add to List [+] Button */}
+                <button
+                  type="submit"
+                  disabled={!quickAddSearch.trim()}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-35 text-slate-700 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
+                  title="Add to shopping trip"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                </button>
+
+                {/* Add to Cart [🛒] Button */}
+                <button
+                  type="button"
+                  disabled={!quickAddSearch.trim()}
+                  onClick={() => {
+                    if (!quickAddSearch.trim()) return
+                    if (quickAddExactMatch) {
+                      handleQuickAddExisting(quickAddExactMatch, true, quickAddQty)
+                    } else {
+                      handleQuickCreateNew(true)
+                    }
+                  }}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-35 text-emerald-700 hover:text-emerald-800 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
+                  title="Add to trip and put in cart"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                </button>
               </form>
             </div>
 
             {/* Scrollable Results List (Directly below input at the top) */}
             <div className="p-2.5 sm:p-3 overflow-y-auto space-y-2 flex-1">
-              {/* Option to create brand new item if query has no exact match */}
-              {quickAddSearch.trim() && !quickAddExactMatch && (
-                <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                        New Item
-                      </div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                        "{quickAddSearch.trim()}"
-                      </div>
-                    </div>
-                    {/* Quantity Stepper */}
-                    <div className="flex items-center rounded-lg border border-emerald-200 bg-white overflow-hidden shadow-2xs shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setQuickAddQty((q) => Math.max(1, q - 1))}
-                        className="w-6 h-6 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="min-w-[18px] px-1 text-center font-bold text-xs text-slate-800">
-                        {quickAddQty}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setQuickAddQty((q) => q + 1)}
-                        className="w-6 h-6 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {/* Category Selector */}
-                    <select
-                      value={quickAddCategory}
-                      onChange={(e) => setQuickAddCategory(e.target.value)}
-                      className="text-xs bg-white border border-emerald-200 rounded-lg px-2 py-1 font-semibold text-slate-700 outline-none flex-1 truncate cursor-pointer h-8"
-                    >
-                      {quickAddCategoryOptions.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      type="button"
-                      onClick={() => handleQuickCreateNew(false)}
-                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
-                      title="Add to trip as pending"
-                    >
-                      <Plus className="w-4 h-4 stroke-[2.5]" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickCreateNew(true)}
-                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-emerald-700 hover:text-emerald-800 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
-                      title="Add to trip and mark picked in cart"
-                    >
-                      <ShoppingCart className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Matching Catalog Items */}
               <div>
@@ -2358,10 +2367,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 </div>
 
                 {quickAddMatches.length === 0 ? (
-                  <div className="text-center py-5 text-xs text-slate-400 font-medium">
-                    {quickAddSearch.trim()
-                      ? 'No existing catalog items match your search.'
-                      : 'All catalog items are currently on your shopping list!'}
+                  <div className="text-center py-6 px-4 text-xs text-slate-400 font-medium">
+                    {quickAddSearch.trim() ? (
+                      <div className="space-y-1">
+                        <p className="text-slate-600 font-semibold">
+                          No existing catalog items match "{quickAddSearch.trim()}".
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Tap <span className="font-bold text-slate-700">[+]</span> or{' '}
+                          <span className="font-bold text-emerald-700">[🛒]</span> above (or hit Enter) to add it as a new item.
+                        </p>
+                      </div>
+                    ) : (
+                      'All catalog items are currently on your shopping list!'
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -2416,7 +2435,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                               <>
                                 <button
                                   type="button"
-                                  onClick={() => handleQuickAddExisting(item, false)}
+                                  onClick={() => handleQuickAddExisting(item, false, quickAddQty > 1 ? quickAddQty : undefined)}
                                   className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
                                   title="Add to shopping trip"
                                 >
@@ -2424,7 +2443,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleQuickAddExisting(item, true)}
+                                  onClick={() => handleQuickAddExisting(item, true, quickAddQty > 1 ? quickAddQty : undefined)}
                                   className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-emerald-700 hover:text-emerald-800 flex items-center justify-center transition cursor-pointer shrink-0 active:scale-95"
                                   title="Add to trip and put in cart"
                                 >
