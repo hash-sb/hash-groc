@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Plus,
   Minus,
@@ -59,6 +59,14 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     return categories.find((c) => c.toLowerCase() === 'other') || 'Other'
   })
   const [quickQuantity, setQuickQuantity] = useState<number>(1)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+
+  const focusSearch = () => {
+    searchInputRef.current?.focus()
+    setTimeout(() => {
+      searchInputRef.current?.focus()
+    }, 0)
+  }
   const [templateSavedFeedback, setTemplateSavedFeedback] = useState(false)
   const [isWeeklyManagerOpen, setIsWeeklyManagerOpen] = useState(false)
   const [weeklyBannerMessage, setWeeklyBannerMessage] = useState<{
@@ -111,6 +119,10 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
   const handleAddItem = async (item: ShoppingItem) => {
     triggerHaptic(30)
+    if (quickInput.trim()) {
+      setQuickInput('')
+      focusSearch()
+    }
     await updateItem(item.id, {
       isNeeded: true,
       quantity: Math.max(1, item.quantity || 1),
@@ -119,6 +131,10 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
 
   const handleIncrement = async (item: ShoppingItem) => {
     triggerHaptic(20)
+    if (quickInput.trim()) {
+      setQuickInput('')
+      focusSearch()
+    }
     if (!item.isNeeded) {
       await updateItem(item.id, {
         isNeeded: true,
@@ -175,21 +191,24 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     // If already exists in catalog, update existing item to needed rather than duplicating
     const existing = items.find((i) => i.name.trim().toLowerCase() === trimmed.toLowerCase())
     const categoryToUse = quickCategory || 'Other'
+    const addedQty = quickQuantity
+
+    setQuickInput('')
+    setQuickQuantity(1)
+    setQuickCategory(categories.find((c) => c.toLowerCase() === 'other') || 'Other')
+    focusSearch()
+
     if (existing) {
       const newQty = existing.isNeeded
-        ? (existing.quantity || 1) + quickQuantity
-        : Math.max(existing.quantity || 1, quickQuantity)
+        ? (existing.quantity || 1) + addedQty
+        : Math.max(existing.quantity || 1, addedQty)
       await updateItem(existing.id, {
         isNeeded: true,
         quantity: newQty,
       })
     } else {
-      await quickAddItem(trimmed, categoryToUse, quickQuantity)
+      await quickAddItem(trimmed, categoryToUse, addedQty)
     }
-
-    setQuickInput('')
-    setQuickQuantity(1)
-    setQuickCategory(categories.find((c) => c.toLowerCase() === 'other') || 'Other')
   }
 
   const handleSelectWeekly = async (resetOthers: boolean = false) => {
@@ -290,19 +309,26 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           {/* Unified Search / Add Input */}
           <div className="flex-1 min-w-[70px] sm:min-w-[130px] flex items-center relative">
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search or add an item to buy..."
               value={quickInput}
               onChange={(e) => handleQuickInputChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Escape') setQuickInput('')
+                if (e.key === 'Escape') {
+                  setQuickInput('')
+                  focusSearch()
+                }
               }}
               className="w-full pl-1 pr-6 py-1 text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
             />
             {quickInput && (
               <button
                 type="button"
-                onClick={() => setQuickInput('')}
+                onClick={() => {
+                  setQuickInput('')
+                  focusSearch()
+                }}
                 className="absolute right-0 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
                 title="Clear search"
                 aria-label="Clear input"
@@ -463,7 +489,10 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
               </span>
               <button
                 type="button"
-                onClick={() => setQuickInput('')}
+                onClick={() => {
+                  setQuickInput('')
+                  focusSearch()
+                }}
                 className="text-emerald-600 hover:text-emerald-900 ml-0.5 p-0.5 rounded hover:bg-emerald-100 cursor-pointer"
                 title="Clear filter"
                 aria-label="Clear filter"
