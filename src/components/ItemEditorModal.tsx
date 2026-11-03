@@ -754,27 +754,38 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
     [activeShop.name, commonUnit, currentShopDetail]
   )
 
-  // Auto-open calculator-like keyboard for the price currently being displayed
+  // Auto-scroll to the price section currently being displayed without opening keyboard
   const hasFocusedInitialPriceRef = useRef(false)
   useEffect(() => {
     if (initialFocusField !== 'price' || hasFocusedInitialPriceRef.current) return
 
-    const targetOpt =
-      (initialFocusOptionId && renderedOptions.find((o) => o.id === initialFocusOptionId)) ||
-      renderedOptions[0] ||
-      null
+    const scrollToPriceBtn = () => {
+      const targetOpt =
+        (initialFocusOptionId && renderedOptions.find((o) => o.id === initialFocusOptionId)) ||
+        renderedOptions[0] ||
+        null
 
-    if (!targetOpt) return
+      if (!targetOpt) return false
 
-    const targetIdx = renderedOptions.findIndex((o) => o.id === targetOpt.id)
-    const el = priceButtonRefs.current[targetOpt.id]
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const el = priceButtonRefs.current[targetOpt.id]
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.focus()
+        hasFocusedInitialPriceRef.current = true
+        return true
+      }
+      return false
     }
 
-    openPriceCalculator(targetOpt, targetIdx >= 0 ? targetIdx : 0)
-    hasFocusedInitialPriceRef.current = true
-  }, [initialFocusField, initialFocusOptionId, renderedOptions, openPriceCalculator])
+    if (!scrollToPriceBtn()) {
+      const t1 = setTimeout(scrollToPriceBtn, 80)
+      const t2 = setTimeout(scrollToPriceBtn, 200)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+      }
+    }
+  }, [initialFocusField, initialFocusOptionId, renderedOptions])
 
   useEffect(() => {
     setIsAisleModalOpen(false)
