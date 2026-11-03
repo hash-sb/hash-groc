@@ -53,7 +53,7 @@ import {
 import { matchesWordPrefix, scoreWordPrefixMatch } from '../utils/search'
 
 interface ShoppingModeViewProps {
-  onEditItem: (item: ShoppingItem, shopId?: string, focusField?: 'price' | 'name') => void
+  onEditItem: (item: ShoppingItem, shopId?: string, focusField?: 'price' | 'name', focusOptionId?: string) => void
   onOpenStoreModal: () => void
 }
 
@@ -234,9 +234,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       return () => clearTimeout(timer)
     }
   }, [toastMessage])
-
-  // Fast In-Store Shelf Price Modal (Calculator)
-  const [shelfPriceItem, setShelfPriceItem] = useState<ShoppingItem | null>(null)
 
   // In-Store Barcode Scanner Modal
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState<boolean>(false)
@@ -764,53 +761,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     setUndoRemoveState(null)
   }
 
-  const openShelfPriceModal = (item: ShoppingItem) => {
-    setShelfPriceItem(item)
-    triggerHaptic(15)
-  }
-
-  const handleSaveShelfPrice = async (priceVal: number) => {
-    if (!shelfPriceItem) return
-    if (isNaN(priceVal) || priceVal < 0) {
-      setShelfPriceItem(null)
-      return
-    }
-
-    const roundedPrice = Number(priceVal.toFixed(2))
-    const detail = shelfPriceItem.shops[currentShop.id]
-    const optResult = getOptimalStorePackage(shelfPriceItem, currentShop.id)
-    const activeOpt = optResult.selectedOption
-
-    if (detail?.packageOptions && detail.packageOptions.length > 0) {
-      const updatedOptions = detail.packageOptions.map((opt) => {
-        if (opt.id === activeOpt.id) {
-          const newUnitPrice =
-            opt.packageSize && opt.packageSize > 0
-              ? Number((roundedPrice / opt.packageSize).toFixed(4))
-              : null
-          return {
-            ...opt,
-            price: roundedPrice,
-            unitPrice: newUnitPrice,
-          }
-        }
-        return opt
-      })
-      await updateItemShopDetail(shelfPriceItem.id, currentShop.id, {
-        price: roundedPrice,
-        packageOptions: updatedOptions,
-      })
-    } else {
-      await updateItemShopDetail(shelfPriceItem.id, currentShop.id, {
-        price: roundedPrice,
-      })
-    }
-
-    triggerHaptic(30)
-    setToastMessage(`Updated shelf price for ${shelfPriceItem.name} to $${roundedPrice.toFixed(2)}`)
-    setShelfPriceItem(null)
-  }
-
   // Feature 2: Next pending aisle for runner navigation
   const nextPendingAisle = locationGroups.find((g) => g.pickedCount < g.totalCount)
 
@@ -1276,9 +1226,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                           <div className={`shrink-0 flex items-center gap-1 sm:gap-2 ${isPicked ? 'opacity-60' : ''}`}>
                             <button
                               type="button"
-                              onClick={() => openShelfPriceModal(item)}
+                              onClick={() => {
+                                triggerHaptic(15)
+                                onEditItem(item, currentShop.id, 'price', activeOpt.id)
+                              }}
                               className="group flex flex-col items-end px-2 py-1 rounded-xl border border-transparent hover:border-emerald-300 hover:bg-emerald-50/40 active:scale-95 transition text-right cursor-pointer"
-                              title="Tap to enter shelf / sale price"
+                              title="Tap to edit item price & details"
                             >
                               <span
                                 className={`text-sm font-extrabold tracking-tight ${
@@ -1625,31 +1578,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         </div>
       )}
 
-      {/* 11. Fast Shelf / Sale Price Calculator Modal */}
-      {shelfPriceItem && (() => {
-        const optResult = getOptimalStorePackage(shelfPriceItem, currentShop.id)
-        const activeOpt = optResult.selectedOption
-        const detail = shelfPriceItem.shops[currentShop.id]
-        const currentPrice = activeOpt.price > 0 ? activeOpt.price : (detail?.price ?? null)
-
-        return (
-          <KeypadCalculatorModal
-            isOpen={Boolean(shelfPriceItem)}
-            onClose={() => setShelfPriceItem(null)}
-            title="Update Shelf Price"
-            itemName={shelfPriceItem.name}
-            storeName={currentShop.name}
-            initialValue={currentPrice}
-            mode="price"
-            packageSize={activeOpt.packageSize || detail?.packageSize}
-            packageUnit={activeOpt.packageUnit || detail?.packageUnit || shelfPriceItem.unit}
-            onApply={handleSaveShelfPrice}
-          />
-        )
-      })()}
-
-
-
       {/* Interactive Size Picker Modal Sheet */}
       {sizePickerItem && (
         <div
@@ -1915,7 +1843,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 onClick={() => {
                   const it = itemMenuModal
                   setItemMenuModal(null)
-                  openShelfPriceModal(it)
+                  if (it) {
+                    triggerHaptic(15)
+                    const optRes = getOptimalStorePackage(it, currentShop.id)
+                    onEditItem(it, currentShop.id, 'price', optRes.selectedOption.id)
+                  }
                 }}
                 className="w-full px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
               >

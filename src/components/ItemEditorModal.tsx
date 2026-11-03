@@ -15,6 +15,7 @@ import {
   Tag,
   Sparkles,
   Barcode,
+  Calculator,
 } from 'lucide-react'
 import type { ItemShopDetail, ShoppingItem, StorePackageOption } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -32,6 +33,7 @@ interface ItemEditorModalProps {
   item?: ShoppingItem | null
   initialShopId?: string
   initialFocusField?: 'price' | 'name'
+  initialFocusOptionId?: string
   onClose: () => void
 }
 
@@ -39,6 +41,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
   item,
   initialShopId,
   initialFocusField,
+  initialFocusOptionId,
   onClose,
 }) => {
   const {
@@ -406,7 +409,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
 
   // Focus tracking for newly added alternative size
   const [focusOptionId, setFocusOptionId] = useState<string | null>(null)
-  const priceButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const priceInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [priceInputs, setPriceInputs] = useState<Record<string, string>>({})
 
   // On-demand label input visibility per size row (#1)
   const [showLabelInputMap, setShowLabelInputMap] = useState<Record<string, boolean>>({})
@@ -698,12 +702,13 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
     ]
   }, [hasMultipleSizes, currentShopDetail, commonUnit])
 
-  // Focus newly added alternative size shelf price button
+  // Focus newly added alternative size shelf price input
   useEffect(() => {
-    if (focusOptionId && priceButtonRefs.current[focusOptionId]) {
-      const el = priceButtonRefs.current[focusOptionId]
+    if (focusOptionId && priceInputRefs.current[focusOptionId]) {
+      const el = priceInputRefs.current[focusOptionId]
       if (el) {
         el.focus()
+        el.select()
         el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       }
       setFocusOptionId(null)
@@ -715,11 +720,15 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
   useEffect(() => {
     if (initialFocusField !== 'price' || hasFocusedInitialPriceRef.current) return
 
-    const focusPriceBtn = () => {
-      const firstOptId = renderedOptions[0]?.id || 'primary'
-      const el = priceButtonRefs.current[firstOptId]
+    const focusPriceInput = () => {
+      const targetId =
+        initialFocusOptionId && renderedOptions.some((o) => o.id === initialFocusOptionId)
+          ? initialFocusOptionId
+          : renderedOptions[0]?.id || 'primary'
+      const el = priceInputRefs.current[targetId]
       if (el) {
         el.focus()
+        el.select()
         el.scrollIntoView({ behavior: 'smooth', block: 'center' })
         hasFocusedInitialPriceRef.current = true
         return true
@@ -727,15 +736,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
       return false
     }
 
-    if (!focusPriceBtn()) {
-      const t1 = setTimeout(focusPriceBtn, 100)
-      const t2 = setTimeout(focusPriceBtn, 250)
-      return () => {
-        clearTimeout(t1)
-        clearTimeout(t2)
-      }
+    focusPriceInput()
+    const t1 = setTimeout(focusPriceInput, 60)
+    const t2 = setTimeout(focusPriceInput, 200)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
     }
-  }, [initialFocusField, renderedOptions])
+  }, [initialFocusField, initialFocusOptionId, renderedOptions])
 
   // Aisle / Location modal window state
   const [isAisleModalOpen, setIsAisleModalOpen] = useState(false)
@@ -1264,16 +1272,53 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                             <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_58px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_66px] gap-1.5 sm:gap-2 items-center">
                               {/* Column 1: Shelf Price ($) */}
                               <div className="relative min-w-0">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none z-10">
                                   $
                                 </span>
-                                <button
-                                  type="button"
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
                                   ref={(el) => {
                                     if (opt.id) {
-                                      priceButtonRefs.current[opt.id] = el
+                                      priceInputRefs.current[opt.id] = el
                                     }
                                   }}
+                                  value={
+                                    priceInputs[opt.id] !== undefined
+                                      ? priceInputs[opt.id]
+                                      : typeof opt.price === 'number' && !isNaN(opt.price) && opt.price > 0
+                                      ? opt.price.toFixed(2)
+                                      : ''
+                                  }
+                                  placeholder="0.00"
+                                  onChange={(e) => {
+                                    const raw = e.target.value
+                                    if (raw === '' || /^\d*\.?\d{0,2}$/.test(raw)) {
+                                      setPriceInputs((prev) => ({ ...prev, [opt.id]: raw }))
+                                      const num = parseFloat(raw)
+                                      handleUpdateOptionField(idx, { price: !isNaN(num) && num > 0 ? num : null })
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    setPriceInputs((prev) => {
+                                      const next = { ...prev }
+                                      delete next[opt.id]
+                                      return next
+                                    })
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.select()
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.currentTarget.blur()
+                                    }
+                                  }}
+                                  className="w-full h-9 pl-6 pr-7 rounded-lg border border-slate-300 text-sm font-semibold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                                  title="Enter shelf price"
+                                />
+                                <button
+                                  type="button"
                                   onClick={() => {
                                     setCalcModal({
                                       isOpen: true,
@@ -1286,18 +1331,20 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                                       packageSize: optSizeNum,
                                       packageUnit: commonUnit,
                                       onApply: (val) => {
+                                        setPriceInputs((prev) => {
+                                          const next = { ...prev }
+                                          delete next[opt.id]
+                                          return next
+                                        })
                                         handleUpdateOptionField(idx, { price: val > 0 ? val : null })
                                       },
                                     })
                                   }}
-                                  className="w-full h-9 pl-6 pr-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
-                                  title="Tap to change price with calculator"
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-emerald-600 rounded transition cursor-pointer"
+                                  title="Open keypad calculator"
+                                  tabIndex={-1}
                                 >
-                                  {typeof opt.price === 'number' && !isNaN(opt.price) && opt.price > 0 ? (
-                                    opt.price.toFixed(2)
-                                  ) : (
-                                    <span className="text-slate-400 font-normal">0.00</span>
-                                  )}
+                                  <Calculator className="w-3.5 h-3.5" />
                                 </button>
                               </div>
 

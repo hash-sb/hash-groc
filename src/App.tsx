@@ -20,6 +20,7 @@ const AppContent: React.FC = () => {
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null)
   const [editingShopId, setEditingShopId] = useState<string | undefined>(undefined)
   const [editingFocusField, setEditingFocusField] = useState<'price' | 'name' | undefined>(undefined)
+  const [editingFocusOptionId, setEditingFocusOptionId] = useState<string | undefined>(undefined)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isStoreManagerOpen, setIsStoreManagerOpen] = useState(false)
   const [isHouseholdModalOpen, setIsHouseholdModalOpen] = useState(false)
@@ -52,10 +53,11 @@ const AppContent: React.FC = () => {
 
         {mode === 'shopping' && (
           <ShoppingModeView
-            onEditItem={(item, shopId, focusField) => {
+            onEditItem={(item, shopId, focusField, focusOptionId) => {
               setEditingItem(item)
               setEditingShopId(shopId)
               setEditingFocusField(focusField || (shopId ? 'price' : undefined))
+              setEditingFocusOptionId(focusOptionId)
             }}
             onOpenStoreModal={() => setIsStoreManagerOpen(true)}
           />
@@ -92,11 +94,13 @@ const AppContent: React.FC = () => {
           item={editingItem}
           initialShopId={editingShopId}
           initialFocusField={editingFocusField}
+          initialFocusOptionId={editingFocusOptionId}
           onClose={() => {
             setIsCreateModalOpen(false)
             setEditingItem(null)
             setEditingShopId(undefined)
             setEditingFocusField(undefined)
+            setEditingFocusOptionId(undefined)
           }}
         />
       )}
