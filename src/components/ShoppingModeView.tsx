@@ -25,7 +25,6 @@ import {
   Sun,
   Moon,
   PackageX,
-  Navigation,
   Check,
   X,
   MoreVertical,
@@ -85,8 +84,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   const [showUnavailableDrawer, setShowUnavailableDrawer] = useState<boolean>(false)
   const [showTripSummary, setShowTripSummary] = useState<boolean>(false)
-  const [showStoreOverviewModal, setShowStoreOverviewModal] = useState<boolean>(false)
-  const [storeModalTab, setStoreModalTab] = useState<'switcher' | 'overview'>('switcher')
+  const [showStoreSwitcherModal, setShowStoreSwitcherModal] = useState<boolean>(false)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const [itemMenuModal, setItemMenuModal] = useState<ShoppingItem | null>(null)
 
@@ -508,14 +506,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     setUndoRemoveState(null)
   }
 
-  const scrollToAisle = (loc: string) => {
-    const el = document.getElementById(`aisle-section-${encodeURIComponent(loc)}`)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      triggerHaptic(15)
-    }
-  }
-
   // Quick Add Helpers & Handlers (Solution 1)
   const quickAddMatches = useMemo(() => {
     const q = quickAddSearch.trim()
@@ -798,9 +788,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     setUndoRemoveState(null)
   }
 
-  // Feature 2: Next pending aisle for runner navigation
-  const nextPendingAisle = locationGroups.find((g) => g.pickedCount < g.totalCount)
-
   const handleSaveReceiptAndCheckout = async () => {
     if (cartItems.length > 0) {
       const purchasedItems: PurchasedItemRecord[] = cartItems.map((item) => {
@@ -843,19 +830,16 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   return (
     <div className="pb-32 max-w-4xl mx-auto px-3 sm:px-6">
-      {/* 1. Sticky Store Tabs Header: Store Tabs (Left) + Next Aisle & Options (Right) */}
+      {/* 1. Sticky Store Tabs Header: Store Tabs (Left) + Options (Right) */}
       <div className="sticky top-[60px] z-20 bg-slate-50/95 backdrop-blur-md pt-2 pb-2 -mx-3 px-3 sm:-mx-6 sm:px-6 mb-2.5 flex items-center justify-between gap-2 border-b border-slate-200/60 shadow-2xs">
-        {/* Mobile: 1-Tap Store Switcher Dropdown + Trip Overview Button */}
-        <div className="flex sm:hidden items-center gap-1.5 flex-1 min-w-0">
+        {/* Mobile: 1-Tap Store Switcher Dropdown */}
+        <div className="flex sm:hidden items-center flex-1 min-w-0">
           {/* Store Switcher Dropdown Button */}
           <button
             type="button"
-            onClick={() => {
-              setStoreModalTab('switcher')
-              setShowStoreOverviewModal(true)
-            }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-2xs text-left min-w-0 max-w-[160px] xs:max-w-[190px] truncate cursor-pointer active:scale-95 transition"
-            title="Switch store or view stores"
+            onClick={() => setShowStoreSwitcherModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-2xs text-left min-w-0 max-w-[220px] truncate cursor-pointer active:scale-95 transition"
+            title="Switch store"
           >
             <div
               className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -871,23 +855,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
           </button>
-
-          {/* Trip Overview Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setStoreModalTab('overview')
-              setShowStoreOverviewModal(true)
-            }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs cursor-pointer active:scale-95 transition shrink-0"
-            title="Trip Overview: See items at each store"
-          >
-            <Layers className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-[11px] font-bold">Overview</span>
-          </button>
         </div>
 
-        {/* Desktop: Horizontal Store Tabs Strip + Trip Overview */}
+        {/* Desktop: Horizontal Store Tabs Strip */}
         <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
           {visibleShops.map((shop) => {
             const isSelected = shop.id === currentShop.id
@@ -936,38 +906,10 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setStoreModalTab('overview')
-              setShowStoreOverviewModal(true)
-            }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs cursor-pointer transition shrink-0 ml-1"
-            title="Trip Overview: See items at each store"
-          >
-            <Layers className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Overview ({allNeededItems.length})</span>
-          </button>
         </div>
 
-        {/* Right: Next Aisle jump & View Options '···' */}
+        {/* Right: View Options '···' Button */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Next pending aisle jump pill */}
-          {nextPendingAisle && (
-            <button
-              type="button"
-              onClick={() => scrollToAisle(nextPendingAisle.location)}
-              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 active:scale-95 transition flex items-center gap-1 shadow-2xs cursor-pointer shrink-0"
-              title={`Jump to next aisle: ${nextPendingAisle.location}`}
-            >
-              <Navigation className="w-3 h-3 text-emerald-400" />
-              <span className="hidden sm:inline">Next:</span>
-              <span>{nextPendingAisle.location}</span>
-            </button>
-          )}
-
-          {/* View Options '···' Button */}
           <button
             type="button"
             onClick={() => setShowOptionsPopover(!showOptionsPopover)}
@@ -1462,15 +1404,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         </div>
       </div>
 
-      {/* Store Switcher & Trip Overview Modal */}
-      {showStoreOverviewModal && (
+      {/* Switch Store Modal */}
+      {showStoreSwitcherModal && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in duration-200"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowStoreOverviewModal(false)
+            if (e.target === e.currentTarget) setShowStoreSwitcherModal(false)
           }}
         >
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-xl max-h-[88vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200">
             {/* Header */}
             <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -1479,17 +1421,17 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-base sm:text-lg font-extrabold text-slate-900 truncate">
-                    Stores & Trip Overview
+                    Switch Store
                   </h2>
                   <p className="text-xs text-slate-500 truncate">
-                    {visibleShops.length} stores • {allNeededItems.length} items on trip
+                    {visibleShops.length} stores available
                   </p>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setShowStoreOverviewModal(false)}
+                onClick={() => setShowStoreSwitcherModal(false)}
                 className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
                 title="Close"
               >
@@ -1497,279 +1439,116 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               </button>
             </div>
 
-            {/* Tab navigation pills */}
-            <div className="px-4 pt-3 pb-2 bg-slate-50/70 border-b border-slate-200 flex gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setStoreModalTab('switcher')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                  storeModalTab === 'switcher'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <Store className="w-3.5 h-3.5" />
-                <span>Switch Store</span>
-              </button>
+            {/* Store List */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5 flex-1">
+              {tripStoreBreakdown.map(
+                ({ shop, items: storeItems, pendingCount, totalCount, isFullyPicked, totalCost }) => {
+                  const isCurrent = shop.id === currentShop.id
 
-              <button
-                type="button"
-                onClick={() => setStoreModalTab('overview')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                  storeModalTab === 'overview'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Items by Store ({allNeededItems.length})</span>
-              </button>
-            </div>
-
-            {/* Scrollable Content Body */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
-              {storeModalTab === 'switcher' ? (
-                /* Tab 1: Vertical Store Switcher */
-                <div className="space-y-2.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-                    Select active store to shop:
-                  </div>
-
-                  {tripStoreBreakdown.map(
-                    ({ shop, items: storeItems, pendingCount, totalCount, isFullyPicked, totalCost }) => {
-                      const isCurrent = shop.id === currentShop.id
-
-                      return (
-                        <div
-                          key={shop.id}
-                          onClick={() => {
-                            triggerHaptic(20)
-                            setSelectedShopId(shop.id)
-                            setShowStoreOverviewModal(false)
-                          }}
-                          className={`p-3.5 rounded-2xl border transition text-left cursor-pointer active:scale-[0.99] ${
-                            isCurrent
-                              ? 'border-emerald-500 bg-emerald-50/70 shadow-xs ring-1 ring-emerald-500/20'
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div
-                                className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
-                                style={{ backgroundColor: shop.color || '#10b981' }}
-                              />
-                              <div className="font-extrabold text-sm text-slate-900 truncate">
-                                {shop.name}
-                              </div>
-                              {isCurrent && (
-                                <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">
-                                  Current
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              {totalCost > 0 && (
-                                <span className="text-xs font-bold text-slate-700">
-                                  {formatPrice(totalCost)}
-                                </span>
-                              )}
-                              <span
-                                className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
-                                  isFullyPicked
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : pendingCount > 0
-                                    ? 'bg-amber-100 text-amber-900'
-                                    : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {isFullyPicked
-                                  ? `✓ All ${totalCount} picked`
-                                  : `${pendingCount} of ${totalCount} left`}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Preview of Items at this Store */}
-                          {storeItems.length > 0 ? (
-                            <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
-                              {storeItems.slice(0, 4).map((it) => (
-                                <span
-                                  key={it.id}
-                                  className={`text-[11px] px-2 py-0.5 rounded-lg font-medium ${
-                                    it.inCart
-                                      ? 'bg-slate-100 text-slate-400 line-through'
-                                      : 'bg-slate-100 text-slate-700'
-                                  }`}
-                                >
-                                  {it.name}
-                                </span>
-                              ))}
-                              {storeItems.length > 4 && (
-                                <span className="text-[11px] text-slate-400 font-semibold px-1">
-                                  +{storeItems.length - 4} more
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="mt-1.5 text-xs text-slate-400 italic">
-                              No items needed from this store
-                            </div>
-                          )}
-                        </div>
-                      )
-                    }
-                  )}
-
-                  <div className="pt-2 flex items-center justify-between">
-                    <button
-                      type="button"
+                  return (
+                    <div
+                      key={shop.id}
                       onClick={() => {
-                        setShowStoreOverviewModal(false)
-                        onOpenStoreModal()
+                        triggerHaptic(20)
+                        setSelectedShopId(shop.id)
+                        setShowStoreSwitcherModal(false)
                       }}
-                      className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 p-1 cursor-pointer"
+                      className={`p-3.5 rounded-2xl border transition text-left cursor-pointer active:scale-[0.99] ${
+                        isCurrent
+                          ? 'border-emerald-500 bg-emerald-50/70 shadow-xs ring-1 ring-emerald-500/20'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                      }`}
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Manage Stores</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStoreModalTab('overview')}
-                      className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 p-1 cursor-pointer"
-                    >
-                      <span>View full breakdown</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Tab 2: Full Items by Store (Trip Overview) */
-                <div className="space-y-4">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-                    All items categorized by store stop:
-                  </div>
-
-                  {tripStoreBreakdown.map(
-                    ({ shop, items: storeItems, totalCount, totalCost }) => {
-                      const isCurrent = shop.id === currentShop.id
-
-                      return (
-                        <div
-                          key={shop.id}
-                          className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs"
-                        >
-                          {/* Store Group Header */}
-                          <div className="p-3 sm:p-3.5 bg-slate-100/90 border-b border-slate-200 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div
-                                className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
-                                style={{ backgroundColor: shop.color || '#10b981' }}
-                              />
-                              <div className="font-extrabold text-sm text-slate-900 truncate">
-                                {shop.name}
-                              </div>
-                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                                {totalCount} {totalCount === 1 ? 'item' : 'items'}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              {totalCost > 0 && (
-                                <span className="text-xs font-bold text-slate-700 hidden xs:inline">
-                                  {formatPrice(totalCost)}
-                                </span>
-                              )}
-                              {!isCurrent ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    triggerHaptic(20)
-                                    setSelectedShopId(shop.id)
-                                    setShowStoreOverviewModal(false)
-                                  }}
-                                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
-                                >
-                                  <span>Shop Here</span>
-                                  <ArrowRight className="w-3 h-3" />
-                                </button>
-                              ) : (
-                                <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-xl">
-                                  Active Store
-                                </span>
-                              )}
-                            </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
+                            style={{ backgroundColor: shop.color || '#10b981' }}
+                          />
+                          <div className="font-extrabold text-sm text-slate-900 truncate">
+                            {shop.name}
                           </div>
-
-                          {/* Items Checklist for this Store */}
-                          {storeItems.length === 0 ? (
-                            <div className="p-3 text-xs text-slate-400 italic text-center">
-                              No items to buy at this store on this trip.
-                            </div>
-                          ) : (
-                            <div className="divide-y divide-slate-100">
-                              {storeItems.map((item) => {
-                                const opt = getOptimalStorePackage(item, shop.id)
-                                const itemPrice = opt.selectedOption.fulfillmentCost
-
-                                return (
-                                  <div
-                                    key={item.id}
-                                    className="p-2.5 sm:p-3 flex items-center justify-between gap-2 hover:bg-slate-50/60 transition"
-                                  >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      {item.inCart ? (
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                                      ) : (
-                                        <Circle className="w-4 h-4 text-slate-300 shrink-0" />
-                                      )}
-                                      <div className="min-w-0">
-                                        <span
-                                          className={`text-xs sm:text-sm font-semibold truncate block ${
-                                            item.inCart
-                                              ? 'line-through text-slate-400'
-                                              : 'text-slate-800'
-                                          }`}
-                                        >
-                                          {item.name}
-                                        </span>
-                                        <span className="text-[11px] text-slate-400">
-                                          Qty: {item.quantity || 1} {item.unit || ''}
-                                        </span>
-                                      </div>
-                                    </div>
-
-                                    {itemPrice !== null && itemPrice > 0 && (
-                                      <span
-                                        className={`text-xs font-bold shrink-0 ${
-                                          item.inCart ? 'text-slate-400 line-through' : 'text-slate-700'
-                                        }`}
-                                      >
-                                        {formatPrice(itemPrice)}
-                                      </span>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
+                          {isCurrent && (
+                            <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">
+                              Current
+                            </span>
                           )}
                         </div>
-                      )
-                    }
-                  )}
-                </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {totalCost > 0 && (
+                            <span className="text-xs font-bold text-slate-700">
+                              {formatPrice(totalCost)}
+                            </span>
+                          )}
+                          <span
+                            className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                              isFullyPicked
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : pendingCount > 0
+                                ? 'bg-amber-100 text-amber-900'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {isFullyPicked
+                              ? `✓ All ${totalCount} picked`
+                              : `${pendingCount} of ${totalCount} left`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Preview of Items at this Store */}
+                      {storeItems.length > 0 ? (
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
+                          {storeItems.slice(0, 4).map((it) => (
+                            <span
+                              key={it.id}
+                              className={`text-[11px] px-2 py-0.5 rounded-lg font-medium ${
+                                it.inCart
+                                  ? 'bg-slate-100 text-slate-400 line-through'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {it.name}
+                            </span>
+                          ))}
+                          {storeItems.length > 4 && (
+                            <span className="text-[11px] text-slate-400 font-semibold px-1">
+                              +{storeItems.length - 4} more
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-1.5 text-xs text-slate-400 italic">
+                          No items needed from this store
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
+            <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
               <button
                 type="button"
-                onClick={() => setShowStoreOverviewModal(false)}
+                onClick={() => {
+                  setShowStoreSwitcherModal(false)
+                  onOpenStoreModal()
+                }}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 p-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Manage Stores</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowStoreSwitcherModal(false)}
                 className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer"
               >
-                Close
+                Done
               </button>
             </div>
           </div>
