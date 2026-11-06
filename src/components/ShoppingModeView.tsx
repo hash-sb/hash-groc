@@ -1093,20 +1093,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     : 'bg-white border-slate-200 shadow-xs'
                 }`}
               >
-                {/* Location / Aisle Category Header */}
+                {/* Location / Aisle Category Header (Inverted color for high contrast against items) */}
                 <button
                   onClick={() => toggleSectionCollapse(location)}
                   className={`w-full flex items-center justify-between px-4 py-3 transition text-left cursor-pointer ${
                     isAllPickedInAisle
-                      ? 'bg-slate-100/70 hover:bg-slate-100 text-slate-600'
-                      : 'bg-slate-100 hover:bg-slate-200/70 border-b border-slate-200 text-slate-900'
+                      ? 'bg-slate-800 hover:bg-slate-750 text-slate-300'
+                      : 'bg-slate-900 hover:bg-slate-800 border-b border-slate-800 text-white'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
                       className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
                         isAllPickedInAisle
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-slate-700 text-emerald-400'
                           : 'bg-emerald-600 text-white'
                       }`}
                     >
@@ -1119,21 +1119,21 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span
                         className={`text-sm sm:text-base font-extrabold tracking-tight truncate ${
-                          isAllPickedInAisle ? 'text-slate-600' : 'text-slate-900'
+                          isAllPickedInAisle ? 'text-slate-300' : 'text-white'
                         }`}
                       >
                         {location}
                       </span>
                       {isAllPickedInAisle ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold shadow-2xs">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold shadow-2xs">
                           ✓ All {totalCount} picked
                         </span>
                       ) : (
                         <div className="flex items-center gap-1.5">
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold shadow-2xs">
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-2xs">
                             {totalCount - pickedCount} to pick
                           </span>
-                          <span className="text-xs text-slate-500 font-semibold">
+                          <span className="text-xs text-slate-400 font-semibold">
                             • {totalCount} total
                           </span>
                         </div>
