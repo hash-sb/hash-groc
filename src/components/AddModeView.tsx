@@ -994,10 +994,10 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                 key={category}
                 className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"
               >
-                {/* Category Header (Inverted color for high contrast against items) */}
-                <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2">
+                {/* Category Header (Theme-fitting emerald banner for high contrast against items) */}
+                <div className="px-4 py-3 bg-emerald-700 border-b border-emerald-800/40 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <div className="w-7 h-7 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0 border border-white/25 shadow-2xs">
                       <Tag className="w-3.5 h-3.5 stroke-[2.5]" />
                     </div>
                     <span className="font-extrabold text-sm sm:text-base text-white uppercase tracking-wide truncate">
@@ -1006,15 +1006,15 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {catNeeded > 0 ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-xs shadow-2xs">
+                      <span className="px-2.5 py-0.5 rounded-full bg-white text-emerald-800 font-extrabold text-xs shadow-2xs">
                         {catNeeded} to buy
                       </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-semibold text-xs border border-slate-700/80">
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-800/60 text-emerald-100 font-medium text-xs border border-emerald-600/50">
                         0 to buy
                       </span>
                     )}
-                    <span className="text-xs font-semibold text-slate-400">
+                    <span className="text-xs font-semibold text-emerald-100/90">
                       • {groupItems.length} total
                     </span>
                   </div>

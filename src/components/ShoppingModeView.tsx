@@ -1093,21 +1093,21 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     : 'bg-white border-slate-200 shadow-xs'
                 }`}
               >
-                {/* Location / Aisle Category Header (Inverted color for high contrast against items) */}
+                {/* Location / Aisle Category Header (Theme-fitting emerald banner for high contrast against items) */}
                 <button
                   onClick={() => toggleSectionCollapse(location)}
                   className={`w-full flex items-center justify-between px-4 py-3 transition text-left cursor-pointer ${
                     isAllPickedInAisle
-                      ? 'bg-slate-800 hover:bg-slate-750 text-slate-300'
-                      : 'bg-slate-900 hover:bg-slate-800 border-b border-slate-800 text-white'
+                      ? 'bg-emerald-800/75 hover:bg-emerald-800 text-emerald-100 border-b border-emerald-900/30'
+                      : 'bg-emerald-700 hover:bg-emerald-600 border-b border-emerald-800/40 text-white'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border ${
                         isAllPickedInAisle
-                          ? 'bg-slate-700 text-emerald-400'
-                          : 'bg-emerald-600 text-white'
+                          ? 'bg-emerald-900/50 text-emerald-200 border-emerald-700/50'
+                          : 'bg-white/20 text-white border-white/25'
                       }`}
                     >
                       {isAllPickedInAisle ? (
@@ -1119,21 +1119,21 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span
                         className={`text-sm sm:text-base font-extrabold tracking-tight truncate ${
-                          isAllPickedInAisle ? 'text-slate-300' : 'text-white'
+                          isAllPickedInAisle ? 'text-emerald-100' : 'text-white'
                         }`}
                       >
                         {location}
                       </span>
                       {isAllPickedInAisle ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold shadow-2xs">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-900/50 text-emerald-200 border border-emerald-700/50 text-xs font-bold shadow-2xs">
                           ✓ All {totalCount} picked
                         </span>
                       ) : (
                         <div className="flex items-center gap-1.5">
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-2xs">
+                          <span className="px-2.5 py-0.5 rounded-full bg-white text-emerald-800 text-xs font-black shadow-2xs">
                             {totalCount - pickedCount} to pick
                           </span>
-                          <span className="text-xs text-slate-400 font-semibold">
+                          <span className="text-xs text-emerald-100/90 font-semibold">
                             • {totalCount} total
                           </span>
                         </div>
@@ -1141,9 +1141,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     </div>
                   </div>
                   {isCollapsed ? (
-                    <ChevronDown className="w-5 h-5 text-slate-400 stroke-[2.2] shrink-0 ml-2" />
+                    <ChevronDown className="w-5 h-5 text-emerald-200 stroke-[2.2] shrink-0 ml-2" />
                   ) : (
-                    <ChevronUp className="w-5 h-5 text-slate-400 stroke-[2.2] shrink-0 ml-2" />
+                    <ChevronUp className="w-5 h-5 text-emerald-200 stroke-[2.2] shrink-0 ml-2" />
                   )}
                 </button>
 
