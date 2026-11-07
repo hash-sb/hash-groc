@@ -1450,6 +1450,16 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
+                                ) : !isNaN(optPriceNum) && optPriceNum > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateOptionField(0, { price: null })}
+                                    className="h-9 w-7 sm:w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
+                                    title="Clear price"
+                                    aria-label="Clear price"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 ) : (
                                   <span className="w-7 sm:w-8 shrink-0" aria-hidden="true" />
                                 )}
