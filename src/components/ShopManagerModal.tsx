@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   X,
   Plus,
@@ -13,6 +13,12 @@ import { useShopping } from '../context/ShoppingContext'
 
 interface ShopManagerModalProps {
   onClose: () => void
+}
+
+interface EditableAisle {
+  id: string
+  name: string
+  originalName: string | null
 }
 
 const COMMON_DEPARTMENT_SUGGESTIONS = [
@@ -38,7 +44,7 @@ function reorderArray<T>(list: T[], startIndex: number, endIndex: number): T[] {
 }
 
 export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) => {
-  const { shops, items, addShop, updateShop, deleteShop, moveShopOrder } = useShopping()
+  const { shops, items, addShop, updateShopWithAisles, deleteShop, moveShopOrder } = useShopping()
 
   // Creation State
   const [isCreatingNew, setIsCreatingNew] = useState(false)
@@ -56,7 +62,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
   // Edit State
   const [editingShopId, setEditingShopId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
-  const [editAisles, setEditAisles] = useState<string[]>([])
+  const [editAisles, setEditAisles] = useState<EditableAisle[]>([])
   const [isAddingEditAisle, setIsAddingEditAisle] = useState(false)
   const [editAisleInput, setEditAisleInput] = useState('')
 
@@ -187,26 +193,91 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
     }
     setEditingShopId(shop.id)
     setEditName(shop.name)
-    setEditAisles(shop.defaultAisles && shop.defaultAisles.length > 0
-      ? [...shop.defaultAisles]
-      : ['Produce', 'Dairy', 'Pantry', 'Frozen', 'Checkout']
-    )
+    const initialAisles: EditableAisle[] = (shop.defaultAisles || []).map((name, i) => ({
+      id: `aisle-${i}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      originalName: name,
+    }))
+    setEditAisles(initialAisles)
     setIsAddingEditAisle(false)
     setEditAisleInput('')
   }
+
+  const handleAddEditAisle = (nameToAdd: string) => {
+    const trimmed = nameToAdd.trim()
+    if (!trimmed) return
+    setEditAisles((prev) => [
+      ...prev,
+      {
+        id: `aisle-new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: trimmed,
+        originalName: null,
+      },
+    ])
+  }
+
+  // Items with locations for this store that are not currently in editAisles
+  const orphanedLocations = useMemo(() => {
+    if (!editingShopId) return []
+    const currentAisleNames = new Set(
+      editAisles.map((a) => a.name.trim().toLowerCase()).filter(Boolean)
+    )
+    const map: Record<string, number> = {}
+    items.forEach((it) => {
+      const loc = it.shops[editingShopId]?.location?.trim()
+      if (loc && !currentAisleNames.has(loc.toLowerCase())) {
+        map[loc] = (map[loc] || 0) + 1
+      }
+    })
+    return Object.entries(map).map(([name, count]) => ({ name, count }))
+  }, [editingShopId, editAisles, items])
 
   // Save edits
   const handleSaveEdit = async () => {
     if (!editingShopId || !editName.trim()) return
 
-    const cleanedAisles = editAisles
-      .map((a) => a.trim())
-      .filter(Boolean)
+    const targetShop = shops.find((s) => s.id === editingShopId)
+    const originalShopAisles = targetShop?.defaultAisles || []
 
-    await updateShop(editingShopId, {
-      name: editName.trim(),
-      defaultAisles: cleanedAisles.length > 0 ? cleanedAisles : ['Produce', 'Checkout'],
+    const cleanedAisles: string[] = []
+    const renameMap: Record<string, string> = {}
+
+    editAisles.forEach((aisle) => {
+      const trimmed = aisle.name.trim()
+      if (!trimmed) return
+      cleanedAisles.push(trimmed)
+      if (aisle.originalName && aisle.originalName.trim().toLowerCase() !== trimmed.toLowerCase()) {
+        renameMap[aisle.originalName.trim()] = trimmed
+      }
     })
+
+    // Find removed aisles: any original aisle that is not retained in editAisles
+    const removedAisles: string[] = []
+    originalShopAisles.forEach((orig) => {
+      const stillPresent = editAisles.some(
+        (a) =>
+          a.originalName?.trim().toLowerCase() === orig.trim().toLowerCase() ||
+          a.name.trim().toLowerCase() === orig.trim().toLowerCase()
+      )
+      if (!stillPresent) {
+        removedAisles.push(orig)
+      }
+    })
+
+    const clearAllAisles = cleanedAisles.length === 0
+
+    await updateShopWithAisles(
+      editingShopId,
+      {
+        name: editName.trim(),
+        defaultAisles: cleanedAisles,
+      },
+      {
+        aisleRenames: renameMap,
+        removedAisles,
+        clearAllAisles,
+      }
+    )
 
     setEditingShopId(null)
   }
@@ -222,7 +293,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
     await addShop({
       name: newName.trim(),
       color: 'emerald',
-      defaultAisles: cleanedAisles.length > 0 ? cleanedAisles : ['Produce', 'Dairy', 'Pantry', 'Frozen', 'Checkout'],
+      defaultAisles: cleanedAisles,
     })
 
     setNewName('')
@@ -356,7 +427,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                               {shop.name}
                             </div>
                             <div className="text-[11px] text-slate-400 mt-0.5">
-                              {shop.defaultAisles.length} aisles • {pricedCount} priced
+                              {(shop.defaultAisles || []).length} aisles • {pricedCount} priced
                             </div>
                           </>
                         )}
@@ -411,79 +482,164 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
 
                         {/* Draggable & Editable Aisles List */}
                         <div className="space-y-1">
-                          {editAisles.map((aisle, idx) => (
-                            <div
-                              key={`edit-aisle-${idx}`}
-                              data-aisle-index={idx}
-                              draggable
-                              onDragStart={(e) => {
-                                setDraggedAisleIdx(idx)
-                                e.dataTransfer.effectAllowed = 'move'
-                              }}
-                              onDragOver={(e) => {
-                                e.preventDefault()
-                                e.dataTransfer.dropEffect = 'move'
-                                if (dragOverAisleIdx !== idx) setDragOverAisleIdx(idx)
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault()
-                                if (draggedAisleIdx !== null && draggedAisleIdx !== idx) {
-                                  handleReorderEditAisles(draggedAisleIdx, idx)
-                                }
-                                setDraggedAisleIdx(null)
-                                setDragOverAisleIdx(null)
-                              }}
-                              onDragEnd={() => {
-                                setDraggedAisleIdx(null)
-                                setDragOverAisleIdx(null)
-                              }}
-                              className={`flex items-center justify-between p-1.5 rounded-xl bg-white border transition ${
-                                draggedAisleIdx === idx
-                                  ? 'opacity-40 border-slate-300'
-                                  : dragOverAisleIdx === idx
-                                  ? 'border-t-2 border-t-slate-800 border-slate-200 bg-slate-50'
-                                  : 'border-slate-200'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <div
-                                  className="touch-none cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-700 shrink-0"
-                                  onTouchStart={() => handleTouchStartEditAisle(idx)}
-                                  onTouchMove={handleTouchMoveEditAisle}
-                                  onTouchEnd={handleTouchEndEditAisle}
-                                  title="Drag to reorder"
-                                >
-                                  <GripVertical className="w-3.5 h-3.5" />
-                                </div>
-                                <input
-                                  type="text"
-                                  value={aisle}
-                                  onChange={(e) => {
-                                    const val = e.target.value
-                                    setEditAisles((prev) => {
-                                      const updated = [...prev]
-                                      updated[idx] = val
-                                      return updated
-                                    })
-                                  }}
-                                  placeholder="Aisle name..."
-                                  className="w-full px-2 py-0.5 text-xs font-medium text-slate-800 bg-transparent hover:bg-slate-50 focus:bg-white rounded-lg border border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none transition"
-                                />
-                              </div>
+                          {editAisles.map((aisle, idx) => {
+                            const aisleItemCount = items.filter(
+                              (it) =>
+                                it.shops[shop.id]?.location?.trim().toLowerCase() ===
+                                (aisle.originalName || aisle.name).trim().toLowerCase()
+                            ).length
 
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEditAisles((prev) => prev.filter((_, i) => i !== idx))
-                                }
-                                className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer shrink-0 ml-1"
-                                title="Remove aisle"
+                            return (
+                              <div
+                                key={aisle.id}
+                                data-aisle-index={idx}
+                                draggable
+                                onDragStart={(e) => {
+                                  setDraggedAisleIdx(idx)
+                                  e.dataTransfer.effectAllowed = 'move'
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault()
+                                  e.dataTransfer.dropEffect = 'move'
+                                  if (dragOverAisleIdx !== idx) setDragOverAisleIdx(idx)
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault()
+                                  if (draggedAisleIdx !== null && draggedAisleIdx !== idx) {
+                                    handleReorderEditAisles(draggedAisleIdx, idx)
+                                  }
+                                  setDraggedAisleIdx(null)
+                                  setDragOverAisleIdx(null)
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedAisleIdx(null)
+                                  setDragOverAisleIdx(null)
+                                }}
+                                className={`flex items-center justify-between p-1.5 rounded-xl bg-white border transition ${
+                                  draggedAisleIdx === idx
+                                    ? 'opacity-40 border-slate-300'
+                                    : dragOverAisleIdx === idx
+                                    ? 'border-t-2 border-t-slate-800 border-slate-200 bg-slate-50'
+                                    : 'border-slate-200'
+                                }`}
                               >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
+                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                  <div
+                                    className="touch-none cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-700 shrink-0"
+                                    onTouchStart={() => handleTouchStartEditAisle(idx)}
+                                    onTouchMove={handleTouchMoveEditAisle}
+                                    onTouchEnd={handleTouchEndEditAisle}
+                                    title="Drag to reorder"
+                                  >
+                                    <GripVertical className="w-3.5 h-3.5" />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={aisle.name}
+                                    onChange={(e) => {
+                                      const val = e.target.value
+                                      setEditAisles((prev) => {
+                                        const updated = [...prev]
+                                        updated[idx] = { ...updated[idx], name: val }
+                                        return updated
+                                      })
+                                    }}
+                                    placeholder="Aisle name..."
+                                    className="w-full px-2 py-0.5 text-xs font-medium text-slate-800 bg-transparent hover:bg-slate-50 focus:bg-white rounded-lg border border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none transition"
+                                  />
+                                  {aisleItemCount > 0 && (
+                                    <span className="text-[10px] text-slate-400 font-medium shrink-0 px-1.5 py-0.5 rounded bg-slate-100">
+                                      {aisleItemCount} {aisleItemCount === 1 ? 'item' : 'items'}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditAisles((prev) => prev.filter((_, i) => i !== idx))
+                                  }
+                                  className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer shrink-0 ml-1"
+                                  title="Remove aisle"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )
+                          })}
+
+                          {editAisles.length === 0 && (
+                            <div className="text-xs text-slate-400 italic py-2.5 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                              No aisles configured. Tap 'Add Aisle' below to create one.
                             </div>
-                          ))}
+                          )}
                         </div>
+
+                        {/* Orphaned aisle locations alert & quick action */}
+                        {orphanedLocations.length > 0 && (
+                          <div className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/70 space-y-2 mt-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-amber-900">
+                                Items in unlisted aisles ({orphanedLocations.reduce((s, o) => s + o.count, 0)})
+                              </span>
+                              <span className="text-[10px] text-amber-700">Add to store aisles or reassign</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {orphanedLocations.map(({ name, count }) => (
+                                <div key={name} className="flex items-center justify-between text-xs bg-white px-2.5 py-1.5 rounded-lg border border-amber-200/80 gap-2">
+                                  <span className="font-medium text-slate-800 truncate">
+                                    {name} <span className="text-slate-400 font-normal">({count} {count === 1 ? 'item' : 'items'})</span>
+                                  </span>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddEditAisle(name)}
+                                      className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold cursor-pointer transition"
+                                    >
+                                      + Add to Aisles
+                                    </button>
+                                    {editAisles.length > 0 && (
+                                      <select
+                                        defaultValue=""
+                                        onChange={async (e) => {
+                                          const targetAisle = e.target.value
+                                          if (!targetAisle) return
+                                          await updateShopWithAisles(
+                                            shop.id,
+                                            {},
+                                            { aisleRenames: { [name]: targetAisle } }
+                                          )
+                                        }}
+                                        className="px-1.5 py-0.5 rounded border border-slate-200 text-[10px] font-medium bg-slate-50 text-slate-700 cursor-pointer"
+                                      >
+                                        <option value="" disabled>Reassign to...</option>
+                                        {editAisles.map((a) => (
+                                          <option key={a.id} value={a.name.trim()}>
+                                            {a.name.trim()}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await updateShopWithAisles(
+                                          shop.id,
+                                          {},
+                                          { removedAisles: [name] }
+                                        )
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                      title="Clear aisle from items"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Add Aisle at the bottom (similar to add alternative price) */}
                         {isAddingEditAisle ? (
@@ -499,7 +655,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                                   if (e.key === 'Enter') {
                                     e.preventDefault()
                                     if (editAisleInput.trim()) {
-                                      setEditAisles((prev) => [...prev, editAisleInput.trim()])
+                                      handleAddEditAisle(editAisleInput)
                                       setEditAisleInput('')
                                     }
                                   } else if (e.key === 'Escape') {
@@ -512,7 +668,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                                 type="button"
                                 onClick={() => {
                                   if (editAisleInput.trim()) {
-                                    setEditAisles((prev) => [...prev, editAisleInput.trim()])
+                                    handleAddEditAisle(editAisleInput)
                                     setEditAisleInput('')
                                   }
                                 }}
@@ -539,7 +695,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                               <div className="flex flex-wrap gap-1">
                                 {COMMON_DEPARTMENT_SUGGESTIONS.map((dept) => {
                                   const isAlreadyAdded = editAisles.some(
-                                    (a) => a.toLowerCase() === dept.toLowerCase()
+                                    (a) => a.name.toLowerCase() === dept.toLowerCase()
                                   )
                                   return (
                                     <button
@@ -547,7 +703,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                                       type="button"
                                       disabled={isAlreadyAdded}
                                       onClick={() => {
-                                        setEditAisles((prev) => [...prev, dept])
+                                        handleAddEditAisle(dept)
                                       }}
                                       className={`text-[10px] px-2 py-0.5 rounded-md border transition cursor-pointer font-medium ${
                                         isAlreadyAdded
@@ -717,6 +873,12 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
                       </button>
                     </div>
                   ))}
+
+                  {newAisles.length === 0 && (
+                    <div className="text-xs text-slate-400 italic py-2.5 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      No aisles configured. Tap 'Add Aisle' below to create one.
+                    </div>
+                  )}
                 </div>
 
                 {/* Add Aisle at the bottom */}

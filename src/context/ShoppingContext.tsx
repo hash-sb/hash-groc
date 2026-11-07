@@ -31,6 +31,15 @@ interface ShoppingContextType {
   // Shop operations
   addShop: (shop: Omit<Shop, 'id'>) => Promise<string>
   updateShop: (id: string, updates: Partial<Shop>) => Promise<void>
+  updateShopWithAisles: (
+    shopId: string,
+    shopUpdates: Partial<Shop>,
+    options?: {
+      aisleRenames?: Record<string, string>
+      removedAisles?: string[]
+      clearAllAisles?: boolean
+    }
+  ) => Promise<void>
   deleteShop: (id: string) => Promise<void>
   moveShopOrder: (shopId: string, direction: 'left' | 'right', targetShopId?: string) => Promise<void>
   // Item operations
@@ -572,6 +581,105 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const updated = shops.map((s) => (s.id === id ? { ...s, ...updates } : s))
       setShops(updated)
       persistLocally(updated, undefined)
+    }
+  }
+
+  const updateShopWithAisles = async (
+    shopId: string,
+    shopUpdates: Partial<Shop>,
+    options?: {
+      aisleRenames?: Record<string, string>
+      removedAisles?: string[]
+      clearAllAisles?: boolean
+    }
+  ) => {
+    const { aisleRenames = {}, removedAisles = [], clearAllAisles = false } = options || {}
+    const hasRemovals = removedAisles.length > 0
+
+    const currentItems = itemsRef.current
+    const now = Date.now()
+
+    const updatedItems = currentItems.map((item) => {
+      const currentDetail = item.shops[shopId]
+      if (!currentDetail) return item
+
+      const currentLocation = currentDetail.location?.trim()
+      if (!currentLocation && !clearAllAisles) return item
+
+      let nextLocation = currentDetail.location
+
+      if (clearAllAisles) {
+        nextLocation = ''
+      } else if (currentLocation) {
+        // Match rename key (case-insensitive)
+        const renameMatchKey = Object.keys(aisleRenames).find(
+          (k) => k.trim().toLowerCase() === currentLocation.toLowerCase()
+        )
+        if (renameMatchKey) {
+          nextLocation = aisleRenames[renameMatchKey]
+        } else if (
+          hasRemovals &&
+          removedAisles.some((r) => r.trim().toLowerCase() === currentLocation.toLowerCase())
+        ) {
+          nextLocation = ''
+        }
+      }
+
+      if (nextLocation === currentDetail.location) {
+        return item
+      }
+
+      return {
+        ...item,
+        shops: {
+          ...item.shops,
+          [shopId]: {
+            ...currentDetail,
+            location: nextLocation,
+          },
+        },
+        updatedAt: now,
+      }
+    })
+
+    const itemsChanged = updatedItems.filter((it, idx) => it !== currentItems[idx])
+
+    if (isConfigured && db) {
+      // 1. Update shop document
+      if (Object.keys(shopUpdates).length > 0) {
+        await setDoc(doc(db!, 'households', household.id, 'shops', shopId), shopUpdates, { merge: true })
+      }
+
+      // 2. Batch update changed items in chunks of 400
+      const CHUNK_SIZE = 400
+      for (let i = 0; i < itemsChanged.length; i += CHUNK_SIZE) {
+        const chunk = itemsChanged.slice(i, i + CHUNK_SIZE)
+        const batch = writeBatch(db!)
+        chunk.forEach((item) => {
+          const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+          batch.update(itemRef, {
+            shops: item.shops,
+            updatedAt: item.updatedAt,
+          })
+        })
+        await batch.commit()
+      }
+    } else {
+      const updatedShops = Object.keys(shopUpdates).length > 0
+        ? shops.map((s) => (s.id === shopId ? { ...s, ...shopUpdates } : s))
+        : shops
+
+      if (updatedShops !== shops) {
+        setShops(updatedShops)
+      }
+
+      if (itemsChanged.length > 0) {
+        setItems(updatedItems)
+        itemsRef.current = updatedItems
+        persistLocally(updatedShops !== shops ? updatedShops : undefined, updatedItems)
+      } else if (updatedShops !== shops) {
+        persistLocally(updatedShops, undefined)
+      }
     }
   }
 
@@ -1515,6 +1623,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       loading,
       addShop,
       updateShop,
+      updateShopWithAisles,
       deleteShop,
       moveShopOrder,
       addItem,

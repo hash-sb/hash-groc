@@ -1147,27 +1147,44 @@ export function groupItemsByShopLocation(
   shop: Shop | undefined
 ): Array<{ location: string; items: ShoppingItem[] }> {
   if (!shop) return [{ location: 'General', items }]
+  if (items.length === 0) return []
+
+  const defaultOrder = shop.defaultAisles || []
+
+  // If the store has no aisles defined at all, present all items under a unified 'All Items' group
+  if (defaultOrder.length === 0) {
+    return [{ location: 'All Items', items }]
+  }
 
   const groupsMap: Record<string, ShoppingItem[]> = {}
 
   items.forEach((item) => {
-    const loc = item.shops[shop.id]?.location?.trim() || 'Other / Unassigned'
+    const rawLoc = item.shops[shop.id]?.location?.trim()
+    let loc = rawLoc || 'Other / Unassigned'
+
+    if (rawLoc) {
+      // Canonicalize case if it matches one of defaultOrder
+      const canonical = defaultOrder.find((d) => d.trim().toLowerCase() === rawLoc.toLowerCase())
+      if (canonical) {
+        loc = canonical.trim()
+      }
+    }
+
     if (!groupsMap[loc]) {
       groupsMap[loc] = []
     }
     groupsMap[loc].push(item)
   })
 
-  // Sort groups by shop's default aisles ordering
-  const defaultOrder = shop.defaultAisles || []
+  // Sort groups by shop's default aisles ordering (case-insensitive)
   const groupNames = Object.keys(groupsMap)
 
   groupNames.sort((a, b) => {
     if (a === 'Other / Unassigned') return 1
     if (b === 'Other / Unassigned') return -1
 
-    const indexA = defaultOrder.indexOf(a)
-    const indexB = defaultOrder.indexOf(b)
+    const indexA = defaultOrder.findIndex((d) => d.trim().toLowerCase() === a.trim().toLowerCase())
+    const indexB = defaultOrder.findIndex((d) => d.trim().toLowerCase() === b.trim().toLowerCase())
 
     if (indexA !== -1 && indexB !== -1) return indexA - indexB
     if (indexA !== -1) return -1
