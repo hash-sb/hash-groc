@@ -1313,6 +1313,9 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                         const optionKey = opt.id || `opt-${idx}`
                         const hasLabel = Boolean(opt.label && opt.label.trim())
                         const isLabelOpen = hasLabel || Boolean(showLabelInputMap[optionKey])
+                        const hasPriceOrSize =
+                          (!isNaN(optPriceNum) && optPriceNum > 0) ||
+                          (!isNaN(optSizeNum) && optSizeNum > 0)
 
                         return (
                           <div
@@ -1450,13 +1453,18 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
-                                ) : !isNaN(optPriceNum) && optPriceNum > 0 ? (
+                                ) : hasPriceOrSize ? (
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateOptionField(0, { price: null })}
+                                    onClick={() =>
+                                      handleUpdateOptionField(0, {
+                                        price: null,
+                                        packageSize: null,
+                                      })
+                                    }
                                     className="h-9 w-7 sm:w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
-                                    title="Clear price"
-                                    aria-label="Clear price"
+                                    title="Clear price and quantity"
+                                    aria-label="Clear price and quantity"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
