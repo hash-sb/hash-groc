@@ -544,7 +544,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         ...(currentDetail || {
           price: null,
           unitPrice: null,
-          location: item.category || 'Other',
+          location: '',
           packageSize: null,
           packageUnit: item.unit || 'ea',
         }),
@@ -582,7 +582,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         available: true,
         price: null,
         unitPrice: null,
-        location: quickAddCategory || 'Other',
+        location: '',
         packageSize: null,
         packageUnit: 'ea',
       }
@@ -2543,7 +2543,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     {quickAddMatches.map((item) => {
                       const detail = item.shops[currentShop.id]
                       const price = detail?.price
-                      const location = detail?.location || item.category || 'Other'
+                      const location = detail?.location || 'Unassigned'
                       const isAlreadyOnTrip = item.isNeeded
 
                       return (

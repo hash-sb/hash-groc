@@ -1160,7 +1160,10 @@ export function groupItemsByShopLocation(
 
   items.forEach((item) => {
     const rawLoc = item.shops[shop.id]?.location?.trim()
-    let loc = rawLoc || 'Other / Unassigned'
+    let loc = rawLoc || 'Unassigned'
+    if (loc === 'Other / Unassigned') {
+      loc = 'Unassigned'
+    }
 
     if (rawLoc) {
       // Canonicalize case if it matches one of defaultOrder
@@ -1176,12 +1179,12 @@ export function groupItemsByShopLocation(
     groupsMap[loc].push(item)
   })
 
-  // Sort groups by shop's default aisles ordering (case-insensitive)
+  // Sort groups by shop's default aisles ordering (case-insensitive), with Unassigned always at the top
   const groupNames = Object.keys(groupsMap)
 
   groupNames.sort((a, b) => {
-    if (a === 'Other / Unassigned') return 1
-    if (b === 'Other / Unassigned') return -1
+    if (a === 'Unassigned' || a === 'Other / Unassigned') return -1
+    if (b === 'Unassigned' || b === 'Other / Unassigned') return 1
 
     const indexA = defaultOrder.findIndex((d) => d.trim().toLowerCase() === a.trim().toLowerCase())
     const indexB = defaultOrder.findIndex((d) => d.trim().toLowerCase() === b.trim().toLowerCase())

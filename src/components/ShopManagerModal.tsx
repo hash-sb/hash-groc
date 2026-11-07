@@ -225,7 +225,12 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
     const map: Record<string, number> = {}
     items.forEach((it) => {
       const loc = it.shops[editingShopId]?.location?.trim()
-      if (loc && !currentAisleNames.has(loc.toLowerCase())) {
+      if (
+        loc &&
+        loc.toLowerCase() !== 'unassigned' &&
+        loc.toLowerCase() !== 'other / unassigned' &&
+        !currentAisleNames.has(loc.toLowerCase())
+      ) {
         map[loc] = (map[loc] || 0) + 1
       }
     })
