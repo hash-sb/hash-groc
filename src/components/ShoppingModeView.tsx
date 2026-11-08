@@ -306,7 +306,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const getShopItemCount = (shopId: string) => {
     return allNeededItems.filter((item) => {
       const detail = item.shops[shopId]
-      const isCarried = detail ? detail.available : true
+      const isCarried = detail ? detail.available !== false : true
       if (!isCarried) return false
       if (saveMode) return isCheapestAtStore(item, shopId, shops)
       return true
@@ -340,7 +340,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     return visibleShops.map((shop) => {
       const carriedItems = allNeededItems.filter((item) => {
         const detail = item.shops[shop.id]
-        const isCarried = detail ? detail.available : true
+        const isCarried = detail ? detail.available !== false : true
         if (!isCarried) return false
         if (saveMode) return isCheapestAtStore(item, shop.id, shops)
         return true
@@ -373,7 +373,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   // Items available at this store
   const carriedAtShopItems = allNeededItems.filter((item) => {
     const detail = item.shops[currentShop?.id]
-    return detail ? detail.available : true
+    return detail ? detail.available !== false : true
   })
 
   // Items needed but NOT carried at this store (excluded)

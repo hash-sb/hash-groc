@@ -78,6 +78,23 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
   const handleDigit = useCallback(
     (digit: string) => {
       triggerHaptic(10)
+      if (mode === 'price') {
+        setDisplay((prev) => {
+          if (waitingForOperand) {
+            setWaitingForOperand(false)
+            const val = parseInt(digit, 10) || 0
+            return (val / 100).toFixed(2)
+          }
+          const rawDigits = prev.replace(/\D/g, '')
+          // Limit to 7 digits to prevent overflow (up to $99,999.99)
+          if (rawDigits.length >= 7 && rawDigits !== '000') return prev
+          const combined = rawDigits + digit
+          const num = parseInt(combined, 10) || 0
+          return (num / 100).toFixed(2)
+        })
+        return
+      }
+
       setDisplay((prev) => {
         if (waitingForOperand) {
           setWaitingForOperand(false)
@@ -89,10 +106,11 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
         return prev + digit
       })
     },
-    [waitingForOperand]
+    [waitingForOperand, mode]
   )
 
   const handleDecimal = useCallback(() => {
+    if (mode === 'price') return // Cashier mode: decimal point is not used
     triggerHaptic(10)
     setDisplay((prev) => {
       if (waitingForOperand) {
@@ -102,19 +120,32 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
       if (prev.includes('.')) return prev
       return prev + '.'
     })
-  }, [waitingForOperand])
+  }, [waitingForOperand, mode])
 
   const handleClear = useCallback(() => {
     triggerHaptic(15)
-    setDisplay('0')
+    setDisplay(mode === 'price' ? '0.00' : '0')
     setPrevValue(null)
     setOperation(null)
     setHistory('')
     setWaitingForOperand(true)
-  }, [])
+  }, [mode])
 
   const handleBackspace = useCallback(() => {
     triggerHaptic(10)
+    if (mode === 'price') {
+      setDisplay((prev) => {
+        if (waitingForOperand) {
+          setWaitingForOperand(false)
+        }
+        const rawDigits = prev.replace(/\D/g, '')
+        const num = parseInt(rawDigits, 10) || 0
+        const shifted = Math.floor(num / 10)
+        return (shifted / 100).toFixed(2)
+      })
+      return
+    }
+
     setDisplay((prev) => {
       if (waitingForOperand) {
         setWaitingForOperand(false)
@@ -122,7 +153,7 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
       if (prev.length <= 1) return '0'
       return prev.slice(0, -1)
     })
-  }, [waitingForOperand])
+  }, [waitingForOperand, mode])
 
   const handleOperator = useCallback(
     (nextOp: '+' | '-' | '×' | '÷') => {
@@ -131,7 +162,7 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
 
       if (operation && prevValue !== null && !waitingForOperand) {
         const computed = computeResult(prevValue, current, operation)
-        setDisplay(String(computed))
+        setDisplay(mode === 'price' ? computed.toFixed(2) : String(computed))
         setPrevValue(computed)
         setHistory(`${computed} ${nextOp}`)
       } else {
@@ -151,7 +182,7 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
     const current = parseFloat(display) || 0
     const computed = computeResult(prevValue, current, operation)
     setHistory(`${prevValue} ${operation} ${current} =`)
-    setDisplay(String(computed))
+    setDisplay(mode === 'price' ? computed.toFixed(2) : String(computed))
     setPrevValue(null)
     setOperation(null)
     setWaitingForOperand(true)
@@ -342,7 +373,11 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
               </span>
             )}
             {!liveUnitPrice && !liveTotalCost && (
-              <span className="text-slate-500">Tap keypad to enter {mode}</span>
+              <span className="text-slate-400">
+                {mode === 'price'
+                  ? 'Cashier style: enter digits without decimal point'
+                  : `Tap keypad to enter ${mode}`}
+              </span>
             )}
           </div>
         </div>
@@ -542,8 +577,13 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
           <button
             type="button"
             onClick={handleDecimal}
-            className="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 font-black text-xl border border-slate-200 transition cursor-pointer active:scale-95 shadow-2xs"
-            title="Decimal point"
+            disabled={mode === 'price'}
+            className={`py-3 rounded-xl font-black text-xl border transition shadow-2xs ${
+              mode === 'price'
+                ? 'bg-slate-50 text-slate-300 border-slate-200/50 cursor-not-allowed select-none'
+                : 'bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 border-slate-200 cursor-pointer active:scale-95'
+            }`}
+            title={mode === 'price' ? 'Decimal point not needed in cashier mode' : 'Decimal point'}
           >
             .
           </button>
