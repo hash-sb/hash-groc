@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
   X,
   Trash2,
-  Store,
   CheckCircle,
   XCircle,
   Plus,
@@ -71,6 +70,10 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false)
   const [isNeeded, setIsNeeded] = useState(liveItem ? liveItem.isNeeded : true)
   const [isWeekly, setIsWeekly] = useState(Boolean(liveItem?.isWeekly))
+  const [isNotesExpanded, setIsNotesExpanded] = useState<boolean>(() =>
+    Boolean(liveItem?.notes && liveItem.notes.trim().length > 0)
+  )
+  const [isBarcodeExpanded, setIsBarcodeExpanded] = useState<boolean>(false)
 
   // Discover initial common package measurement unit across stores and alternatives
   const getInitialCommonUnit = (): string => {
@@ -101,6 +104,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
       setCategory(liveItem.category || (categories[0] || 'Produce'))
       setQuantity(liveItem.quantity || 1)
       setNotes(liveItem.notes || '')
+      setIsNotesExpanded(Boolean(liveItem.notes && liveItem.notes.trim().length > 0))
       setBarcodes(getItemBarcodes(liveItem))
       setImageUrl(liveItem.imageUrl || '')
       setIsNeeded(liveItem.isNeeded)
@@ -843,203 +847,134 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900">
-              {item ? 'Edit Grocery Item' : 'Add New Item'}
+      <div className="bg-white rounded-2xl max-w-xl w-full max-h-[96vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+        {/* Compact Header with Integrated Micro-Toggles */}
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/90 gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+              {item ? 'Edit Item' : 'New Item'}
             </h2>
-            <p className="text-xs text-slate-500">
-              Set availability, normalized package prices & aisles
-            </p>
+
+            {/* Need to Buy (List) Micro-Pill */}
+            <button
+              type="button"
+              onClick={() => setIsNeeded(!isNeeded)}
+              className={`px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 transition cursor-pointer border shrink-0 ${
+                isNeeded
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                  : 'bg-white text-slate-500 border-slate-300 hover:bg-slate-50'
+              }`}
+              title={isNeeded ? 'On shopping list (tap to toggle)' : 'Not on shopping list (tap to add)'}
+            >
+              <ShoppingCart className="w-3 h-3" />
+              <span>{isNeeded ? 'List' : '+ List'}</span>
+            </button>
+
+            {/* Weekly Household Staple Micro-Pill */}
+            <button
+              type="button"
+              onClick={() => setIsWeekly(!isWeekly)}
+              className={`px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 transition cursor-pointer border shrink-0 ${
+                isWeekly
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                  : 'bg-white text-slate-500 border-slate-300 hover:bg-slate-50'
+              }`}
+              title={isWeekly ? 'Weekly recurring staple (tap to disable)' : 'Not weekly staple (tap to enable)'}
+            >
+              <Repeat className="w-3 h-3" />
+              <span>Weekly</span>
+            </button>
           </div>
+
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition"
+            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition shrink-0"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Scrollable Form Content */}
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
-          {/* 1. Basic Info */}
-          <div className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Item Name *
-              </label>
+        {/* Ultra-Compact Form Content */}
+        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-2.5">
+          {/* Row 1: Item Name + Integrated Barcode Scanner */}
+          <div className="space-y-1">
+            <div className="relative flex items-center">
               <input
                 type="text"
                 required
-                placeholder="e.g. Organic Whole Milk, Hass Avocados, Peanut Butter"
+                placeholder="Item Name (e.g. Organic Whole Milk)*"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium"
+                className="w-full pl-3 pr-20 py-1.5 sm:py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs sm:text-sm font-semibold text-slate-900 bg-white shadow-2xs"
               />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Category Selection + Add Custom Category */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Category
-                  </label>
-                  {!isAddingNewCat && (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingNewCat(true)}
-                      className="text-[11px] text-emerald-700 hover:underline font-bold"
-                    >
-                      + New
-                    </button>
-                  )}
-                </div>
-
-                {isAddingNewCat ? (
-                  <div className="flex gap-1">
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="Category name"
-                      value={newCatInput}
-                      onChange={(e) => setNewCatInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleCreateCategory()
-                        }
-                      }}
-                      className="w-full px-2 py-1.5 text-xs rounded-lg border border-emerald-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCreateCategory}
-                      className="px-2 py-1 bg-emerald-600 text-white text-xs rounded-lg font-bold"
-                    >
-                      Add
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingNewCat(false)}
-                      className="p-1 text-slate-400 text-xs"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm bg-white"
+              <div className="absolute right-1.5 flex items-center gap-1">
+                {/* Barcodes Count / Toggle Pill */}
+                {barcodes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsBarcodeExpanded(!isBarcodeExpanded)}
+                    className="px-1.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-mono font-bold border border-slate-200 flex items-center gap-0.5 transition cursor-pointer"
+                    title="View linked barcodes"
                   >
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+                    <Barcode className="w-3 h-3 text-emerald-600" />
+                    <span>{barcodes.length}</span>
+                  </button>
                 )}
+
+                {/* Scan Barcode with Camera */}
+                <button
+                  type="button"
+                  onClick={() => setIsBarcodeModalOpen(true)}
+                  className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 transition cursor-pointer border border-slate-200"
+                  title="Scan barcode with camera"
+                >
+                  <Barcode className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-[11px] font-medium hidden sm:inline">Scan</span>
+                </button>
               </div>
+            </div>
 
-              {/* Quantity Stepper (+ and - buttons for mobile UX) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Quantity
-                </label>
-                <div className="flex items-center rounded-xl border border-slate-300 bg-white overflow-hidden shadow-xs">
+            {/* Expandable Barcode Manager Drawer (Hidden by default to save vertical space) */}
+            {isBarcodeExpanded && (
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 animate-in fade-in duration-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                    Linked Barcodes ({barcodes.length})
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-600 active:bg-slate-200 transition shrink-0"
-                    title="Decrease quantity"
+                    onClick={() => setIsBarcodeExpanded(false)}
+                    className="text-[10px] text-slate-400 hover:text-slate-600"
                   >
-                    <Minus className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCalcModal({
-                        isOpen: true,
-                        title: 'Set Quantity',
-                        mode: 'quantity',
-                        initialValue: quantity,
-                        unit: commonUnit || '',
-                        onApply: (newVal) => setQuantity(Math.max(1, newVal)),
-                      })
-                    }}
-                    className="w-full h-10 flex items-center justify-center font-bold text-slate-900 text-sm hover:bg-slate-50 active:bg-slate-100 transition cursor-pointer"
-                    title="Tap to change quantity with keypad"
-                  >
-                    <span>{quantity}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => q + 1)}
-                    className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-emerald-700 active:bg-emerald-100 transition shrink-0"
-                    title="Increase quantity"
-                  >
-                    <Plus className="w-4 h-4" />
+                    Hide
                   </button>
                 </div>
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Notes / Brand Preference
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Organic preferred, firm green ones"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm"
-              />
-            </div>
-
-            {/* Barcode Manager (Supports multiple store barcodes) */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Barcodes ({barcodes.length})
-                </label>
-                <span className="text-[11px] text-slate-400 font-medium">
-                  Add barcodes across stores (Walmart, Aldi, etc.)
-                </span>
-              </div>
-
-              {/* Linked Barcode Chips */}
-              {barcodes.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {barcodes.map((b, idx) => (
-                    <span
-                      key={`${b}-${idx}`}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-mono font-semibold text-slate-800 shadow-2xs"
-                    >
-                      <Barcode className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{b}</span>
-                      <button
-                        type="button"
-                        onClick={() => setBarcodes((prev) => prev.filter((code) => code !== b))}
-                        className="p-0.5 rounded-md hover:bg-slate-200 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                        title="Remove barcode"
+                {barcodes.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {barcodes.map((b) => (
+                      <span
+                        key={b}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-mono font-semibold text-slate-800"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+                        <Barcode className="w-3 h-3 text-emerald-600" />
+                        <span>{b}</span>
+                        <button
+                          type="button"
+                          onClick={() => setBarcodes((prev) => prev.filter((code) => code !== b))}
+                          className="p-0.5 text-slate-400 hover:text-rose-600"
+                          title="Remove barcode"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-              {/* Input & Scan Button */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Barcode className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <div className="flex items-center gap-1">
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1056,11 +991,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                         }
                       }
                     }}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm font-mono"
+                    className="flex-1 px-2 py-1 text-xs font-mono rounded-lg border border-slate-300 focus:outline-none"
                   />
-                </div>
-
-                {newBarcodeInput.trim() && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1070,103 +1002,158 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                         setNewBarcodeInput('')
                       }
                     }}
-                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer active:scale-95"
+                    className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold"
                   >
                     Add
                   </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setIsBarcodeModalOpen(true)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0 active:scale-95"
-                  title="Scan barcode with camera"
-                >
-                  <Barcode className="w-4 h-4 text-emerald-600" />
-                  <span>Scan</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Shopping List & Weekly Staple Toggles on the same row */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-              {/* Need to Buy Switch */}
-              <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <ShoppingCart className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="text-[11px] sm:text-xs font-bold text-emerald-950 leading-tight">
-                    Add to Shopping List
-                  </span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-1.5 sm:ml-2">
-                  <input
-                    type="checkbox"
-                    checked={isNeeded}
-                    onChange={(e) => setIsNeeded(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 sm:w-10 h-5 sm:h-5.5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 sm:after:h-4.5 after:w-4 sm:after:w-4.5 after:transition-all peer-checked:bg-emerald-600"></div>
-                </label>
               </div>
-
-              {/* Weekly Recurring Staple Switch */}
-              <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-blue-50/70 border border-blue-200 min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Repeat className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span className="text-[11px] sm:text-xs font-bold text-blue-950 leading-tight">
-                    Weekly Household Staple
-                  </span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-1.5 sm:ml-2">
-                  <input
-                    type="checkbox"
-                    checked={isWeekly}
-                    onChange={(e) => setIsWeekly(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 sm:w-10 h-5 sm:h-5.5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 sm:after:h-4.5 after:w-4 sm:after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* 2. Store Pricing & Package Size Normalization */}
-          <div className="pt-2 border-t border-slate-200">
-            <div className="flex items-center justify-between gap-2 mb-2.5">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-                <Store className="w-4 h-4 text-emerald-600" />
-                <span>Store Prices</span>
-              </label>
-
-              {/* Single Common Unit Selector */}
-              <div className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-xl border border-slate-200 transition shrink-0">
-                <label htmlFor="common-unit-select" className="text-[11px] font-bold text-slate-600 uppercase tracking-wider cursor-pointer">
-                  Unit:
-                </label>
-                <select
-                  id="common-unit-select"
-                  value={commonUnit}
-                  onChange={(e) => handleCommonUnitChange(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer pr-1"
-                >
-                  {!UNIT_GROUPS.some((g) => g.units.includes(commonUnit)) && (
-                    <option value={commonUnit}>{commonUnit}</option>
-                  )}
-                  {UNIT_GROUPS.map((grp) => (
-                    <optgroup key={grp.label} label={grp.label}>
-                      {grp.units.map((u) => (
-                        <option key={u} value={u}>
-                          {u}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </div>
+          {/* Row 2: Category Selection + Quantity Stepper + Note Toggle */}
+          <div className="grid grid-cols-[minmax(0,1fr)_112px_auto] gap-1.5 sm:gap-2 items-center">
+            {/* Category Dropdown */}
+            <div className="min-w-0">
+              {isAddingNewCat ? (
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="New category..."
+                    value={newCatInput}
+                    onChange={(e) => setNewCatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleCreateCategory()
+                      }
+                    }}
+                    className="w-full px-2 py-1 text-xs rounded-lg border border-emerald-500 focus:outline-none bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    className="px-2 py-1 bg-emerald-600 text-white text-xs rounded-lg font-bold shrink-0"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNewCat(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 text-xs shrink-0"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <select
+                    value={category}
+                    onChange={(e) => {
+                      if (e.target.value === '__add_new__') {
+                        setIsAddingNewCat(true)
+                      } else {
+                        setCategory(e.target.value)
+                      }
+                    }}
+                    className="w-full pl-2.5 pr-6 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-semibold text-slate-800 bg-white appearance-none truncate cursor-pointer shadow-2xs"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="__add_new__">+ New Category...</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              )}
             </div>
 
-            {/* Store Grid (2x2 on mobile, 4-col on desktop) — No Horizontal Scrolling */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+            {/* Quantity Stepper */}
+            <div className="flex items-center h-8 rounded-lg border border-slate-300 bg-white overflow-hidden shadow-2xs shrink-0">
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                className="w-8 h-full flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-600 active:bg-slate-200 transition shrink-0 cursor-pointer"
+                title="Decrease quantity"
+              >
+                <Minus className="w-3 h-3" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCalcModal({
+                    isOpen: true,
+                    title: 'Set Quantity',
+                    mode: 'quantity',
+                    initialValue: quantity,
+                    unit: commonUnit || '',
+                    onApply: (newVal) => setQuantity(Math.max(1, newVal)),
+                  })
+                }}
+                className="flex-1 h-full px-1 flex items-center justify-center font-bold text-slate-900 text-xs hover:bg-slate-50 active:bg-slate-100 transition cursor-pointer"
+                title="Tap to change quantity with keypad"
+              >
+                <span>{quantity}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => q + 1)}
+                className="w-8 h-full flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-emerald-700 active:bg-emerald-100 transition shrink-0 cursor-pointer"
+                title="Increase quantity"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Note Expander Button */}
+            <button
+              type="button"
+              onClick={() => setIsNotesExpanded(!isNotesExpanded)}
+              className={`h-8 px-2 rounded-lg text-xs font-semibold flex items-center gap-1 border transition cursor-pointer shrink-0 ${
+                notes.trim() || isNotesExpanded
+                  ? 'bg-amber-50 text-amber-900 border-amber-300'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+              title={notes.trim() ? `Note: ${notes}` : 'Add note/brand preference'}
+            >
+              <Tag className="w-3 h-3 text-amber-600" />
+              <span className="text-[11px]">{notes.trim() ? 'Note' : '+ Note'}</span>
+            </button>
+          </div>
+
+          {/* Optional Note Row (Revealed on click or if text exists) */}
+          {(isNotesExpanded || notes.trim().length > 0) && (
+            <div className="flex items-center gap-1.5 animate-in fade-in duration-100">
+              <input
+                type="text"
+                autoFocus={isNotesExpanded && !notes.trim()}
+                placeholder="Brand, size, or preference note..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-amber-200 bg-amber-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-400 text-slate-800"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setNotes('')
+                  setIsNotesExpanded(false)
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600"
+                title="Clear note"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Row 3: Store Selector Tabs (Single Horizontal Row) */}
+          <div className="pt-1">
+            <div className="flex gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar">
               {shops.map((shop) => {
                 const isSelected = shop.id === activeTabShopId
                 const detail = shopDetails[shop.id]
@@ -1179,7 +1166,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                     key={shop.id}
                     type="button"
                     onClick={() => setActiveTabShopId(shop.id)}
-                    className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                    className={`flex-1 min-w-[72px] sm:min-w-[80px] py-1 px-1.5 rounded-xl border text-center transition flex flex-col items-center justify-center cursor-pointer ${
                       isSelected
                         ? 'border-emerald-500 bg-emerald-50/90 text-emerald-950 font-bold shadow-xs ring-2 ring-emerald-500/20'
                         : isLowest
@@ -1187,362 +1174,391 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                         : 'border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
-                    {/* Top: Dot + Store Name + Best Badge */}
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            isAvailable ? 'bg-emerald-500' : 'bg-rose-400'
-                          }`}
-                        />
-                        <span className="text-xs font-bold truncate">{shop.name}</span>
-                      </div>
-
+                    <div className="w-full flex items-center justify-center gap-1 min-w-0">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isAvailable ? 'bg-emerald-500' : 'bg-rose-400'
+                        }`}
+                      />
+                      <span className="text-[11px] sm:text-xs font-bold truncate">{shop.name}</span>
                       {isLowest && isAvailable && (
-                        <span
-                          className="inline-flex items-center p-0.5 text-emerald-600 shrink-0"
-                          title="Lowest price across stores"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                        </span>
+                        <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
                       )}
                     </div>
-
-                    {/* Bottom: Stacked Normalized Unit Price */}
-                    <div className="mt-1">
+                    <div className="text-[10px] sm:text-[11px] font-mono leading-tight mt-0.5 truncate w-full">
                       {isAvailable ? (
                         detail?.price ? (
-                          <div className="text-[11px] font-mono font-bold text-slate-800 leading-tight">
+                          <span className="font-bold text-slate-800">
                             {detail.unitPrice
                               ? formatUnitPrice(detail.unitPrice, detail.packageUnit || commonUnit)
                               : `$${detail.price.toFixed(2)}`}
-                          </div>
+                          </span>
                         ) : (
-                          <div className="text-[10px] text-slate-400 italic">No price</div>
+                          <span className="text-slate-400 italic">No price</span>
                         )
                       ) : (
-                        <div className="text-[10px] text-rose-600 font-semibold">Not carried</div>
+                        <span className="text-rose-500 font-semibold">Off</span>
                       )}
                     </div>
                   </button>
                 )
               })}
             </div>
+          </div>
 
-            {/* Active Shop Configuration */}
-            {activeShop && (
-              <div className="mt-3 p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                {/* Compact Store Control Bar: Aisle Picker + Availability Toggle */}
-                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
-                  {/* Left: Compact Aisle Picker (Opens Aisle Window) */}
-                  {currentShopDetail.available ? (
-                    <button
-                      type="button"
-                      onClick={() => setIsAisleModalOpen(true)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${
-                        currentShopDetail.location
-                          ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold'
-                          : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
-                      }`}
-                      title="Select aisle location"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="max-w-[130px] sm:max-w-[180px] truncate">
-                        {currentShopDetail.location || 'Unassigned'}
-                      </span>
-                      <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-400 italic">Not Carried</span>
-                  )}
-
-                  {/* Right: Availability Toggle (Icon Only) */}
+          {/* Row 4: Active Store Configuration Box (Compact) */}
+          {activeShop && (
+            <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200 space-y-1.5 sm:space-y-2">
+              {/* Store Bar: Aisle Selector + Unit Selector + Carried Toggle */}
+              <div className="flex items-center justify-between gap-1.5">
+                {/* Aisle Button */}
+                {currentShopDetail.available ? (
                   <button
                     type="button"
-                    onClick={() =>
-                      handleShopDetailChange(activeShop.id, {
-                        available: !currentShopDetail.available,
-                      })
-                    }
-                    className={`p-1.5 rounded-xl border transition cursor-pointer shadow-2xs ${
-                      currentShopDetail.available
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
-                        : 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
+                    onClick={() => setIsAisleModalOpen(true)}
+                    className={`flex-1 flex items-center justify-between px-2.5 py-1 rounded-lg text-xs border transition cursor-pointer min-w-0 ${
+                      currentShopDetail.location
+                        ? 'bg-emerald-50 text-emerald-950 border-emerald-300 font-bold'
+                        : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
                     }`}
-                    title={
-                      currentShopDetail.available
-                        ? 'Item is carried here (tap to exclude)'
-                        : 'Item is not carried here (tap to include)'
-                    }
-                    aria-label={currentShopDetail.available ? 'Included in this store' : 'Excluded from this store'}
+                    title="Select aisle location"
                   >
-                    {currentShopDetail.available ? (
-                      <CheckCircle className="w-4 h-4 text-emerald-700" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-rose-700" />
-                    )}
+                    <div className="flex items-center gap-1 min-w-0 truncate">
+                      <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span className="truncate text-[11px] sm:text-xs">
+                        {currentShopDetail.location || 'Unassigned'}
+                      </span>
+                    </div>
+                    <ChevronDown className="w-3 h-3 text-slate-400 shrink-0 ml-0.5" />
                   </button>
+                ) : (
+                  <span className="text-xs text-slate-400 italic">Not Carried</span>
+                )}
+
+                {/* Common Unit Selector */}
+                <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-300 shrink-0">
+                  <label
+                    htmlFor="common-unit-select"
+                    className="text-[10px] font-bold text-slate-500 uppercase cursor-pointer"
+                  >
+                    Unit:
+                  </label>
+                  <select
+                    id="common-unit-select"
+                    value={commonUnit}
+                    onChange={(e) => handleCommonUnitChange(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer pr-0.5"
+                  >
+                    {!UNIT_GROUPS.some((g) => g.units.includes(commonUnit)) && (
+                      <option value={commonUnit}>{commonUnit}</option>
+                    )}
+                    {UNIT_GROUPS.map((grp) => (
+                      <optgroup key={grp.label} label={grp.label}>
+                        {grp.units.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
 
-                {currentShopDetail.available ? (
-                  <div className="space-y-2">
-                    {/* Rows for Primary and Alternative Sizes */}
-                    <div className="space-y-2">
-                      {renderedOptions.map((opt, idx) => {
-                        const isOptimal =
-                          hasMultipleSizes &&
-                          optimalStorePackageResult?.bestOption.id === opt.id
-                        const optPriceNum =
-                          typeof opt.price === 'number'
-                            ? opt.price
-                            : parseFloat(String(opt.price))
-                        const optSizeNum =
-                          typeof opt.packageSize === 'number'
-                            ? opt.packageSize
-                            : parseFloat(String(opt.packageSize))
-                        const optUnitPrice =
-                          typeof opt.unitPrice === 'number' && opt.unitPrice > 0
-                            ? opt.unitPrice
-                            : !isNaN(optPriceNum) &&
-                              optPriceNum > 0 &&
-                              !isNaN(optSizeNum) &&
-                              optSizeNum > 0
-                            ? Number((optPriceNum / optSizeNum).toFixed(4))
-                            : null
+                {/* Availability Toggle */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleShopDetailChange(activeShop.id, {
+                      available: !currentShopDetail.available,
+                    })
+                  }
+                  className={`px-2 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs shrink-0 ${
+                    currentShopDetail.available
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                      : 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
+                  }`}
+                  title={
+                    currentShopDetail.available
+                      ? 'Item is carried at this store (tap to exclude)'
+                      : 'Item is not carried here (tap to include)'
+                  }
+                  aria-label={currentShopDetail.available ? 'Included in this store' : 'Excluded from this store'}
+                >
+                  {currentShopDetail.available ? (
+                    <>
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-[11px]">Carried</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                      <span className="text-[11px]">Excluded</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
-                        const optionKey = opt.id || `opt-${idx}`
-                        const hasLabel = Boolean(opt.label && opt.label.trim())
-                        const isLabelOpen = hasLabel || Boolean(showLabelInputMap[optionKey])
-                        const hasPriceOrSize =
-                          (!isNaN(optPriceNum) && optPriceNum > 0) ||
-                          (!isNaN(optSizeNum) && optSizeNum > 0)
+              {/* Price & Size Rows */}
+              {currentShopDetail.available ? (
+                <div className="space-y-1.5">
+                  {renderedOptions.map((opt, idx) => {
+                    const isOptimal =
+                      hasMultipleSizes &&
+                      optimalStorePackageResult?.bestOption.id === opt.id
+                    const optPriceNum =
+                      typeof opt.price === 'number'
+                        ? opt.price
+                        : parseFloat(String(opt.price))
+                    const optSizeNum =
+                      typeof opt.packageSize === 'number'
+                        ? opt.packageSize
+                        : parseFloat(String(opt.packageSize))
+                    const optUnitPrice =
+                      typeof opt.unitPrice === 'number' && opt.unitPrice > 0
+                        ? opt.unitPrice
+                        : !isNaN(optPriceNum) &&
+                          optPriceNum > 0 &&
+                          !isNaN(optSizeNum) &&
+                          optSizeNum > 0
+                        ? Number((optPriceNum / optSizeNum).toFixed(4))
+                        : null
 
-                        return (
-                          <div
-                            key={optionKey}
-                            className={`p-2.5 rounded-xl border transition-all space-y-1.5 ${
-                              isOptimal
-                                ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
-                                : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_58px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_66px] gap-1.5 sm:gap-2 items-center">
-                              {/* Column 1: Shelf Price ($) */}
-                              <div className="relative min-w-0">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none z-10">
-                                  $
-                                </span>
-                                <button
-                                  type="button"
-                                  ref={(el) => {
-                                    if (opt.id) {
-                                      priceButtonRefs.current[opt.id] = el
-                                    }
-                                  }}
-                                  onClick={() => openPriceCalculator(opt, idx)}
-                                  className="w-full h-9 pl-6 pr-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
-                                  title="Tap to change price with calculator"
+                    const optionKey = opt.id || `opt-${idx}`
+                    const hasLabel = Boolean(opt.label && opt.label.trim())
+                    const isLabelOpen = hasLabel || Boolean(showLabelInputMap[optionKey])
+                    const hasPriceOrSize =
+                      (!isNaN(optPriceNum) && optPriceNum > 0) ||
+                      (!isNaN(optSizeNum) && optSizeNum > 0)
+
+                    return (
+                      <div
+                        key={optionKey}
+                        className={`p-1.5 sm:p-2 rounded-xl border transition-all space-y-1 ${
+                          isOptimal
+                            ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
+                            : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_76px_54px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_60px] gap-1 sm:gap-1.5 items-center">
+                          {/* Column 1: Shelf Price ($) */}
+                          <div className="relative min-w-0">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none z-10">
+                              $
+                            </span>
+                            <button
+                              type="button"
+                              ref={(el) => {
+                                if (opt.id) {
+                                  priceButtonRefs.current[opt.id] = el
+                                }
+                              }}
+                              onClick={() => openPriceCalculator(opt, idx)}
+                              className="w-full h-8 pl-5 pr-1.5 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
+                              title="Tap to change price with calculator"
+                            >
+                              {typeof opt.price === 'number' && !isNaN(opt.price) && opt.price > 0 ? (
+                                opt.price.toFixed(2)
+                              ) : (
+                                <span className="text-slate-400 font-normal">0.00</span>
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Column 2: Quantity / Size ({commonUnit}) with auto-default placeholder '1' */}
+                          <div className="relative min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCalcModal({
+                                  isOpen: true,
+                                  title: `Set Quantity / Size (${activeShop.name})`,
+                                  mode: 'quantity',
+                                  initialValue:
+                                    typeof opt.packageSize === 'number' &&
+                                    !isNaN(opt.packageSize)
+                                      ? opt.packageSize
+                                      : 1,
+                                  unit: commonUnit,
+                                  onApply: (val) => {
+                                    handleUpdateOptionField(idx, { packageSize: val > 0 ? val : null })
+                                  },
+                                })
+                              }}
+                              className="w-full h-8 pl-2 pr-7 rounded-lg border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
+                              title="Tap to change size with calculator"
+                            >
+                              {typeof opt.packageSize === 'number' &&
+                              !isNaN(opt.packageSize) &&
+                              opt.packageSize > 0 ? (
+                                <span>{Number(opt.packageSize.toFixed(2))}</span>
+                              ) : (
+                                <span className="text-slate-400 font-normal">1</span>
+                              )}
+                            </button>
+                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none truncate max-w-[24px]">
+                              {commonUnit}
+                            </span>
+                          </div>
+
+                          {/* Column 3: Read-Only Result (Unit Price / Value) */}
+                          <div className="flex items-center gap-0.5 shrink-0 w-[76px] sm:w-[82px]">
+                            {optUnitPrice ? (
+                              <span
+                                className="w-[52px] sm:w-[58px] h-8 px-1 font-mono text-[11px] sm:text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg shrink-0 inline-flex items-center justify-center whitespace-nowrap"
+                                title={formatUnitPrice(optUnitPrice, commonUnit)}
+                              >
+                                ${optUnitPrice < 1 ? optUnitPrice.toFixed(3) : optUnitPrice.toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className="w-[52px] sm:w-[58px] h-8 text-[11px] text-slate-400 italic inline-flex items-center justify-center shrink-0">
+                                —
+                              </span>
+                            )}
+                            <div className="w-5 flex items-center justify-center shrink-0">
+                              {isOptimal && (
+                                <span
+                                  className="inline-flex items-center p-0.5 text-emerald-600"
+                                  title="Lowest price (best value)"
                                 >
-                                  {typeof opt.price === 'number' && !isNaN(opt.price) && opt.price > 0 ? (
-                                    opt.price.toFixed(2)
-                                  ) : (
-                                    <span className="text-slate-400 font-normal">0.00</span>
-                                  )}
-                                </button>
-                              </div>
-
-                              {/* Column 2: Quantity / Size ({commonUnit}) with auto-default placeholder '1' */}
-                              <div className="relative min-w-0">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setCalcModal({
-                                      isOpen: true,
-                                      title: `Set Quantity / Size (${activeShop.name})`,
-                                      mode: 'quantity',
-                                      initialValue:
-                                        typeof opt.packageSize === 'number' &&
-                                        !isNaN(opt.packageSize)
-                                          ? opt.packageSize
-                                          : 1,
-                                      unit: commonUnit,
-                                      onApply: (val) => {
-                                        handleUpdateOptionField(idx, { packageSize: val > 0 ? val : null })
-                                      },
-                                    })
-                                  }}
-                                  className="w-full h-9 pl-2.5 pr-8 rounded-lg border border-slate-300 text-sm font-bold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
-                                  title="Tap to change size with calculator"
-                                >
-                                  {typeof opt.packageSize === 'number' &&
-                                  !isNaN(opt.packageSize) &&
-                                  opt.packageSize > 0 ? (
-                                    <span>{Number(opt.packageSize.toFixed(2))}</span>
-                                  ) : (
-                                    <span className="text-slate-400 font-normal">1</span>
-                                  )}
-                                </button>
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none truncate max-w-[28px]">
-                                  {commonUnit}
+                                  <Sparkles className="w-3.5 h-3.5" />
                                 </span>
-                              </div>
-
-                              {/* Column 3: Read-Only Result (Unit Price / Value) */}
-                              <div className="flex items-center gap-1 shrink-0 w-[82px]">
-                                {optUnitPrice ? (
+                              )}
+                              {hasMultipleSizes &&
+                                optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
+                                !isOptimal && (
                                   <span
-                                    className="w-[58px] h-9 px-1 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg shrink-0 inline-flex items-center justify-center whitespace-nowrap"
-                                    title={formatUnitPrice(optUnitPrice, commonUnit)}
+                                    className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1 py-0.5 rounded-full border border-slate-200 whitespace-nowrap"
+                                    title="Lowest upfront cash"
                                   >
-                                    ${optUnitPrice < 1 ? optUnitPrice.toFixed(3) : optUnitPrice.toFixed(2)}
-                                  </span>
-                                ) : (
-                                  <span className="w-[58px] h-9 text-xs text-slate-400 italic inline-flex items-center justify-center shrink-0">
-                                    —
+                                    $
                                   </span>
                                 )}
-                                <div className="w-5 flex items-center justify-center shrink-0">
-                                  {isOptimal && (
-                                    <span
-                                      className="inline-flex items-center p-0.5 text-emerald-600"
-                                      title="Lowest price (best value)"
-                                    >
-                                      <Sparkles className="w-3.5 h-3.5" />
-                                    </span>
-                                  )}
-                                  {hasMultipleSizes &&
-                                    optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
-                                    !isOptimal && (
-                                      <span
-                                        className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 whitespace-nowrap"
-                                        title="Lowest upfront cash"
-                                      >
-                                        $
-                                      </span>
-                                    )}
-                                </div>
-                              </div>
-
-                              {/* Column 4: Row Actions (Tag button + Remove alternative size) */}
-                              <div className="flex items-center gap-0.5 justify-end shrink-0 w-[58px] sm:w-[66px]">
-                                {!isLabelOpen ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setShowLabelInputMap((prev) => ({
-                                        ...prev,
-                                        [optionKey]: true,
-                                      }))
-                                    }
-                                    className="h-9 w-7 sm:w-8 flex items-center justify-center text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition shrink-0 cursor-pointer"
-                                    title="Add custom label (e.g. Family Size, Club Pack)"
-                                    aria-label="Add custom label"
-                                  >
-                                    <Tag className="w-3.5 h-3.5" />
-                                  </button>
-                                ) : (
-                                  <span className="w-7 sm:w-8 shrink-0" aria-hidden="true" />
-                                )}
-
-                                {hasMultipleSizes && idx > 0 ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemovePackageOption(activeShop.id, idx)}
-                                    className="h-9 w-7 sm:w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
-                                    title="Remove this size option"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                ) : hasPriceOrSize ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleUpdateOptionField(0, {
-                                        price: null,
-                                        packageSize: null,
-                                      })
-                                    }
-                                    className="h-9 w-7 sm:w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
-                                    title="Clear price and quantity"
-                                    aria-label="Clear price and quantity"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                ) : (
-                                  <span className="w-7 sm:w-8 shrink-0" aria-hidden="true" />
-                                )}
-                              </div>
                             </div>
+                          </div>
 
-                            {/* On-Demand Label Row: ONLY displayed if label exists or user clicked '+ label' (#1) */}
-                            {isLabelOpen && (
-                              <div className="flex items-center gap-1.5 pt-0.5 animate-in fade-in duration-100">
-                                <input
-                                  type="text"
-                                  autoFocus={!hasLabel}
-                                  placeholder="e.g. Family Size, Club Pack, 12-pack"
-                                  value={opt.label || ''}
-                                  onChange={(e) =>
-                                    handleUpdateOptionField(idx, {
-                                      label: e.target.value,
-                                    })
-                                  }
-                                  className="flex-1 px-2.5 py-1 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100/80 focus:bg-white rounded-lg border border-slate-200 focus:border-slate-300 focus:outline-none transition"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleUpdateOptionField(idx, { label: '' })
-                                    setShowLabelInputMap((prev) => ({
-                                      ...prev,
-                                      [optionKey]: false,
-                                    }))
-                                  }}
-                                  className="text-slate-400 hover:text-rose-500 p-1 rounded-lg transition cursor-pointer"
-                                  title="Clear label"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
+                          {/* Column 4: Row Actions (Tag button + Remove alternative size) */}
+                          <div className="flex items-center gap-0.5 justify-end shrink-0 w-[54px] sm:w-[60px]">
+                            {!isLabelOpen ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowLabelInputMap((prev) => ({
+                                    ...prev,
+                                    [optionKey]: true,
+                                  }))
+                                }
+                                className="h-8 w-6 sm:w-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition shrink-0 cursor-pointer"
+                                title="Add custom label (e.g. Family Size, Club Pack)"
+                                aria-label="Add custom label"
+                              >
+                                <Tag className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <span className="w-6 sm:w-7 shrink-0" aria-hidden="true" />
+                            )}
+
+                            {hasMultipleSizes && idx > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePackageOption(activeShop.id, idx)}
+                                className="h-8 w-6 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
+                                title="Remove this size option"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            ) : hasPriceOrSize ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateOptionField(0, {
+                                    price: null,
+                                    packageSize: null,
+                                  })
+                                }
+                                className="h-8 w-6 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
+                                title="Clear price and quantity"
+                                aria-label="Clear price and quantity"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <span className="w-6 sm:w-7 shrink-0" aria-hidden="true" />
                             )}
                           </div>
-                        )
-                      })}
-                    </div>
+                        </div>
 
-                    {/* Add Alternative Size button */}
+                        {/* On-Demand Label Row */}
+                        {isLabelOpen && (
+                          <div className="flex items-center gap-1 pt-0.5 animate-in fade-in duration-100">
+                            <input
+                              type="text"
+                              autoFocus={!hasLabel}
+                              placeholder="e.g. Family Size, Club Pack, 12-pack"
+                              value={opt.label || ''}
+                              onChange={(e) =>
+                                handleUpdateOptionField(idx, {
+                                  label: e.target.value,
+                                })
+                              }
+                              className="flex-1 px-2 py-0.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100/80 focus:bg-white rounded-md border border-slate-200 focus:border-slate-300 focus:outline-none transition"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleUpdateOptionField(idx, { label: '' })
+                                setShowLabelInputMap((prev) => ({
+                                  ...prev,
+                                  [optionKey]: false,
+                                }))
+                              }}
+                              className="text-slate-400 hover:text-rose-500 p-0.5 rounded transition cursor-pointer"
+                              title="Clear label"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* Add Alternative Size button */}
+                  <div className="pt-0.5">
                     <button
                       type="button"
                       onClick={() => handleAddAlternativeSize(activeShop.id)}
-                      className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/70 text-xs font-bold flex items-center justify-center gap-1.5 transition mt-2"
+                      className="w-full py-1 rounded-lg border border-dashed border-indigo-200 hover:border-indigo-300 text-indigo-700 hover:bg-indigo-50/50 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
                     >
-                      <Plus className="w-4 h-4 text-indigo-600" />
+                      <Plus className="w-3 h-3 text-indigo-600" />
                       <span>{hasMultipleSizes ? 'Add Another Size Option' : 'Add Alternative Size'}</span>
                     </button>
                   </div>
-                ) : (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
-                    <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>
-                      Marked as <strong>not carried</strong> at {activeShop.name}. It will be excluded
-                      from your shopping list when at this store.
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              ) : (
+                <div className="p-2 bg-rose-50/80 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-center justify-between">
+                  <span>Not carried at {activeShop.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleShopDetailChange(activeShop.id, { available: true })}
+                    className="text-xs font-bold text-rose-900 underline cursor-pointer"
+                  >
+                    Include
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </form>
 
-        {/* Footer */}
-        <div className="px-4 sm:px-5 py-3 border-t border-slate-200 bg-slate-50/80 flex items-center justify-between">
+        {/* Compact Footer */}
+        <div className="px-3 sm:px-4 py-2 border-t border-slate-200 bg-slate-50/90 flex items-center justify-between shrink-0">
           {item ? (
             <button
               type="button"
               onClick={handleDelete}
-              className="text-xs font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition"
+              className="text-xs font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
               <span>Delete</span>
             </button>
           ) : (
@@ -1553,14 +1569,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition"
+              className="px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition"
+              className="px-4 py-1.5 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-md hover:bg-emerald-700 transition cursor-pointer"
             >
               {item ? 'Save Changes' : 'Add Item'}
             </button>
