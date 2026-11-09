@@ -70,6 +70,7 @@ interface ShoppingContextType {
     detail: Partial<ItemShopDetail>
   ) => Promise<void>
   clearCart: (markCompletedAsPurchased?: boolean) => Promise<void>
+  resetTripSkips: () => Promise<void>
   // Receipt / Spending History operations
   receipts: TripReceipt[]
   recordTripReceipt: (
@@ -884,6 +885,16 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           batch.update(itemRef, {
             inCart: false,
             isNeeded: markCompletedAsPurchased ? false : item.isNeeded,
+            skippedShopIds: [],
+            skippedAt: null,
+            updatedAt: Date.now(),
+          })
+        } else if (item.skippedShopIds && item.skippedShopIds.length > 0) {
+          // Reset skipped stores for next trip when finishing shopping
+          const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+          batch.update(itemRef, {
+            skippedShopIds: [],
+            skippedAt: null,
             updatedAt: Date.now(),
           })
         }
@@ -896,11 +907,46 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             ...item,
             inCart: false,
             isNeeded: markCompletedAsPurchased ? false : item.isNeeded,
+            skippedShopIds: [],
+            skippedAt: undefined,
+            updatedAt: Date.now(),
+          }
+        }
+        if (item.skippedShopIds && item.skippedShopIds.length > 0) {
+          return {
+            ...item,
+            skippedShopIds: [],
+            skippedAt: undefined,
             updatedAt: Date.now(),
           }
         }
         return item
       })
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
+  const resetTripSkips = async () => {
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      items.forEach((item) => {
+        if (item.skippedShopIds && item.skippedShopIds.length > 0) {
+          const itemRef = doc(db!, 'households', household.id, 'items', item.id)
+          batch.update(itemRef, {
+            skippedShopIds: [],
+            skippedAt: null,
+            updatedAt: Date.now(),
+          })
+        }
+      })
+      await batch.commit()
+    } else {
+      const updated = items.map((item) =>
+        item.skippedShopIds && item.skippedShopIds.length > 0
+          ? { ...item, skippedShopIds: [], skippedAt: undefined, updatedAt: Date.now() }
+          : item
+      )
       setItems(updated)
       persistLocally(undefined, updated)
     }
@@ -1644,6 +1690,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       removeAllQuantityDescriptions,
       updateItemShopDetail,
       clearCart,
+      resetTripSkips,
       receipts,
       recordTripReceipt,
       deleteReceipt,

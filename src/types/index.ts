@@ -45,6 +45,8 @@ export interface ShoppingItem {
   barcodes?: string[] // Multiple UPC / EAN barcodes associated with this item (across stores/brands)
   imageUrl?: string // Optional product image URL (from barcode lookup)
   shops: Record<string, ItemShopDetail> // Keyed by Shop.id
+  skippedShopIds?: string[] // Shop IDs where this item was skipped for the current trip (out of stock / poor quality)
+  skippedAt?: number // Timestamp when skipped (used for automatic next-day expiration)
   createdAt: number
   updatedAt: number
 }

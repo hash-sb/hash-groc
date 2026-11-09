@@ -33,6 +33,7 @@ import {
   Hash,
   Undo2,
   Trash2,
+  RotateCcw,
   Barcode,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
@@ -47,6 +48,7 @@ import {
   getOptimalStorePackage,
   groupItemsByShopLocation,
   isCheapestAtStore,
+  isShopSkippedForTrip,
   type EvaluatedPackageOption,
 } from '../utils/pricing'
 import { matchesWordPrefix, scoreWordPrefixMatch } from '../utils/search'
@@ -206,7 +208,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [undoMoveState, setUndoMoveState] = useState<{
     itemId: string
     itemName: string
-    previousShops: Record<string, ItemShopDetail>
+    previousSkippedShopIds?: string[]
+    previousSkippedAt?: number
   } | null>(null)
   const [undoCheckState, setUndoCheckState] = useState<{
     itemId: string
@@ -302,12 +305,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   // All needed items on active shopping list
   const allNeededItems = items.filter((item) => item.isNeeded)
 
-  // Count items needed to buy at a specific shop (taking into account Save Mode)
+  // Count items needed to buy at a specific shop (taking into account Save Mode & trip skips)
   const getShopItemCount = (shopId: string) => {
     return allNeededItems.filter((item) => {
       const detail = item.shops[shopId]
       const isCarried = detail ? detail.available !== false : true
-      if (!isCarried) return false
+      if (!isCarried || isShopSkippedForTrip(item, shopId)) return false
       if (saveMode) return isCheapestAtStore(item, shopId, shops)
       return true
     }).length
@@ -341,7 +344,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       const carriedItems = allNeededItems.filter((item) => {
         const detail = item.shops[shop.id]
         const isCarried = detail ? detail.available !== false : true
-        if (!isCarried) return false
+        if (!isCarried || isShopSkippedForTrip(item, shop.id)) return false
         if (saveMode) return isCheapestAtStore(item, shop.id, shops)
         return true
       })
@@ -370,16 +373,24 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   const currentShopData = tripStoreBreakdown.find((b) => b.shop.id === currentShop?.id)
 
-  // Items available at this store
+  // Items available at this store (carried and not skipped for this trip)
   const carriedAtShopItems = allNeededItems.filter((item) => {
     const detail = item.shops[currentShop?.id]
-    return detail ? detail.available !== false : true
+    const isCarried = detail ? detail.available !== false : true
+    return isCarried && !isShopSkippedForTrip(item, currentShop.id)
   })
 
-  // Items needed but NOT carried at this store (excluded)
+  // Items needed but NOT carried at this store (permanently excluded)
   const unavailableItems = allNeededItems.filter((item) => {
     const detail = item.shops[currentShop?.id]
     return detail && detail.available === false
+  })
+
+  // Items skipped at this store for this trip only (e.g. out of stock or poor quality)
+  const skippedAtShopItems = allNeededItems.filter((item) => {
+    const detail = item.shops[currentShop?.id]
+    const isCarried = detail ? detail.available !== false : true
+    return isCarried && isShopSkippedForTrip(item, currentShop.id)
   })
 
   // (6) SAVE MODE FILTER:
@@ -620,8 +631,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       // Items currently in cart at the active stop are about to be checked out / purchased
       if (item.inCart) return false
       const detail = item.shops[shopId]
-      const isCarried = detail ? detail.available : true
-      if (!isCarried) return false
+      const isCarried = detail ? detail.available !== false : true
+      if (!isCarried || isShopSkippedForTrip(item, shopId)) return false
       if (saveMode) return isCheapestAtStore(item, shopId, shops)
       return true
     }).length
@@ -641,35 +652,33 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   // Helper to determine the best target shop when shifting an out-of-stock item
   const getTargetShopForMove = (item: ShoppingItem): Shop | null => {
-    const otherShops = shops.filter((s) => s.id !== currentShop.id)
+    const currentSkipped = item.skippedShopIds || []
+    const simulatedSkipped = currentSkipped.includes(currentShop.id)
+      ? currentSkipped
+      : [...currentSkipped, currentShop.id]
+
+    const otherShops = shops.filter(
+      (s) => s.id !== currentShop.id && !simulatedSkipped.includes(s.id) && item.shops[s.id]?.available !== false
+    )
     if (otherShops.length === 0) return null
 
-    // Create a copy simulating that the item is out of stock at currentShop
-    const itemWithoutCurrentShop: ShoppingItem = {
+    // Create a copy simulating that the item is skipped for this trip at currentShop
+    const simulatedItem: ShoppingItem = {
       ...item,
-      shops: {
-        ...item.shops,
-        [currentShop.id]: {
-          ...(item.shops[currentShop.id] || { available: true, price: null, location: '' }),
-          available: false,
-        },
-      },
+      skippedShopIds: simulatedSkipped,
+      skippedAt: Date.now(),
     }
 
     // 1. If Save Mode is active, pick the store where the item will actually be routed (lowest price store)
     if (saveMode) {
       const cheapestShop = otherShops.find((s) =>
-        isCheapestAtStore(itemWithoutCurrentShop, s.id, shops)
+        isCheapestAtStore(simulatedItem, s.id, shops)
       )
       if (cheapestShop) return cheapestShop
     }
 
-    // 2. Find any other store carrying the item with the lowest price
-    const carryingOtherShops = otherShops.filter(
-      (s) => item.shops[s.id]?.available !== false
-    )
-
-    const pricedShops = carryingOtherShops
+    // 2. Find any other active store carrying the item with the lowest price
+    const pricedShops = otherShops
       .map((shop) => {
         const opt = getOptimalStorePackage(item, shop.id)
         const price = opt.bestOption.price > 0 ? opt.bestOption.price : (item.shops[shop.id]?.price || 0)
@@ -695,48 +704,36 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     }
 
     // 3. Fallback: Next stop in itinerary sequence carrying the item
-    if (nextShop && nextShop.id !== currentShop.id && (item.shops[nextShop.id]?.available ?? true)) {
+    if (nextShop && nextShop.id !== currentShop.id && !simulatedSkipped.includes(nextShop.id) && (item.shops[nextShop.id]?.available !== false)) {
       return nextShop
     }
 
     const nextInSequence = shops
       .slice(currentShopIndex + 1)
-      .find((s) => item.shops[s.id]?.available !== false)
+      .find((s) => !simulatedSkipped.includes(s.id) && item.shops[s.id]?.available !== false)
     if (nextInSequence) return nextInSequence
 
     const prevInSequence = shops
       .slice(0, Math.max(0, currentShopIndex))
-      .find((s) => item.shops[s.id]?.available !== false)
+      .find((s) => !simulatedSkipped.includes(s.id) && item.shops[s.id]?.available !== false)
     if (prevInSequence) return prevInSequence
 
-    return carryingOtherShops[0] || otherShops[0] || null
+    return otherShops[0] || null
   }
 
-  const handleMoveOutOfStock = async (item: ShoppingItem, targetShopId?: string) => {
-    const currentDetail = item.shops[currentShop.id] || { available: true, price: null, location: '' }
-    const updatedShops: Record<string, ItemShopDetail> = {
-      ...item.shops,
-      [currentShop.id]: {
-        ...currentDetail,
-        available: false, // Mark out of stock / excluded from this store stop
-      },
-    }
-
-    // If an explicit targetShop was chosen, make sure it is marked available at target
-    if (targetShopId) {
-      const targetDetail = item.shops[targetShopId] || { available: true, price: null, location: '' }
-      updatedShops[targetShopId] = {
-        ...targetDetail,
-        available: true,
-      }
-    }
+  const handleSkipItemForTrip = async (item: ShoppingItem, targetShopId?: string) => {
+    const currentSkipped = item.skippedShopIds || []
+    const updatedSkipped = currentSkipped.includes(currentShop.id)
+      ? currentSkipped
+      : [...currentSkipped, currentShop.id]
 
     // Determine the actual store where the item will now be placed
     let destinationShop: Shop | null = null
 
     const simulatedItem: ShoppingItem = {
       ...item,
-      shops: updatedShops,
+      skippedShopIds: updatedSkipped,
+      skippedAt: Date.now(),
     }
 
     if (saveMode) {
@@ -755,7 +752,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     }
 
     if (!destinationShop) {
-      destinationShop = getTargetShopForMove(item)
+      destinationShop = getTargetShopForMove(simulatedItem)
     }
 
     // Save previous state for 1-tap Undo
@@ -764,24 +761,42 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     setUndoMoveState({
       itemId: item.id,
       itemName: item.name,
-      previousShops: { ...item.shops },
+      previousSkippedShopIds: currentSkipped,
+      previousSkippedAt: item.skippedAt,
     })
 
-    await updateItem(item.id, { shops: updatedShops })
     triggerHaptic(30)
     setOutOfStockItem(null)
 
+    await updateItem(item.id, {
+      skippedShopIds: updatedSkipped,
+      skippedAt: Date.now(),
+    })
+
     if (destinationShop) {
-      setToastMessage(`Moved "${item.name}" to ${destinationShop.name}`)
+      setToastMessage(`Skipped at ${currentShop.name} today → moved to ${destinationShop.name}`)
     } else {
-      setToastMessage(`Excluded "${item.name}" from ${currentShop.name} (kept on list)`)
+      setToastMessage(`Skipped "${item.name}" at ${currentShop.name} for this trip (resets next trip)`)
     }
+  }
+
+  const handleRestoreSkippedItem = async (item: ShoppingItem) => {
+    const updatedSkipped = (item.skippedShopIds || []).filter((id) => id !== currentShop.id)
+    triggerHaptic(20)
+    await updateItem(item.id, {
+      skippedShopIds: updatedSkipped,
+      skippedAt: updatedSkipped.length === 0 ? undefined : item.skippedAt,
+    })
+    setToastMessage(`Restored "${item.name}" to ${currentShop.name}`)
   }
 
   const handleUndoMove = async () => {
     if (!undoMoveState) return
     triggerHaptic(20)
-    await updateItem(undoMoveState.itemId, { shops: undoMoveState.previousShops })
+    await updateItem(undoMoveState.itemId, {
+      skippedShopIds: undoMoveState.previousSkippedShopIds || [],
+      skippedAt: undoMoveState.previousSkippedAt,
+    })
     setToastMessage(`Restored "${undoMoveState.itemName}" to ${currentShop.name}`)
     setUndoMoveState(null)
     setUndoCheckState(null)
@@ -931,10 +946,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       </div>
 
       {/* 2. Compact 1-Line Status Strip for Skipped or Unavailable Items */}
-      {(unavailableItems.length > 0 || (saveMode && savedForOtherStores.length > 0)) && (
+      {(skippedAtShopItems.length > 0 || unavailableItems.length > 0 || (saveMode && savedForOtherStores.length > 0)) && (
         <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-xs text-amber-900 flex items-center justify-between gap-2 shadow-2xs">
           <div className="flex items-center gap-1.5 min-w-0 truncate text-[11px]">
-            {unavailableItems.length > 0 ? (
+            {skippedAtShopItems.length > 0 ? (
+              <>
+                <PackageX className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="truncate">
+                  <strong>{skippedAtShopItems.length}</strong> {skippedAtShopItems.length === 1 ? 'item' : 'items'} skipped today (out of stock/quality)
+                  <span className="text-amber-800/80 ml-1">
+                    ({skippedAtShopItems.map((i) => i.name).slice(0, 2).join(', ')}{skippedAtShopItems.length > 2 ? ` +${skippedAtShopItems.length - 2}` : ''})
+                  </span>
+                </span>
+              </>
+            ) : unavailableItems.length > 0 ? (
               <>
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span className="truncate">
@@ -955,18 +980,18 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {saveMode && savedForOtherStores.length > 0 && unavailableItems.length > 0 && (
+            {saveMode && savedForOtherStores.length > 0 && (skippedAtShopItems.length > 0 || unavailableItems.length > 0) && (
               <span className="text-[10px] text-indigo-700 font-semibold bg-indigo-100/70 px-1.5 py-0.2 rounded">
                 +{savedForOtherStores.length} cheaper elsewhere
               </span>
             )}
-            {unavailableItems.length > 0 ? (
+            {skippedAtShopItems.length > 0 || unavailableItems.length > 0 ? (
               <button
                 type="button"
                 onClick={() => setShowUnavailableDrawer(!showUnavailableDrawer)}
                 className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
               >
-                {showUnavailableDrawer ? 'Hide' : 'View'}
+                {showUnavailableDrawer ? 'Hide' : skippedAtShopItems.length > 0 ? 'View / Restore' : 'View'}
               </button>
             ) : (
               <button
@@ -981,45 +1006,92 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         </div>
       )}
 
-      {/* Expanded Unavailable Items List */}
-      {showUnavailableDrawer && unavailableItems.length > 0 && (
-        <div className="mb-5 p-4 bg-white border border-amber-200 rounded-2xl shadow-xs">
-          <div className="text-sm font-extrabold text-amber-950 uppercase tracking-wide mb-2.5 flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <PackageOpen className="w-3.5 h-3.5" />
-            </div>
-            <span>Items to buy at other stores ({unavailableItems.length}):</span>
-          </div>
-          <div className="space-y-2">
-            {unavailableItems.map((item) => {
-              const carryingShops = shops.filter(
-                (s) => item.shops[s.id]?.available && item.shops[s.id]?.price !== null
-              )
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs"
-                >
-                  <div>
-                    <span className="font-semibold text-slate-800">{item.name}</span>
-                    <span className="text-slate-500 ml-1.5">
-                      ({item.quantity} {item.unit})
-                    </span>
-                  </div>
-                  <div className="text-slate-600 text-[11px]">
-                    Available at:{' '}
-                    {carryingShops.length > 0 ? (
-                      <span className="font-medium text-emerald-700">
-                        {carryingShops.map((s) => s.name).join(', ')}
-                      </span>
-                    ) : (
-                      <span className="italic text-slate-400">Add shop details</span>
-                    )}
-                  </div>
+      {/* Expanded Skipped / Unavailable Items List */}
+      {showUnavailableDrawer && (skippedAtShopItems.length > 0 || unavailableItems.length > 0) && (
+        <div className="mb-5 space-y-3">
+          {skippedAtShopItems.length > 0 && (
+            <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl shadow-xs">
+              <div className="text-xs font-bold text-amber-950 uppercase tracking-wide mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <PackageX className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Skipped for today&apos;s trip at {currentShop.name} ({skippedAtShopItems.length}):</span>
                 </div>
-              )
-            })}
-          </div>
+                <span className="text-[10px] text-amber-700 bg-amber-100 font-semibold px-2 py-0.5 rounded-full normal-case">
+                  Resets next trip
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {skippedAtShopItems.map((item) => {
+                  const targetShop = getTargetShopForMove(item)
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200/80 text-xs shadow-2xs gap-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-slate-800">{item.name}</span>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                          <span>Moved to:</span>
+                          <strong className="text-emerald-700">
+                            {targetShop ? targetShop.name : 'another store'}
+                          </strong>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRestoreSkippedItem(item)}
+                        className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 text-amber-900 font-bold text-xs rounded-lg transition cursor-pointer shrink-0 flex items-center gap-1 active:scale-95"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Restore</span>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {unavailableItems.length > 0 && (
+            <div className="p-4 bg-white border border-amber-200 rounded-2xl shadow-xs">
+              <div className="text-sm font-extrabold text-amber-950 uppercase tracking-wide mb-2.5 flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <PackageOpen className="w-3.5 h-3.5" />
+                </div>
+                <span>Items not carried here ({unavailableItems.length}):</span>
+              </div>
+              <div className="space-y-2">
+                {unavailableItems.map((item) => {
+                  const carryingShops = shops.filter(
+                    (s) => item.shops[s.id]?.available !== false && item.shops[s.id]?.price !== null
+                  )
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs"
+                    >
+                      <div>
+                        <span className="font-semibold text-slate-800">{item.name}</span>
+                        <span className="text-slate-500 ml-1.5">
+                          ({item.quantity} {item.unit})
+                        </span>
+                      </div>
+                      <div className="text-slate-600 text-[11px]">
+                        Available at:{' '}
+                        {carryingShops.length > 0 ? (
+                          <span className="font-medium text-emerald-700">
+                            {carryingShops.map((s) => s.name).join(', ')}
+                          </span>
+                        ) : (
+                          <span className="italic text-slate-400">Add shop details</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1679,12 +1751,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
                   <PackageX className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900 leading-tight">
-                    Item Out of Stock?
+                    Out of Stock or Poor Quality?
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     <span className="font-bold text-slate-800">{outOfStockItem.name}</span> at {currentShop.name}
@@ -1700,7 +1772,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 mb-4">
-              Choose what to do with this item for your shopping trip:
+              Skip this item at <strong>{currentShop.name}</strong> for today&apos;s trip. It remains carried here for future trips and automatically moves to another store:
             </p>
 
             <div className="space-y-2 mb-4">
@@ -1714,7 +1786,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   return (
                     <button
                       key={targetShop.id}
-                      onClick={() => handleMoveOutOfStock(outOfStockItem, targetShop.id)}
+                      onClick={() => handleSkipItemForTrip(outOfStockItem, targetShop.id)}
                       className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition ${
                         isLowestPrice
                           ? 'bg-emerald-50/80 border-emerald-300 hover:bg-emerald-100/70 text-emerald-950'
@@ -1740,7 +1812,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             )}
                           </div>
                           <div className="text-[11px] text-slate-500">
-                            Remove from {currentShop.name} and pick up at {targetShop.name}
+                            Skip at {currentShop.name} today and pick up at {targetShop.name}
                           </div>
                         </div>
                       </div>
@@ -1751,15 +1823,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
               {/* Option to just exclude from this store stop without reassigning */}
               <button
-                onClick={() => handleMoveOutOfStock(outOfStockItem)}
+                onClick={() => handleSkipItemForTrip(outOfStockItem)}
                 className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left flex items-center justify-between transition"
               >
                 <div>
                   <div className="text-xs font-bold text-slate-800">
-                    Exclude from {currentShop.name} Only
+                    Skip at {currentShop.name} for Today Only
                   </div>
                   <div className="text-[11px] text-slate-500">
-                    Keep on your list for future trips, but remove from today's {currentShop.name} stop
+                    Remove from today&apos;s trip. Automatically resets on your next trip without changing store settings.
                   </div>
                 </div>
                 <X className="w-4 h-4 text-slate-400 shrink-0" />
@@ -1948,8 +2020,31 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             <div className="space-y-1">
-              {/* 1. Instant 1-Tap Out of Stock Move */}
+              {/* 1. Instant 1-Tap Out of Stock / Poor Quality Skip */}
               {(() => {
+                const isAlreadySkipped = isShopSkippedForTrip(itemMenuModal, currentShop.id)
+                if (isAlreadySkipped) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const it = itemMenuModal
+                        setItemMenuModal(null)
+                        handleRestoreSkippedItem(it)
+                      }}
+                      className="w-full px-3 py-2.5 text-left text-xs font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition cursor-pointer border border-emerald-200/80"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <RotateCcw className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="truncate">Restore to {currentShop.name} for today</span>
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded-full shrink-0">
+                        Restore
+                      </span>
+                    </button>
+                  )
+                }
+
                 const target = getTargetShopForMove(itemMenuModal)
                 return (
                   <button
@@ -1957,23 +2052,21 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     onClick={() => {
                       const it = itemMenuModal
                       setItemMenuModal(null)
-                      handleMoveOutOfStock(it, target?.id)
+                      handleSkipItemForTrip(it, target?.id)
                     }}
-                    className="w-full px-3 py-2.5 text-left text-xs font-semibold text-rose-700 bg-rose-50/70 hover:bg-rose-100 rounded-xl flex items-center justify-between transition cursor-pointer"
+                    className="w-full px-3 py-2.5 text-left text-xs font-semibold text-amber-800 bg-amber-50/90 hover:bg-amber-100 rounded-xl flex items-center justify-between transition cursor-pointer border border-amber-200/80"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <PackageX className="w-4 h-4 text-rose-500 shrink-0" />
+                      <PackageX className="w-4 h-4 text-amber-600 shrink-0" />
                       <span className="truncate">
                         {target
-                          ? `Out of stock → Move to ${target.name}`
-                          : `Out of stock → Exclude from ${currentShop.name}`}
+                          ? `Out of stock / quality → Move to ${target.name}`
+                          : `Out of stock / quality → Skip today`}
                       </span>
                     </div>
-                    {target && (
-                      <span className="text-[10px] font-extrabold uppercase bg-rose-200 text-rose-900 px-1.5 py-0.2 rounded-full shrink-0">
-                        1-Tap
-                      </span>
-                    )}
+                    <span className="text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded-full shrink-0">
+                      Today Only
+                    </span>
                   </button>
                 )
               })()}
@@ -2053,7 +2146,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 <span>Update Shelf / Sale Price</span>
               </button>
 
-              {/* 5. Choose other stores or exclude (if multiple stores exist) */}
+              {/* 5. Choose other stores to move for today */}
               {shops.filter((s) => s.id !== currentShop.id).length > 1 && (
                 <button
                   type="button"
@@ -2066,7 +2159,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 transition cursor-pointer"
                 >
                   <Store className="w-4 h-4 text-slate-400" />
-                  <span>Choose Another Store to Move...</span>
+                  <span>Choose Store to Move For Today...</span>
                 </button>
               )}
 

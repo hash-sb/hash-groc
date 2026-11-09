@@ -741,6 +741,31 @@ export function getEffectiveComparisonPrice(
   return detail.price
 }
 
+/**
+ * Checks if an item is temporarily skipped at a store for the current shopping trip
+ * (e.g. out of stock or poor quality). Automatically expires after 18 hours or on a new calendar day.
+ */
+export function isShopSkippedForTrip(item: ShoppingItem, shopId: string): boolean {
+  if (!item.skippedShopIds || !item.skippedShopIds.includes(shopId)) {
+    return false
+  }
+
+  // Automatic reset for next trip (if skipped on a previous day or > 18 hours ago)
+  if (item.skippedAt) {
+    const elapsedHours = (Date.now() - item.skippedAt) / (1000 * 60 * 60)
+    if (elapsedHours > 18) {
+      return false
+    }
+    const skippedDate = new Date(item.skippedAt).toDateString()
+    const todayDate = new Date().toDateString()
+    if (skippedDate !== todayDate && elapsedHours > 6) {
+      return false
+    }
+  }
+
+  return true
+}
+
 export function compareShopPrices(
   item: ShoppingItem,
   currentShopId: string,
@@ -752,10 +777,12 @@ export function compareShopPrices(
   const currentActiveOpt = currentOptResult?.selectedOption || currentBestOpt
   const currentPacksNeeded = currentActiveOpt ? currentActiveOpt.packsNeeded : (item.quantity || 1)
   const isCurrentCarried = currentDetail ? currentDetail.available !== false : true
+  const isCurrentSkipped = currentShopId ? isShopSkippedForTrip(item, currentShopId) : false
+  const isCurrentAvailableThisTrip = isCurrentCarried && !isCurrentSkipped
   const currentPrice =
-    isCurrentCarried && currentActiveOpt && currentActiveOpt.price > 0
+    isCurrentAvailableThisTrip && currentActiveOpt && currentActiveOpt.price > 0
       ? currentActiveOpt.price
-      : isCurrentCarried && typeof currentDetail?.price === 'number' && currentDetail.price > 0
+      : isCurrentAvailableThisTrip && typeof currentDetail?.price === 'number' && currentDetail.price > 0
       ? currentDetail.price
       : null
   const currentFulfillmentCost =
@@ -785,8 +812,10 @@ export function compareShopPrices(
     const packsNeeded = bestOpt.packsNeeded
     const effectivePrice = bestOpt.price > 0 ? bestOpt.price : (detail?.price || 0)
     const isCarried = detail ? detail.available !== false : true
+    const isSkippedThisTrip = isShopSkippedForTrip(item, shop.id)
+    const isAvailableThisTrip = isCarried && !isSkippedThisTrip
 
-    if (isCarried && effectivePrice > 0) {
+    if (isAvailableThisTrip && effectivePrice > 0) {
       const fulfillmentCost = effectivePrice * packsNeeded
       const normUnitPrice = bestOpt.normalizedUnitPrice ?? null
       const effectiveUnit = bestOpt.packageUnit || detail?.packageUnit || item.unit || null
@@ -866,7 +895,7 @@ export function compareShopPrices(
         packageSize: detail.packageSize,
         packageUnit: detail.packageUnit,
         unitPrice: detail.unitPrice,
-        available: isCarried,
+        available: isAvailableThisTrip,
         location: detail.location || '',
         hasMultipleSizes: optResult.hasMultipleOptions,
         bestOptionLabel: bestOpt.label,
@@ -880,7 +909,7 @@ export function compareShopPrices(
   let savingsAmount = 0
 
   const hasCurrentAvailable =
-    isCurrentCarried &&
+    isCurrentAvailableThisTrip &&
     ((typeof currentPrice === 'number' && currentPrice > 0) ||
       (typeof currentDetail?.price === 'number' && currentDetail.price > 0))
 
@@ -1092,17 +1121,19 @@ export function isCheapestAtStore(
 ): boolean {
   const targetDetail = item.shops[targetShopId]
   const isTargetCarried = targetDetail ? targetDetail.available !== false : true
-  if (!isTargetCarried) {
+  const isTargetSkipped = isShopSkippedForTrip(item, targetShopId)
+  if (!isTargetCarried || isTargetSkipped) {
     return false
   }
 
-  // Find all shops in this trip that carry the item
+  // Find all shops in this trip that carry the item and are not skipped
   const carryingShops = shops.filter((s) => {
     const d = item.shops[s.id]
-    return d ? d.available !== false : true
+    const isCarried = d ? d.available !== false : true
+    return isCarried && !isShopSkippedForTrip(item, s.id)
   })
 
-  // Check if any carrying shop has a recorded price > 0
+  // Check if any active carrying shop has a recorded price > 0
   const pricedCarryingShops = carryingShops.filter((s) => {
     const d = item.shops[s.id]
     const opt = getOptimalStorePackage(item, s.id)
@@ -1110,7 +1141,7 @@ export function isCheapestAtStore(
     return p > 0
   })
 
-  // If no store in the trip has a recorded price anywhere, keep item visible at all stores that carry it
+  // If no store in the trip has a recorded price anywhere, keep item visible at all active stores that carry it
   if (pricedCarryingShops.length === 0) {
     return true
   }
