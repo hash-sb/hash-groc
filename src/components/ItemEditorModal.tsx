@@ -846,7 +846,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
       : null
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-start justify-center pt-3 sm:pt-10 p-2 sm:p-4 z-50 animate-in fade-in">
       <div className="bg-white rounded-2xl max-w-xl w-full max-h-[96vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Compact Header with Integrated Micro-Toggles */}
         <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/90 gap-2 shrink-0">
@@ -1166,7 +1166,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                     key={shop.id}
                     type="button"
                     onClick={() => setActiveTabShopId(shop.id)}
-                    className={`flex-1 min-w-[72px] sm:min-w-[80px] py-1 px-1.5 rounded-xl border text-center transition flex flex-col items-center justify-center cursor-pointer ${
+                    className={`flex-1 min-w-[72px] sm:min-w-[80px] h-11 py-1 px-1.5 rounded-xl border text-center transition flex flex-col items-center justify-center cursor-pointer ${
                       isSelected
                         ? 'border-emerald-500 bg-emerald-50/90 text-emerald-950 font-bold shadow-xs ring-2 ring-emerald-500/20'
                         : isLowest
@@ -1206,34 +1206,36 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
             </div>
           </div>
 
-          {/* Row 4: Active Store Configuration Box (Compact) */}
+          {/* Row 4: Active Store Configuration Box (Vertically Stable & Fixed Height) */}
           {activeShop && (
-            <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200 space-y-1.5 sm:space-y-2">
+            <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200 space-y-1.5 sm:space-y-2 min-h-[114px] flex flex-col justify-between">
               {/* Store Bar: Aisle Selector + Unit Selector + Carried Toggle */}
               <div className="flex items-center justify-between gap-1.5">
-                {/* Aisle Button */}
-                {currentShopDetail.available ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsAisleModalOpen(true)}
-                    className={`flex-1 flex items-center justify-between px-2.5 py-1 rounded-lg text-xs border transition cursor-pointer min-w-0 ${
-                      currentShopDetail.location
-                        ? 'bg-emerald-50 text-emerald-950 border-emerald-300 font-bold'
-                        : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
-                    }`}
-                    title="Select aisle location"
-                  >
-                    <div className="flex items-center gap-1 min-w-0 truncate">
-                      <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                      <span className="truncate text-[11px] sm:text-xs">
-                        {currentShopDetail.location || 'Unassigned'}
-                      </span>
-                    </div>
-                    <ChevronDown className="w-3 h-3 text-slate-400 shrink-0 ml-0.5" />
-                  </button>
-                ) : (
-                  <span className="text-xs text-slate-400 italic">Not Carried</span>
-                )}
+                {/* Aisle Button: Always preserved in place, muted when excluded */}
+                <button
+                  type="button"
+                  onClick={() => setIsAisleModalOpen(true)}
+                  className={`flex-1 flex items-center justify-between px-2.5 py-1 rounded-lg text-xs border transition cursor-pointer min-w-0 ${
+                    !currentShopDetail.available
+                      ? 'bg-slate-100/70 text-slate-400 border-slate-200'
+                      : currentShopDetail.location
+                      ? 'bg-emerald-50 text-emerald-950 border-emerald-300 font-bold'
+                      : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                  }`}
+                  title={currentShopDetail.available ? 'Select aisle location' : 'Aisle location (item currently excluded)'}
+                >
+                  <div className="flex items-center gap-1 min-w-0 truncate">
+                    <MapPin
+                      className={`w-3 h-3 shrink-0 ${
+                        currentShopDetail.available ? 'text-emerald-600' : 'text-slate-400'
+                      }`}
+                    />
+                    <span className="truncate text-[11px] sm:text-xs">
+                      {currentShopDetail.location || 'Unassigned'}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3 h-3 text-slate-400 shrink-0 ml-0.5" />
+                </button>
 
                 {/* Common Unit Selector */}
                 <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-300 shrink-0">
@@ -1298,254 +1300,276 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                 </button>
               </div>
 
-              {/* Price & Size Rows */}
-              {currentShopDetail.available ? (
-                <div className="space-y-1.5">
-                  {renderedOptions.map((opt, idx) => {
-                    const isOptimal =
-                      hasMultipleSizes &&
-                      optimalStorePackageResult?.bestOption.id === opt.id
-                    const optPriceNum =
-                      typeof opt.price === 'number'
-                        ? opt.price
-                        : parseFloat(String(opt.price))
-                    const optSizeNum =
-                      typeof opt.packageSize === 'number'
-                        ? opt.packageSize
-                        : parseFloat(String(opt.packageSize))
-                    const optUnitPrice =
-                      typeof opt.unitPrice === 'number' && opt.unitPrice > 0
-                        ? opt.unitPrice
-                        : !isNaN(optPriceNum) &&
-                          optPriceNum > 0 &&
-                          !isNaN(optSizeNum) &&
-                          optSizeNum > 0
-                        ? Number((optPriceNum / optSizeNum).toFixed(4))
-                        : null
+              {/* Price & Size Rows: Always rendered in place to prevent layout shifts */}
+              <div className="space-y-1.5">
+                {renderedOptions.map((opt, idx) => {
+                  const isOptimal =
+                    currentShopDetail.available &&
+                    hasMultipleSizes &&
+                    optimalStorePackageResult?.bestOption.id === opt.id
+                  const optPriceNum =
+                    typeof opt.price === 'number'
+                      ? opt.price
+                      : parseFloat(String(opt.price))
+                  const optSizeNum =
+                    typeof opt.packageSize === 'number'
+                      ? opt.packageSize
+                      : parseFloat(String(opt.packageSize))
+                  const optUnitPrice =
+                    typeof opt.unitPrice === 'number' && opt.unitPrice > 0
+                      ? opt.unitPrice
+                      : !isNaN(optPriceNum) &&
+                        optPriceNum > 0 &&
+                        !isNaN(optSizeNum) &&
+                        optSizeNum > 0
+                      ? Number((optPriceNum / optSizeNum).toFixed(4))
+                      : null
 
-                    const optionKey = opt.id || `opt-${idx}`
-                    const hasLabel = Boolean(opt.label && opt.label.trim())
-                    const isLabelOpen = hasLabel || Boolean(showLabelInputMap[optionKey])
-                    const hasPriceOrSize =
-                      (!isNaN(optPriceNum) && optPriceNum > 0) ||
-                      (!isNaN(optSizeNum) && optSizeNum > 0)
+                  const optionKey = opt.id || `opt-${idx}`
+                  const hasLabel = Boolean(opt.label && opt.label.trim())
+                  const isLabelOpen = hasLabel || Boolean(showLabelInputMap[optionKey])
+                  const hasPriceOrSize =
+                    (!isNaN(optPriceNum) && optPriceNum > 0) ||
+                    (!isNaN(optSizeNum) && optSizeNum > 0)
 
-                    return (
-                      <div
-                        key={optionKey}
-                        className={`p-1.5 sm:p-2 rounded-xl border transition-all space-y-1 ${
-                          isOptimal
-                            ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
-                            : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_76px_54px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_60px] gap-1 sm:gap-1.5 items-center">
-                          {/* Column 1: Shelf Price ($) */}
-                          <div className="relative min-w-0">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none z-10">
-                              $
-                            </span>
-                            <button
-                              type="button"
-                              ref={(el) => {
-                                if (opt.id) {
-                                  priceButtonRefs.current[opt.id] = el
-                                }
-                              }}
-                              onClick={() => openPriceCalculator(opt, idx)}
-                              className="w-full h-8 pl-5 pr-1.5 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
-                              title="Tap to change price with calculator"
-                            >
-                              {typeof opt.price === 'number' && !isNaN(opt.price) && opt.price > 0 ? (
-                                opt.price.toFixed(2)
-                              ) : (
-                                <span className="text-slate-400 font-normal">0.00</span>
-                              )}
-                            </button>
-                          </div>
-
-                          {/* Column 2: Quantity / Size ({commonUnit}) with auto-default placeholder '1' */}
-                          <div className="relative min-w-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCalcModal({
-                                  isOpen: true,
-                                  title: `Set Quantity / Size (${activeShop.name})`,
-                                  mode: 'quantity',
-                                  initialValue:
-                                    typeof opt.packageSize === 'number' &&
-                                    !isNaN(opt.packageSize)
-                                      ? opt.packageSize
-                                      : 1,
-                                  unit: commonUnit,
-                                  onApply: (val) => {
-                                    handleUpdateOptionField(idx, { packageSize: val > 0 ? val : null })
-                                  },
-                                })
-                              }}
-                              className="w-full h-8 pl-2 pr-7 rounded-lg border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
-                              title="Tap to change size with calculator"
-                            >
-                              {typeof opt.packageSize === 'number' &&
-                              !isNaN(opt.packageSize) &&
-                              opt.packageSize > 0 ? (
-                                <span>{Number(opt.packageSize.toFixed(2))}</span>
-                              ) : (
-                                <span className="text-slate-400 font-normal">1</span>
-                              )}
-                            </button>
-                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none truncate max-w-[24px]">
-                              {commonUnit}
-                            </span>
-                          </div>
-
-                          {/* Column 3: Read-Only Result (Unit Price / Value) */}
-                          <div className="flex items-center gap-0.5 shrink-0 w-[76px] sm:w-[82px]">
-                            {optUnitPrice ? (
-                              <span
-                                className="w-[52px] sm:w-[58px] h-8 px-1 font-mono text-[11px] sm:text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg shrink-0 inline-flex items-center justify-center whitespace-nowrap"
-                                title={formatUnitPrice(optUnitPrice, commonUnit)}
-                              >
-                                ${optUnitPrice < 1 ? optUnitPrice.toFixed(3) : optUnitPrice.toFixed(2)}
-                              </span>
+                  return (
+                    <div
+                      key={optionKey}
+                      className={`p-1.5 sm:p-2 rounded-xl border transition-all space-y-1 ${
+                        !currentShopDetail.available
+                          ? 'bg-slate-100/60 border-slate-200/80 opacity-60'
+                          : isOptimal
+                          ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
+                          : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_76px_54px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_60px] gap-1 sm:gap-1.5 items-center">
+                        {/* Column 1: Shelf Price ($) */}
+                        <div className="relative min-w-0">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none z-10">
+                            $
+                          </span>
+                          <button
+                            type="button"
+                            ref={(el) => {
+                              if (opt.id) {
+                                priceButtonRefs.current[opt.id] = el
+                              }
+                            }}
+                            onClick={() => {
+                              if (!currentShopDetail.available) {
+                                handleShopDetailChange(activeShop.id, { available: true })
+                              }
+                              openPriceCalculator(opt, idx)
+                            }}
+                            className="w-full h-8 pl-5 pr-1.5 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
+                            title={
+                              currentShopDetail.available
+                                ? 'Tap to change price with calculator'
+                                : 'Tap to include and set price'
+                            }
+                          >
+                            {typeof opt.price === 'number' && !isNaN(opt.price) && opt.price > 0 ? (
+                              opt.price.toFixed(2)
                             ) : (
-                              <span className="w-[52px] sm:w-[58px] h-8 text-[11px] text-slate-400 italic inline-flex items-center justify-center shrink-0">
-                                —
+                              <span className="text-slate-400 font-normal">0.00</span>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Column 2: Quantity / Size ({commonUnit}) with auto-default placeholder '1' */}
+                        <div className="relative min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!currentShopDetail.available) {
+                                handleShopDetailChange(activeShop.id, { available: true })
+                              }
+                              setCalcModal({
+                                isOpen: true,
+                                title: `Set Quantity / Size (${activeShop.name})`,
+                                mode: 'quantity',
+                                initialValue:
+                                  typeof opt.packageSize === 'number' &&
+                                  !isNaN(opt.packageSize)
+                                    ? opt.packageSize
+                                    : 1,
+                                unit: commonUnit,
+                                onApply: (val) => {
+                                  handleUpdateOptionField(idx, { packageSize: val > 0 ? val : null })
+                                },
+                              })
+                            }}
+                            className="w-full h-8 pl-2 pr-7 rounded-lg border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-left flex items-center cursor-pointer transition truncate"
+                            title={
+                              currentShopDetail.available
+                                ? 'Tap to change size with calculator'
+                                : 'Tap to include and set size'
+                            }
+                          >
+                            {typeof opt.packageSize === 'number' &&
+                            !isNaN(opt.packageSize) &&
+                            opt.packageSize > 0 ? (
+                              <span>{Number(opt.packageSize.toFixed(2))}</span>
+                            ) : (
+                              <span className="text-slate-400 font-normal">1</span>
+                            )}
+                          </button>
+                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none truncate max-w-[24px]">
+                            {commonUnit}
+                          </span>
+                        </div>
+
+                        {/* Column 3: Read-Only Result (Unit Price / Value) */}
+                        <div className="flex items-center gap-0.5 shrink-0 w-[76px] sm:w-[82px]">
+                          {optUnitPrice ? (
+                            <span
+                              className="w-[52px] sm:w-[58px] h-8 px-1 font-mono text-[11px] sm:text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg shrink-0 inline-flex items-center justify-center whitespace-nowrap"
+                              title={formatUnitPrice(optUnitPrice, commonUnit)}
+                            >
+                              ${optUnitPrice < 1 ? optUnitPrice.toFixed(3) : optUnitPrice.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="w-[52px] sm:w-[58px] h-8 text-[11px] text-slate-400 italic inline-flex items-center justify-center shrink-0">
+                              —
+                            </span>
+                          )}
+                          <div className="w-5 flex items-center justify-center shrink-0">
+                            {isOptimal && (
+                              <span
+                                className="inline-flex items-center p-0.5 text-emerald-600"
+                                title="Lowest price (best value)"
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
                               </span>
                             )}
-                            <div className="w-5 flex items-center justify-center shrink-0">
-                              {isOptimal && (
+                            {hasMultipleSizes &&
+                              optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
+                              !isOptimal && (
                                 <span
-                                  className="inline-flex items-center p-0.5 text-emerald-600"
-                                  title="Lowest price (best value)"
+                                  className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1 py-0.5 rounded-full border border-slate-200 whitespace-nowrap"
+                                  title="Lowest upfront cash"
                                 >
-                                  <Sparkles className="w-3.5 h-3.5" />
+                                  $
                                 </span>
                               )}
-                              {hasMultipleSizes &&
-                                optimalStorePackageResult?.lowestCashOption?.id === opt.id &&
-                                !isOptimal && (
-                                  <span
-                                    className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1 py-0.5 rounded-full border border-slate-200 whitespace-nowrap"
-                                    title="Lowest upfront cash"
-                                  >
-                                    $
-                                  </span>
-                                )}
-                            </div>
-                          </div>
-
-                          {/* Column 4: Row Actions (Tag button + Remove alternative size) */}
-                          <div className="flex items-center gap-0.5 justify-end shrink-0 w-[54px] sm:w-[60px]">
-                            {!isLabelOpen ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setShowLabelInputMap((prev) => ({
-                                    ...prev,
-                                    [optionKey]: true,
-                                  }))
-                                }
-                                className="h-8 w-6 sm:w-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition shrink-0 cursor-pointer"
-                                title="Add custom label (e.g. Family Size, Club Pack)"
-                                aria-label="Add custom label"
-                              >
-                                <Tag className="w-3 h-3" />
-                              </button>
-                            ) : (
-                              <span className="w-6 sm:w-7 shrink-0" aria-hidden="true" />
-                            )}
-
-                            {hasMultipleSizes && idx > 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => handleRemovePackageOption(activeShop.id, idx)}
-                                className="h-8 w-6 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
-                                title="Remove this size option"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            ) : hasPriceOrSize ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateOptionField(0, {
-                                    price: null,
-                                    packageSize: null,
-                                  })
-                                }
-                                className="h-8 w-6 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
-                                title="Clear price and quantity"
-                                aria-label="Clear price and quantity"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            ) : (
-                              <span className="w-6 sm:w-7 shrink-0" aria-hidden="true" />
-                            )}
                           </div>
                         </div>
 
-                        {/* On-Demand Label Row */}
-                        {isLabelOpen && (
-                          <div className="flex items-center gap-1 pt-0.5 animate-in fade-in duration-100">
-                            <input
-                              type="text"
-                              autoFocus={!hasLabel}
-                              placeholder="e.g. Family Size, Club Pack, 12-pack"
-                              value={opt.label || ''}
-                              onChange={(e) =>
-                                handleUpdateOptionField(idx, {
-                                  label: e.target.value,
-                                })
-                              }
-                              className="flex-1 px-2 py-0.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100/80 focus:bg-white rounded-md border border-slate-200 focus:border-slate-300 focus:outline-none transition"
-                            />
+                        {/* Column 4: Row Actions (Tag button + Remove alternative size) */}
+                        <div className="flex items-center gap-0.5 justify-end shrink-0 w-[54px] sm:w-[60px]">
+                          {!isLabelOpen ? (
                             <button
                               type="button"
-                              onClick={() => {
-                                handleUpdateOptionField(idx, { label: '' })
+                              onClick={() =>
                                 setShowLabelInputMap((prev) => ({
                                   ...prev,
-                                  [optionKey]: false,
+                                  [optionKey]: true,
                                 }))
-                              }}
-                              className="text-slate-400 hover:text-rose-500 p-0.5 rounded transition cursor-pointer"
-                              title="Clear label"
+                              }
+                              className="h-8 w-6 sm:w-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition shrink-0 cursor-pointer"
+                              title="Add custom label (e.g. Family Size, Club Pack)"
+                              aria-label="Add custom label"
                             >
-                              <X className="w-3 h-3" />
+                              <Tag className="w-3 h-3" />
                             </button>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                          ) : (
+                            <span className="w-6 sm:w-7 shrink-0" aria-hidden="true" />
+                          )}
 
-                  {/* Add Alternative Size button */}
-                  <div className="pt-0.5">
+                          {hasMultipleSizes && idx > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePackageOption(activeShop.id, idx)}
+                              className="h-8 w-6 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
+                              title="Remove this size option"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          ) : hasPriceOrSize ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleUpdateOptionField(0, {
+                                  price: null,
+                                  packageSize: null,
+                                })
+                              }
+                              className="h-8 w-6 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 cursor-pointer"
+                              title="Clear price and quantity"
+                              aria-label="Clear price and quantity"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          ) : (
+                            <span className="w-6 sm:w-7 shrink-0" aria-hidden="true" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* On-Demand Label Row */}
+                      {isLabelOpen && (
+                        <div className="flex items-center gap-1 pt-0.5 animate-in fade-in duration-100">
+                          <input
+                            type="text"
+                            autoFocus={!hasLabel}
+                            placeholder="e.g. Family Size, Club Pack, 12-pack"
+                            value={opt.label || ''}
+                            onChange={(e) =>
+                              handleUpdateOptionField(idx, {
+                                label: e.target.value,
+                              })
+                            }
+                            className="flex-1 px-2 py-0.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100/80 focus:bg-white rounded-md border border-slate-200 focus:border-slate-300 focus:outline-none transition"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleUpdateOptionField(idx, { label: '' })
+                              setShowLabelInputMap((prev) => ({
+                                ...prev,
+                                [optionKey]: false,
+                              }))
+                            }}
+                            className="text-slate-400 hover:text-rose-500 p-0.5 rounded transition cursor-pointer"
+                            title="Clear label"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* Bottom Row: Height-Matched between Carried (Add Alt Size) and Excluded (Notice bar) */}
+                <div className="pt-0.5">
+                  {currentShopDetail.available ? (
                     <button
                       type="button"
                       onClick={() => handleAddAlternativeSize(activeShop.id)}
-                      className="w-full py-1 rounded-lg border border-dashed border-indigo-200 hover:border-indigo-300 text-indigo-700 hover:bg-indigo-50/50 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                      className="w-full h-7 rounded-lg border border-dashed border-indigo-200 hover:border-indigo-300 text-indigo-700 hover:bg-indigo-50/50 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
                     >
                       <Plus className="w-3 h-3 text-indigo-600" />
                       <span>{hasMultipleSizes ? 'Add Another Size Option' : 'Add Alternative Size'}</span>
                     </button>
-                  </div>
+                  ) : (
+                    <div className="w-full h-7 px-2.5 rounded-lg bg-rose-50/90 border border-rose-200 text-rose-800 text-[11px] font-semibold flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <XCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                        <span className="truncate">Excluded from {activeShop.name}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleShopDetailChange(activeShop.id, { available: true })}
+                        className="text-rose-900 font-bold underline hover:text-rose-950 cursor-pointer text-[11px] shrink-0 ml-1.5"
+                      >
+                        Include
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="p-2 bg-rose-50/80 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-center justify-between">
-                  <span>Not carried at {activeShop.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleShopDetailChange(activeShop.id, { available: true })}
-                    className="text-xs font-bold text-rose-900 underline cursor-pointer"
-                  >
-                    Include
-                  </button>
-                </div>
-              )}
+              </div>
             </div>
           )}
         </form>
