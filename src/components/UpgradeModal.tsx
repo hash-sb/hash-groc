@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Receipt,
   AlertTriangle,
+  PartyPopper,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 
@@ -58,11 +59,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual')
   const [isLoading, setIsLoading] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [justActivated, setJustActivated] = useState(false)
 
   // Lock background body scrolling when modal is open
   useEffect(() => {
     if (!isOpen) {
       setShowCancelConfirm(false)
+      setJustActivated(false)
       return
     }
     const originalOverflow = document.body.style.overflow
@@ -77,8 +80,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
   if (!isOpen) return null
 
-  // If user is already on Groc Plus, show the Manage Subscription view
-  if (isPro) {
+  // If user is already on Groc Plus (or just activated their trial), show the Subscription Benefits / Manage view
+  if (isPro || justActivated) {
     const trialDateStr = household?.trialEndsAt
       ? new Date(household.trialEndsAt).toLocaleDateString(undefined, {
           month: 'short',
@@ -92,6 +95,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
       try {
         await cancelProSubscription()
         setShowCancelConfirm(false)
+        setJustActivated(false)
         onClose()
       } catch (err) {
         console.error('Failed to cancel Groc Plus subscription:', err)
@@ -124,20 +128,35 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
             {/* Pill Badge */}
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/30 border border-emerald-300/40 text-emerald-100 text-xs font-black uppercase tracking-wider mb-2.5 shadow-inner">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Groc Plus Active</span>
+              {justActivated ? (
+                <>
+                  <PartyPopper className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Trial Activated</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Groc Plus Active</span>
+                </>
+              )}
             </div>
 
             <div className="flex items-start gap-2.5">
               <div className="p-2 rounded-xl bg-white/10 border border-white/20 shrink-0 mt-0.5">
-                <ShieldCheck className="w-5 h-5 text-emerald-200" />
+                {justActivated ? (
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5 text-emerald-200" />
+                )}
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-black tracking-tight leading-snug">
-                  Manage Subscription
+                  {justActivated ? 'Welcome to Groc Plus!' : 'Manage Subscription'}
                 </h2>
                 <p className="text-xs sm:text-sm text-emerald-100/90 mt-1 font-medium leading-relaxed">
-                  Your household has full access to all Groc Plus features across all devices.
+                  {justActivated
+                    ? 'Your 14-day free trial is now active. All premium features are unlocked for your household.'
+                    : 'Your household has full access to all Groc Plus features across all devices.'}
                 </p>
               </div>
             </div>
@@ -157,8 +176,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 14-Day Free Trial
               </div>
               {trialDateStr && (
-                <div className="text-xs text-slate-500">
-                  Active through <span className="font-semibold text-slate-700">{trialDateStr}</span>
+                <div className="text-xs text-slate-600">
+                  Active through <span className="font-semibold text-slate-800">{trialDateStr}</span>
+                </div>
+              )}
+              {justActivated && (
+                <div className="text-[11px] text-emerald-700 font-medium">
+                  • No charge today • Cancel anytime with 1 tap before trial ends
                 </div>
               )}
               <div className="pt-1.5 text-[11px] text-slate-500 border-t border-emerald-200/60">
@@ -168,7 +192,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
             {/* Unlocked Benefits */}
             <div className="space-y-2 text-xs text-slate-700">
-              <div className="font-bold text-slate-900">Unlocked on this plan:</div>
+              <div className="font-bold text-slate-900">
+                {justActivated ? '✨ Unlocked on Groc Plus:' : 'Unlocked on this plan:'}
+              </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold text-[10px]">
                   ✓
@@ -237,9 +263,12 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md transition cursor-pointer"
+                  className={`w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black rounded-2xl shadow-lg shadow-emerald-600/25 transition cursor-pointer flex items-center justify-center gap-2 ${
+                    justActivated ? 'text-sm' : 'text-xs sm:text-sm font-bold shadow-md'
+                  }`}
                 >
-                  Done
+                  <span>{justActivated ? 'Done — Start Shopping' : 'Done'}</span>
+                  {justActivated && <ArrowRight className="w-4 h-4 stroke-[2.5]" />}
                 </button>
 
                 <button
@@ -266,7 +295,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
       if (onSelectPlan) {
         await onSelectPlan(selectedPlan)
       }
-      onClose()
+      setJustActivated(true)
     } catch (err) {
       console.error('Failed to start trial:', err)
     } finally {
