@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { SpendingHistoryView } from './SpendingHistoryView'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import type { ShoppingItem } from '../types'
 import {
   compareShopPrices,
@@ -30,6 +31,7 @@ interface AnalysisModeViewProps {
 
 export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }) => {
   const { items, shops, categories, receipts, exportToCSV } = useShopping()
+  const { showAlert } = useConfirmDialog()
 
   const [analysisTab, setAnalysisTab] = useState<'matrix' | 'spending'>('spending')
   const [activeTab, setActiveTab] = useState<'needed' | 'catalog'>('needed')
@@ -54,7 +56,11 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
       setDownloadedCsv(true)
       setTimeout(() => setDownloadedCsv(false), 2500)
     } catch (err: any) {
-      alert(`CSV export failed: ${err.message || 'Unknown error'}`)
+      showAlert({
+        title: 'CSV Export Failed',
+        message: err.message || 'Unknown error while exporting CSV spreadsheet.',
+        variant: 'danger',
+      })
     }
   }
 

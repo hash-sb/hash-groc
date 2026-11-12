@@ -11,6 +11,7 @@ import {
   Square,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import { matchesWordPrefix } from '../utils/search'
 import { useBodyScrollLock } from '../utils/scrollLock'
 
@@ -32,6 +33,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
     clearAllWeekly,
     selectWeeklyItems,
   } = useShopping()
+  const { confirm } = useConfirmDialog()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
@@ -99,11 +101,13 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
   }
 
   const handleClearAll = async () => {
-    if (
-      window.confirm(
-        `Are you sure you want to remove weekly staple status from all ${weeklyCount} items?`
-      )
-    ) {
+    const ok = await confirm({
+      title: 'Clear All Weekly Staples?',
+      message: `Are you sure you want to remove weekly staple status from all ${weeklyCount} items?`,
+      confirmLabel: 'Clear Staples',
+      variant: 'danger',
+    })
+    if (ok) {
       await clearAllWeekly()
       showFeedback('Cleared all weekly staples.')
     }
@@ -118,7 +122,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

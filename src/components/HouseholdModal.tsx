@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface HouseholdModalProps {
@@ -34,6 +35,7 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
     openUpgradeModal,
   } = useShopping()
   const { user, signInWithGoogle, isConfigured } = useAuth()
+  const { confirm } = useConfirmDialog()
 
   const [copiedLink, setCopiedLink] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
@@ -85,7 +87,7 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -95,19 +97,20 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">Family & Household Sync</h2>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900">Family & Household Sync</h2>
               <p className="text-xs text-slate-500">Collaborate with family members in real-time</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition"
+            className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -338,7 +341,13 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
                     const confirmMsg = hasCustomDefault
                       ? 'Restore your saved default template for this household?'
                       : 'Restore default list? Current list items will be replaced.'
-                    if (window.confirm(confirmMsg)) {
+                    const ok = await confirm({
+                      title: hasCustomDefault ? 'Restore Saved Default?' : 'Restore Default List?',
+                      message: confirmMsg,
+                      confirmLabel: 'Restore List',
+                      variant: 'warning',
+                    })
+                    if (ok) {
                       await restoreDefaultList()
                       setStatusMessage('Restored default list successfully!')
                     }
@@ -352,7 +361,13 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm('Reset this household list back to the comprehensive standard catalog and stores?')) {
+                    const ok = await confirm({
+                      title: 'Reset to Standard Catalog?',
+                      message: 'Reset this household list back to the comprehensive standard catalog and stores?',
+                      confirmLabel: 'Reset Standard',
+                      variant: 'danger',
+                    })
+                    if (ok) {
                       await resetToSampleData()
                       setStatusMessage('Reset to standard catalog successfully!')
                     }
@@ -367,11 +382,11 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/80 flex justify-end">
+        <div className="p-3 sm:p-4 border-t border-slate-200 bg-slate-50 flex justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition"
+            className="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-bold hover:bg-emerald-700 transition cursor-pointer shadow-xs"
           >
             Done
           </button>

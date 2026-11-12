@@ -25,6 +25,7 @@ import { useShopping } from '../context/ShoppingContext'
 import { WeeklyManagerModal } from './WeeklyManagerModal'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import { matchesWordPrefix } from '../utils/search'
 import { useBodyScrollLock } from '../utils/scrollLock'
 
@@ -53,6 +54,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     resetAllItemDescriptions,
     removeAllQuantityDescriptions,
   } = useShopping()
+  const { confirm, showAlert } = useConfirmDialog()
 
   const [activeTab, setActiveTab] = useState<'all' | 'needed' | 'weekly'>('all')
   const [quickInput, setQuickInput] = useState('')
@@ -839,14 +841,20 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                     type="button"
                     onClick={async () => {
                       if (neededCount === 0) {
-                        alert('All items are already unselected.')
+                        await showAlert({
+                          title: 'Already Unselected',
+                          message: 'All items on your shopping list are already unselected.',
+                          variant: 'info',
+                        })
                         return
                       }
-                      if (
-                        window.confirm(
-                          `Unselect all ${neededCount} item${neededCount === 1 ? '' : 's'} from your shopping list?`
-                        )
-                      ) {
+                      const ok = await confirm({
+                        title: 'Unselect All Items?',
+                        message: `Unselect all ${neededCount} item${neededCount === 1 ? '' : 's'} from your active shopping list? Your catalog and prices will remain untouched.`,
+                        confirmLabel: 'Unselect All',
+                        variant: 'danger',
+                      })
+                      if (ok) {
                         await unselectAllItems()
                         setShowOptionsPopover(false)
                       }
@@ -867,11 +875,13 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      if (
-                        window.confirm(
-                          `Reset quantity of all ${items.length} items to 1?`
-                        )
-                      ) {
+                      const ok = await confirm({
+                        title: 'Reset All Counts to 1?',
+                        message: `Reset the quantity of all ${items.length} items back to 1?`,
+                        confirmLabel: 'Reset Counts',
+                        variant: 'warning',
+                      })
+                      if (ok) {
                         await resetAllItemCounts()
                         setShowOptionsPopover(false)
                       }
@@ -892,11 +902,13 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      if (
-                        window.confirm(
-                          `Reset and clear descriptions (notes) for all ${items.length} items?`
-                        )
-                      ) {
+                      const ok = await confirm({
+                        title: 'Clear All Descriptions?',
+                        message: `Reset and clear custom notes/descriptions for all ${items.length} items?`,
+                        confirmLabel: 'Clear Notes',
+                        variant: 'warning',
+                      })
+                      if (ok) {
                         await resetAllItemDescriptions()
                         setShowOptionsPopover(false)
                       }
@@ -917,11 +929,13 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      if (
-                        window.confirm(
-                          `Remove all quantity descriptions and size labels for all ${items.length} items?`
-                        )
-                      ) {
+                      const ok = await confirm({
+                        title: 'Clear Quantity Labels?',
+                        message: `Remove all quantity descriptions and custom size labels across all ${items.length} items?`,
+                        confirmLabel: 'Clear Labels',
+                        variant: 'warning',
+                      })
+                      if (ok) {
                         await removeAllQuantityDescriptions()
                         setShowOptionsPopover(false)
                       }
@@ -973,11 +987,13 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      if (
-                        window.confirm(
-                          `Start fresh trip with only your ${weeklyCount} weekly staples? (Other items will be unchecked)`
-                        )
-                      ) {
+                      const ok = await confirm({
+                        title: 'Start Fresh Trip?',
+                        message: `Start a fresh shopping trip with only your ${weeklyCount} weekly staples? Any other currently selected items will be unchecked.`,
+                        confirmLabel: 'Start Fresh',
+                        variant: 'emerald',
+                      })
+                      if (ok) {
                         await handleSelectWeekly(true)
                         setShowOptionsPopover(false)
                       }
@@ -998,7 +1014,11 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                     type="button"
                     onClick={async () => {
                       if (neededCount === 0) {
-                        alert('Your "To Buy" list is currently empty. Mark items first.')
+                        await showAlert({
+                          title: 'Shopping List Empty',
+                          message: 'Your "To Buy" list is currently empty. Add or mark items first to save them as weekly staples.',
+                          variant: 'info',
+                        })
                         return
                       }
                       const count = await saveCurrentNeededAsWeekly(false)
@@ -1080,7 +1100,13 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                       const confirmMsg = hasCustomDefault
                         ? `Restore your saved default template (${items.length} items will be replaced)?`
                         : 'Restore default list? Current list items will be replaced.'
-                      if (window.confirm(confirmMsg)) {
+                      const ok = await confirm({
+                        title: hasCustomDefault ? 'Restore Saved Default?' : 'Restore Default List?',
+                        message: confirmMsg,
+                        confirmLabel: 'Restore List',
+                        variant: 'warning',
+                      })
+                      if (ok) {
                         await restoreDefaultList()
                         setShowOptionsPopover(false)
                       }

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface MenuDrawerProps {
@@ -52,6 +53,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
     openUpgradeModal,
   } = useShopping()
   const { user, signInWithGoogle, signOut, isConfigured } = useAuth()
+  const { confirm, showAlert } = useConfirmDialog()
   const [savedFeedback, setSavedFeedback] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled] = useState<boolean>(() => {
@@ -92,9 +94,13 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
       }
       setDeferredPrompt(null)
     } else {
-      alert(
-        'To install HashGroc:\n\n• On iPhone/iPad (Safari): Tap the Share button (square with arrow), then select "Add to Home Screen".\n• On Android/Chrome: Tap browser menu (⋮), then "Install app" or "Add to Home screen".'
-      )
+      await showAlert({
+        title: 'Install HashGroc App',
+        message:
+          '• On iPhone / iPad (Safari): Tap the Share button (square with arrow), then select "Add to Home Screen".\n\n• On Android / Chrome: Tap the browser menu (⋮), then select "Install app" or "Add to Home screen".',
+        buttonLabel: 'Got It',
+        variant: 'emerald',
+      })
     }
   }
 
@@ -111,14 +117,26 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
     const confirmMsg = hasCustomDefault
       ? `Restore your saved default template (${items.length} items will be replaced with your saved default)?`
       : 'Restore default grocery list? Current list items will be replaced.'
-    if (window.confirm(confirmMsg)) {
+    const ok = await confirm({
+      title: hasCustomDefault ? 'Restore Saved Default?' : 'Restore Default List?',
+      message: confirmMsg,
+      confirmLabel: 'Restore List',
+      variant: 'warning',
+    })
+    if (ok) {
       await restoreDefaultList()
       onClose()
     }
   }
 
   const handleResetFactory = async () => {
-    if (window.confirm('Reset catalog back to the comprehensive standard catalog and default stores?')) {
+    const ok = await confirm({
+      title: 'Reset to Standard Catalog?',
+      message: 'Reset your catalog back to the comprehensive standard catalog and default stores?',
+      confirmLabel: 'Reset Catalog',
+      variant: 'danger',
+    })
+    if (ok) {
       await resetToSampleData()
       onClose()
     }
@@ -127,7 +145,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end overflow-hidden overscroll-contain animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] flex justify-end overflow-hidden overscroll-contain animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity overscroll-contain"
@@ -137,14 +155,20 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
       {/* Drawer Panel */}
       <div className="relative w-full max-w-sm bg-white h-full max-h-[100dvh] shadow-2xl flex flex-col z-10 overflow-hidden overscroll-contain">
         {/* Drawer Header */}
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">App Menu</h2>
-            <p className="text-xs text-slate-500">Settings, stores & analysis</p>
+        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+              <ShoppingCart className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900">App Menu</h2>
+              <p className="text-xs text-slate-500">Settings, stores & analysis</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition"
+            className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+            title="Close Menu"
           >
             <X className="w-5 h-5" />
           </button>
@@ -506,12 +530,12 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
         </div>
 
         {/* Drawer Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 text-center">
+        <div className="p-3 sm:p-4 border-t border-slate-200 bg-slate-50 text-center shrink-0">
           <button
             onClick={onClose}
-            className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition"
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
           >
-            Close Menu
+            Done
           </button>
         </div>
       </div>

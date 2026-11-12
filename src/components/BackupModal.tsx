@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface BackupModalProps {
@@ -41,6 +42,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
   useBodyScrollLock(true)
   const { items, shops, categories, receipts, household, exportBackupData, exportToCSV, importBackupData } =
     useShopping()
+  const { confirm, showAlert } = useConfirmDialog()
 
   const [activeTab, setActiveTab] = useState<'export' | 'restore'>('export')
   const [downloadedJson, setDownloadedJson] = useState(false)
@@ -74,7 +76,11 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
       setDownloadedJson(true)
       setTimeout(() => setDownloadedJson(false), 3000)
     } catch (err: any) {
-      alert(`Export failed: ${err.message || 'Unknown error'}`)
+      showAlert({
+        title: 'Export Failed',
+        message: err.message || 'Unknown error while exporting JSON backup.',
+        variant: 'danger',
+      })
     }
   }
 
@@ -97,7 +103,11 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
       setDownloadedCsv(true)
       setTimeout(() => setDownloadedCsv(false), 3000)
     } catch (err: any) {
-      alert(`CSV export failed: ${err.message || 'Unknown error'}`)
+      showAlert({
+        title: 'CSV Export Failed',
+        message: err.message || 'Unknown error while exporting CSV spreadsheet.',
+        variant: 'danger',
+      })
     }
   }
 
@@ -186,10 +196,16 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
 
     const confirmMsg =
       restoreMode === 'replace'
-        ? `⚠️ Warning: "Replace All" will overwrite your current ${items.length} items with the ${backupInfo.itemsCount} items from this backup.\n\nAre you sure you want to proceed?`
+        ? `"Replace All" will overwrite your current ${items.length} items with the ${backupInfo.itemsCount} items from this backup file.\n\nAre you sure you want to proceed?`
         : `Merge ${backupInfo.itemsCount} items from backup with your current ${items.length} items? New items and prices will be combined safely.`
 
-    if (!window.confirm(confirmMsg)) return
+    const ok = await confirm({
+      title: restoreMode === 'replace' ? 'Replace All Data?' : 'Merge Backup Data?',
+      message: confirmMsg,
+      confirmLabel: restoreMode === 'replace' ? 'Replace All' : 'Safe Merge',
+      variant: restoreMode === 'replace' ? 'warning' : 'emerald',
+    })
+    if (!ok) return
 
     setIsRestoring(true)
     setRestoreError(null)
@@ -213,7 +229,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -223,13 +239,13 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-slate-100/50 shrink-0">
+        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-emerald-600 text-white shadow-xs">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <HardDrive className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">Backup & Restore</h2>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900">Backup & Restore</h2>
               <p className="text-xs text-slate-500">
                 1-Click snapshot exports and data restoration
               </p>
@@ -238,7 +254,8 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition"
+            className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -571,7 +588,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="p-3 sm:p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
           <div className="text-[11px] text-slate-400 flex items-center gap-1">
             <Layers className="w-3.5 h-3.5" />
             <span>Encrypted in transit & synced to cloud</span>
@@ -579,7 +596,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
           >
             Done
           </button>

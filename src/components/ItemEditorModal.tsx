@@ -25,6 +25,7 @@ import {
 } from '../utils/pricing'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import { getItemBarcodes } from '../utils/barcode'
 import { useBodyScrollLock } from '../utils/scrollLock'
 interface ItemEditorModalProps {
@@ -53,6 +54,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
     selectedShopId,
     items,
   } = useShopping()
+  const { confirm } = useConfirmDialog()
 
   useBodyScrollLock(true)
 
@@ -360,7 +362,14 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
   }
 
   const handleDelete = async () => {
-    if (item && window.confirm(`Delete "${item.name}" from your catalog?`)) {
+    if (!item) return
+    const ok = await confirm({
+      title: 'Delete Item?',
+      message: `Delete "${item.name}" from your catalog? All recorded store prices for this item will also be removed.`,
+      confirmLabel: 'Delete Item',
+      variant: 'danger',
+    })
+    if (ok) {
       await deleteItem(item.id)
       onClose()
     }
@@ -849,7 +858,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -859,7 +868,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Compact Header with Integrated Micro-Toggles */}
-        <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/90 gap-2 shrink-0">
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 gap-2 shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate">
               {item ? 'Edit Item' : 'New Item'}
@@ -1621,7 +1630,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
       {/* Aisle Selection Modal Dialog Window (#4) */}
       {isAisleModalOpen && activeShop && (
         <div
-          className="fixed inset-0 z-60 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-150"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsAisleModalOpen(false)
           }}

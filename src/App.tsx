@@ -13,6 +13,7 @@ import { FirebaseConfigModal } from './components/FirebaseConfigModal'
 import { BackupModal } from './components/BackupModal'
 import { UpgradeModal } from './components/UpgradeModal'
 import { ReceiptScannerModal } from './components/ReceiptScannerModal'
+import { ConfirmDialogProvider } from './components/ConfirmDialogModal'
 import type { ShoppingItem } from './types'
 
 const AppContent: React.FC = () => {
@@ -79,9 +80,9 @@ const AppContent: React.FC = () => {
             <div className="max-w-7xl mx-auto px-4 pt-3 pb-1">
               <button
                 onClick={() => setMode('add')}
-                className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
               >
-                <span>← Back to Simple List</span>
+                <span>← Back to List</span>
               </button>
             </div>
             <AnalysisModeView onEditItem={(item) => setEditingItem(item)} />
@@ -160,7 +161,9 @@ export default function App() {
   return (
     <AuthProvider>
       <ShoppingProvider>
-        <AppContent />
+        <ConfirmDialogProvider>
+          <AppContent />
+        </ConfirmDialogProvider>
       </ShoppingProvider>
     </AuthProvider>
   )

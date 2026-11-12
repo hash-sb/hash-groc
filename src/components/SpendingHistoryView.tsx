@@ -16,9 +16,11 @@ import {
 import { useShopping } from '../context/ShoppingContext'
 import { formatPrice } from '../utils/pricing'
 import { ReceiptScannerModal } from './ReceiptScannerModal'
+import { useConfirmDialog } from './ConfirmDialogModal'
 
 export const SpendingHistoryView: React.FC = () => {
   const { receipts, deleteReceipt, clearAllReceipts, isPro, openUpgradeModal } = useShopping()
+  const { confirm } = useConfirmDialog()
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'month' | '30days' | '90days'>('all')
   const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
   const [downloadSuccess, setDownloadSuccess] = useState(false)
@@ -180,7 +182,13 @@ export const SpendingHistoryView: React.FC = () => {
   }
 
   const handleClearHistory = async () => {
-    if (window.confirm('Are you sure you want to delete all historical purchase receipts? This cannot be undone.')) {
+    const ok = await confirm({
+      title: 'Clear Spending History?',
+      message: 'Are you sure you want to delete all historical purchase receipts? This cannot be undone.',
+      confirmLabel: 'Clear History',
+      variant: 'danger',
+    })
+    if (ok) {
       await clearAllReceipts()
     }
   }
@@ -598,8 +606,14 @@ export const SpendingHistoryView: React.FC = () => {
                       <div className="mt-2.5 flex justify-end">
                         <button
                           type="button"
-                          onClick={() => {
-                            if (window.confirm('Delete this receipt from history?')) {
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: 'Delete Receipt?',
+                              message: `Delete this ${receipt.shopName} receipt (${formatPrice(receipt.totalAmount)}) from your spending history?`,
+                              confirmLabel: 'Delete Receipt',
+                              variant: 'danger',
+                            })
+                            if (ok) {
                               deleteReceipt(receipt.id)
                             }
                           }}

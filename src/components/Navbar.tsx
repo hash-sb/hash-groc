@@ -85,7 +85,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenMenu }) => {
 
             <button
               onClick={onOpenMenu}
-              className="p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1.5 shadow-2xs"
+              className="p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
               title="Open Menu"
             >
               <Menu className="w-4 h-4" />

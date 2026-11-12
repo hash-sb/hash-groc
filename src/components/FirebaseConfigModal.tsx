@@ -15,6 +15,7 @@ import {
   isConfigured,
   type FirebaseConfigObject,
 } from '../firebase/config'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface FirebaseConfigModalProps {
@@ -23,6 +24,7 @@ interface FirebaseConfigModalProps {
 
 export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({ onClose }) => {
   useBodyScrollLock(true)
+  const { confirm } = useConfirmDialog()
   const current = getStoredFirebaseConfig()
   const [apiKey, setApiKey] = useState(current?.apiKey || '')
   const [authDomain, setAuthDomain] = useState(current?.authDomain || '')
@@ -69,15 +71,21 @@ export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({ onClos
     saveFirebaseConfig(config)
   }
 
-  const handleClear = () => {
-    if (window.confirm('Reset to Local / Demo mode?')) {
+  const handleClear = async () => {
+    const ok = await confirm({
+      title: 'Switch to Local Mode?',
+      message: 'Disconnect Firebase cloud sync and return to Local / Demo mode? Your local data will remain safe on this device.',
+      confirmLabel: 'Switch to Local',
+      variant: 'warning',
+    })
+    if (ok) {
       clearFirebaseConfig()
     }
   }
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -87,19 +95,13 @@ export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({ onClos
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 shrink-0">
-          <div className="flex items-center gap-2">
-            <div
-              className={`p-2 rounded-xl ${
-                isConfigured
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-amber-100 text-amber-800'
-              }`}
-            >
+        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <Cloud className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
                 Cloud Sync & Google Auth Setup
               </h2>
               <p className="text-xs text-slate-500">Firebase configuration for real-time family sharing</p>
@@ -107,7 +109,8 @@ export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({ onClos
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition"
+            className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -281,13 +284,13 @@ export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({ onClos
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/80 flex justify-end">
+        <div className="p-3 sm:p-4 border-t border-slate-200 bg-slate-50 flex justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold hover:bg-slate-700 transition"
+            className="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-bold hover:bg-emerald-700 transition cursor-pointer shadow-xs"
           >
-            Close
+            Done
           </button>
         </div>
       </div>

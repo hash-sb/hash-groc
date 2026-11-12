@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { Shop } from '../types'
 import { useShopping } from '../context/ShoppingContext'
+import { useConfirmDialog } from './ConfirmDialogModal'
 import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface ShopManagerModalProps {
@@ -57,6 +58,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
     FREE_STORE_LIMIT,
     openUpgradeModal,
   } = useShopping()
+  const { confirm, showAlert } = useConfirmDialog()
 
   // Creation State
   useBodyScrollLock(true)
@@ -322,7 +324,11 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
   // Delete store
   const handleDelete = async (shop: Shop) => {
     if (shops.length <= 1) {
-      alert('You must have at least one store in your app.')
+      await showAlert({
+        title: 'Minimum 1 Store Required',
+        message: 'You must keep at least one store in your app.',
+        variant: 'warning',
+      })
       return
     }
 
@@ -330,16 +336,22 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
     const confirmMsg =
       pricedCount > 0
         ? `Delete store "${shop.name}"? It has ${pricedCount} item price${pricedCount === 1 ? '' : 's'} recorded.`
-        : `Delete store "${shop.name}"?`
+        : `Delete store "${shop.name}" from your catalog?`
 
-    if (window.confirm(confirmMsg)) {
+    const ok = await confirm({
+      title: `Delete "${shop.name}"?`,
+      message: confirmMsg,
+      confirmLabel: 'Delete Store',
+      variant: 'danger',
+    })
+    if (ok) {
       await deleteShop(shop.id)
     }
   }
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in duration-150"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -349,20 +361,20 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <Store className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">Manage Stores</h2>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900">Manage Stores</h2>
               <p className="text-xs text-slate-500">Drag to arrange store and aisle order</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+            className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -1056,11 +1068,11 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end shrink-0">
+        <div className="p-3 sm:p-4 border-t border-slate-200 bg-slate-50 flex justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-bold hover:bg-emerald-700 transition shadow-xs cursor-pointer"
           >
             Done
           </button>

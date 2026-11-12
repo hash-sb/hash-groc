@@ -91,6 +91,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [quickAddSearch, setQuickAddSearch] = useState<string>('')
   const [quickAddCategory, setQuickAddCategory] = useState<string>('Other')
   const [quickAddQty, setQuickAddQty] = useState<number>(1)
+  const [isQuickAddCalcOpen, setIsQuickAddCalcOpen] = useState<boolean>(false)
 
   const [showUnavailableDrawer, setShowUnavailableDrawer] = useState<boolean>(false)
   const [showTripSummary, setShowTripSummary] = useState<boolean>(false)
@@ -273,7 +274,6 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   const isAnyModalOpen = Boolean(
     isQuickAddOpen ||
-      showUnavailableDrawer ||
       showTripSummary ||
       showStoreSwitcherModal ||
       itemMenuModal ||
@@ -281,7 +281,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       outOfStockItem ||
       zeroQtyConfirmItem ||
       sizePickerItem ||
-      quickQuantityItem
+      quickQuantityItem ||
+      isQuickAddCalcOpen
   )
   useBodyScrollLock(isAnyModalOpen)
 
@@ -1808,7 +1809,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* Switch Store Modal */}
       {showStoreSwitcherModal && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowStoreSwitcherModal(false)
           }}
@@ -1818,9 +1819,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
                   <Store className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
@@ -1950,7 +1951,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowStoreSwitcherModal(false)}
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer shadow-xs"
               >
                 Done
               </button>
@@ -1962,7 +1963,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 8. Trip Summary Modal */}
       {showTripSummary && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in"
           onClick={() => setShowTripSummary(false)}
         >
           <div
@@ -2086,7 +2087,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 10. Out of Stock & Move Store Modal */}
       {outOfStockItem && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in"
           onClick={() => setOutOfStockItem(null)}
         >
           <div
@@ -2195,7 +2196,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* Interactive Size Picker Modal Sheet */}
       {sizePickerItem && (
         <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in duration-150"
           onClick={() => setSizePickerItem(null)}
         >
           <div
@@ -2342,7 +2343,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 9. Item Actions Mini Modal / Action Sheet */}
       {itemMenuModal && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in"
           onClick={() => setItemMenuModal(null)}
         >
           <div
@@ -2528,7 +2529,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 11. Zero-Quantity Removal Confirmation Modal */}
       {zeroQtyConfirmItem && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in duration-150"
           onClick={() => setZeroQtyConfirmItem(null)}
         >
           <div
@@ -2587,7 +2588,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 12. Shopping View Options Modal */}
       {showOptionsPopover && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowOptionsPopover(false)
           }}
@@ -2831,7 +2832,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 13. In-Store Quick Add Modal (Solution 1) */}
       {isQuickAddOpen && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-150"
           onClick={() => setIsQuickAddOpen(false)}
         >
           <div
@@ -2915,9 +2916,14 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   >
                     <Minus className="w-3 h-3" />
                   </button>
-                  <span className="min-w-[18px] sm:min-w-[20px] px-0.5 text-center font-bold text-xs text-slate-800 select-none">
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickAddCalcOpen(true)}
+                    className="min-w-[20px] sm:min-w-[22px] h-7 px-1 text-center font-bold text-xs text-slate-800 hover:bg-slate-200 transition cursor-pointer select-none"
+                    title="Tap to set quantity with keypad"
+                  >
                     {quickAddQty}
-                  </span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setQuickAddQty((q) => q + 1)}
@@ -3092,13 +3098,30 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsQuickAddOpen(false)}
-                className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition cursor-pointer shadow-xs"
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
               >
                 Done
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Calculator Modal for Quick Add Quantity in Shop Mode */}
+      {isQuickAddCalcOpen && (
+        <KeypadCalculatorModal
+          isOpen={isQuickAddCalcOpen}
+          onClose={() => setIsQuickAddCalcOpen(false)}
+          title="Set Add Quantity"
+          itemName={quickAddSearch.trim() || 'New Item'}
+          storeName={currentShop.name}
+          initialValue={quickAddQty}
+          mode="quantity"
+          onApply={(newQty) => {
+            setQuickAddQty(Math.max(1, newQty))
+            setIsQuickAddCalcOpen(false)
+          }}
+        />
       )}
 
       {/* 10. Barcode Scanner Modal */}
