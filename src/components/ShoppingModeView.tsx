@@ -81,6 +81,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     clearCart,
     recordTripReceipt,
     reorderStoreItems,
+    isPro,
+    openUpgradeModal,
   } = useShopping()
 
   // In-Store Quick Add Sheet (Solution 1)
@@ -1719,6 +1721,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               type="button"
               onClick={() => {
                 triggerHaptic(20)
+                const scansUsed = Number(localStorage.getItem('hash_groc_receipt_scans_used') || '0')
+                if (!isPro && scansUsed >= 1) {
+                  openUpgradeModal('receipt')
+                  return
+                }
                 setIsReceiptScannerOpen(true)
               }}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 active:scale-95 transition flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"

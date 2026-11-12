@@ -77,7 +77,8 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   const handleFileSelected = async (file: File) => {
     const scansUsed = getScansUsed()
     if (!isPro && scansUsed >= FREE_SCANS_LIMIT) {
-      openUpgradeModal('general')
+      onClose()
+      openUpgradeModal('receipt')
       return
     }
 
@@ -114,7 +115,8 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   const handleLoadSample = (storeName: 'Costco' | 'Trader Joe’s' | 'ALDI') => {
     const scansUsed = getScansUsed()
     if (!isPro && scansUsed >= FREE_SCANS_LIMIT) {
-      openUpgradeModal('general')
+      onClose()
+      openUpgradeModal('receipt')
       return
     }
 
@@ -336,14 +338,21 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-emerald-600" />
                   <span className="font-bold text-slate-800">
-                    {isPro ? 'Groc Plus Unlimited AI Scans' : 'Free Tier: 1 Scan Included'}
+                    {isPro
+                      ? 'Groc Plus Unlimited AI Scans'
+                      : getScansUsed() >= FREE_SCANS_LIMIT
+                        ? '0 Free Scans Left'
+                        : 'Free Tier: 1 Scan Included'}
                   </span>
                 </div>
                 {!isPro && (
                   <button
                     type="button"
-                    onClick={() => openUpgradeModal('general')}
-                    className="text-emerald-700 font-extrabold hover:underline"
+                    onClick={() => {
+                      onClose()
+                      openUpgradeModal('receipt')
+                    }}
+                    className="text-emerald-700 font-extrabold hover:underline cursor-pointer"
                   >
                     Get Unlimited →
                   </button>

@@ -8,9 +8,10 @@ import {
   Store,
   ArrowRight,
   TrendingUp,
+  Receipt,
 } from 'lucide-react'
 
-export type UpgradeTrigger = 'household' | 'store_limit' | 'general'
+export type UpgradeTrigger = 'household' | 'store_limit' | 'general' | 'receipt'
 
 interface UpgradeModalProps {
   isOpen: boolean
@@ -32,6 +33,11 @@ const TRIGGER_DETAILS: Record<
     headline: 'Unlock Unlimited Stores & Maximum Savings',
     subtext: 'Add Costco, Trader Joe’s, ALDI, and more to compare prices across every aisle.',
     icon: <Store className="w-5 h-5 text-emerald-200" />,
+  },
+  receipt: {
+    headline: 'Unlock Unlimited AI Receipt Scans with Groc Plus',
+    subtext: 'Never type grocery prices manually again. Snap any receipt to auto-update store prices.',
+    icon: <Receipt className="w-5 h-5 text-emerald-200" />,
   },
   general: {
     headline: 'Supercharge Your Grocery Savings with Groc Plus',
@@ -71,7 +77,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

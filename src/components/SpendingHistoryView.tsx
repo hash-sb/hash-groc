@@ -18,7 +18,7 @@ import { formatPrice } from '../utils/pricing'
 import { ReceiptScannerModal } from './ReceiptScannerModal'
 
 export const SpendingHistoryView: React.FC = () => {
-  const { receipts, deleteReceipt, clearAllReceipts } = useShopping()
+  const { receipts, deleteReceipt, clearAllReceipts, isPro, openUpgradeModal } = useShopping()
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'month' | '30days' | '90days'>('all')
   const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
   const [downloadSuccess, setDownloadSuccess] = useState(false)
@@ -233,7 +233,14 @@ export const SpendingHistoryView: React.FC = () => {
 
           {/* Scan Receipt */}
           <button
-            onClick={() => setIsScannerOpen(true)}
+            onClick={() => {
+              const scansUsed = Number(localStorage.getItem('hash_groc_receipt_scans_used') || '0')
+              if (!isPro && scansUsed >= 1) {
+                openUpgradeModal('receipt')
+                return
+              }
+              setIsScannerOpen(true)
+            }}
             className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
             title="Scan paper receipt to log spending and update prices"
           >

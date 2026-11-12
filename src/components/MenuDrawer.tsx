@@ -291,6 +291,12 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
             {onOpenReceiptScanner && (
               <button
                 onClick={() => {
+                  const scansUsed = Number(localStorage.getItem('hash_groc_receipt_scans_used') || '0')
+                  if (!isPro && scansUsed >= 1) {
+                    onClose()
+                    openUpgradeModal('receipt')
+                    return
+                  }
                   onOpenReceiptScanner()
                   onClose()
                 }}
