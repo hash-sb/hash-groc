@@ -74,8 +74,183 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
   if (!isOpen) return null
 
-  // If user is already on Groc Plus (or just activated their trial), show the Subscription Benefits / Manage view
-  if (isPro || justActivated) {
+  // 1. Exciting Celebration Screen when user JUST activated their 14-day free trial
+  if (justActivated) {
+    const trialDateStr = household?.trialEndsAt
+      ? new Date(household.trialEndsAt).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : new Date(Date.now() + 14 * 86400000).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+
+    const unlockedPerks = [
+      {
+        icon: <Store className="w-4 h-4 text-emerald-600" />,
+        bg: 'bg-emerald-100 border-emerald-200',
+        title: 'Unlimited Stores',
+        desc: 'Compare prices across Costco, ALDI, Trader Joe’s & more',
+      },
+      {
+        icon: <Users className="w-4 h-4 text-teal-600" />,
+        bg: 'bg-teal-100 border-teal-200',
+        title: 'Live Family Sync',
+        desc: `Instant shared cart for ${household?.name || 'your household'}`,
+      },
+      {
+        icon: <Receipt className="w-4 h-4 text-amber-600" />,
+        bg: 'bg-amber-100 border-amber-200',
+        title: 'Unlimited AI Receipt Scans',
+        desc: 'Snap paper receipts to update store prices in seconds',
+      },
+      {
+        icon: <TrendingUp className="w-4 h-4 text-indigo-600" />,
+        bg: 'bg-indigo-100 border-indigo-200',
+        title: 'Smart Multi-Store Split',
+        desc: 'Automatically find the lowest basket cost every trip',
+      },
+    ]
+
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Welcome to Groc Plus"
+        className="fixed inset-0 z-[60] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        <div
+          className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] my-auto overflow-hidden border border-emerald-300/60 animate-in zoom-in-95 duration-200 overscroll-contain shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Celebratory Hero Header with Animated Confetti Accents */}
+          <div className="relative px-6 pt-6 pb-5 bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-800 text-white text-center overflow-hidden shrink-0">
+            {/* Decorative Floating Confetti / Glow Orbs */}
+            <div className="pointer-events-none absolute -top-10 -left-10 w-32 h-32 rounded-full bg-amber-400/25 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-10 -right-10 w-36 h-36 rounded-full bg-teal-300/25 blur-2xl" />
+            <span className="pointer-events-none select-none absolute top-4 left-6 text-lg animate-bounce">
+              🎉
+            </span>
+            <span className="pointer-events-none select-none absolute top-8 right-12 text-base animate-pulse">
+              ✨
+            </span>
+            <span className="pointer-events-none select-none absolute bottom-4 left-12 text-sm animate-pulse">
+              🌟
+            </span>
+            <span className="pointer-events-none select-none absolute bottom-5 right-7 text-lg animate-bounce">
+              🎊
+            </span>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="absolute top-3.5 right-3.5 p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Glowing Center Celebration Medallion */}
+            <div className="relative mx-auto w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-400 via-amber-300 to-yellow-200 text-slate-950 flex items-center justify-center shadow-xl shadow-amber-500/30 ring-4 ring-white/25 mb-3 animate-in zoom-in-50 duration-300">
+              <PartyPopper className="w-8 h-8 stroke-[2.2]" />
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-white text-white flex items-center justify-center shadow-xs">
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+              </div>
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-400/20 border border-amber-300/40 text-amber-200 text-[11px] font-black uppercase tracking-wider mb-1.5">
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>14-Day Free Trial Unlocked</span>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+              You’re on Groc Plus!
+            </h2>
+            <p className="text-xs sm:text-sm text-emerald-100 mt-1 font-medium max-w-xs mx-auto">
+              Every premium superpower is now live for your household. Let’s save on your next trip!
+            </p>
+          </div>
+
+          {/* Scrollable Celebration Body */}
+          <div className="p-4 sm:p-5 space-y-4 overflow-y-auto overscroll-contain">
+            {/* Unlocked Superpowers Grid */}
+            <div>
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between px-0.5">
+                <span>Your Unlocked Superpowers</span>
+                <span className="text-emerald-600 font-black">4 / 4 Active</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {unlockedPerks.map((perk) => (
+                  <div
+                    key={perk.title}
+                    className="p-2.5 rounded-2xl bg-slate-50/90 border border-slate-200/80 flex items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${perk.bg}`}
+                      >
+                        {perk.icon}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-extrabold text-slate-900 truncate">
+                          {perk.title}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          {perk.desc}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider shrink-0 flex items-center gap-0.5">
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      Live
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Peace-of-Mind 14-Day Trial Timeline */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/80 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-extrabold text-slate-900">
+                    $0.00 Charged Today
+                  </div>
+                  <div className="text-[11px] text-slate-600">
+                    Free until <span className="font-bold text-emerald-800">{trialDateStr}</span> • Cancel anytime in Menu
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Exciting Primary CTA */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-3.5 px-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-700 hover:via-teal-700 hover:to-emerald-700 active:scale-[0.98] text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Start Exploring Groc Plus</span>
+              <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 2. If user is already on Groc Plus (revisiting from Menu), show the Subscription Management view
+  if (isPro) {
     const trialDateStr = household?.trialEndsAt
       ? new Date(household.trialEndsAt).toLocaleDateString(undefined, {
           month: 'short',
@@ -122,35 +297,20 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
             {/* Pill Badge */}
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/30 border border-emerald-300/40 text-emerald-100 text-xs font-black uppercase tracking-wider mb-2.5 shadow-inner">
-              {justActivated ? (
-                <>
-                  <PartyPopper className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Trial Activated</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Groc Plus Active</span>
-                </>
-              )}
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Groc Plus Active</span>
             </div>
 
             <div className="flex items-start gap-2.5">
               <div className="p-2 rounded-xl bg-white/10 border border-white/20 shrink-0 mt-0.5">
-                {justActivated ? (
-                  <Sparkles className="w-5 h-5 text-amber-300" />
-                ) : (
-                  <ShieldCheck className="w-5 h-5 text-emerald-200" />
-                )}
+                <ShieldCheck className="w-5 h-5 text-emerald-200" />
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-black tracking-tight leading-snug">
-                  {justActivated ? 'Welcome to Groc Plus!' : 'Manage Subscription'}
+                  Manage Subscription
                 </h2>
                 <p className="text-xs sm:text-sm text-emerald-100/90 mt-1 font-medium leading-relaxed">
-                  {justActivated
-                    ? 'Your 14-day free trial is now active. All premium features are unlocked for your household.'
-                    : 'Your household has full access to all Groc Plus features across all devices.'}
+                  Your household has full access to all Groc Plus features across all devices.
                 </p>
               </div>
             </div>
@@ -174,11 +334,6 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   Active through <span className="font-semibold text-slate-800">{trialDateStr}</span>
                 </div>
               )}
-              {justActivated && (
-                <div className="text-[11px] text-emerald-700 font-medium">
-                  • No charge today • Cancel anytime with 1 tap before trial ends
-                </div>
-              )}
               <div className="pt-1.5 text-[11px] text-slate-500 border-t border-emerald-200/60">
                 Household: <span className="font-bold text-slate-800">{household?.name}</span> (#{household?.inviteCode})
               </div>
@@ -187,7 +342,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             {/* Unlocked Benefits */}
             <div className="space-y-2 text-xs text-slate-700">
               <div className="font-bold text-slate-900">
-                {justActivated ? '✨ Unlocked on Groc Plus:' : 'Unlocked on this plan:'}
+                Unlocked on this plan:
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold text-[10px]">
@@ -257,12 +412,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className={`w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black rounded-2xl shadow-lg shadow-emerald-600/25 transition cursor-pointer flex items-center justify-center gap-2 ${
-                    justActivated ? 'text-sm' : 'text-xs sm:text-sm font-bold shadow-md'
-                  }`}
+                  className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold rounded-2xl shadow-md shadow-emerald-600/20 transition cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>{justActivated ? 'Done — Start Shopping' : 'Done'}</span>
-                  {justActivated && <ArrowRight className="w-4 h-4 stroke-[2.5]" />}
+                  <span>Done</span>
                 </button>
 
                 <button
@@ -288,6 +440,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     try {
       if (onSelectPlan) {
         await onSelectPlan(selectedPlan)
+      }
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([30, 50, 70])
+        } catch {
+          // ignore
+        }
       }
       setJustActivated(true)
     } catch (err) {
