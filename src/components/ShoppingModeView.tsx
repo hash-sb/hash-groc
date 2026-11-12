@@ -37,12 +37,14 @@ import {
   Barcode,
   GripVertical,
   ArrowUpDown,
+  Receipt,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
 import type { ShoppingItem, PurchasedItemRecord, Shop, ItemShopDetail } from '../types'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
+import { ReceiptScannerModal } from './ReceiptScannerModal'
 import {
   compareShopPrices,
   formatPrice,
@@ -249,6 +251,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
   // In-Store Barcode Scanner Modal
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState<boolean>(false)
+
+  // AI Receipt Scanner Modal
+  const [isReceiptScannerOpen, setIsReceiptScannerOpen] = useState<boolean>(false)
 
   // Feature: Interactive Package Size Picker & Quick Quantity (Calculator)
   const [sizePickerItem, setSizePickerItem] = useState<{
@@ -1709,6 +1714,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               <Barcode className="w-5 h-5 text-emerald-600" />
             </button>
 
+            {/* AI Receipt Scanner */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(20)
+                setIsReceiptScannerOpen(true)
+              }}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 active:scale-95 transition flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"
+              title="Scan paper receipt with AI to update prices"
+              aria-label="Scan receipt"
+            >
+              <Receipt className="w-5 h-5 text-amber-600" />
+            </button>
+
             {/* Finish Stop Button (Icon Only) */}
             <button
               type="button"
@@ -3051,6 +3070,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           isOpen={isBarcodeScannerOpen}
           onClose={() => setIsBarcodeScannerOpen(false)}
           currentShopId={currentShop.id}
+        />
+      )}
+
+      {/* 11. AI Receipt Scanner Modal */}
+      {isReceiptScannerOpen && (
+        <ReceiptScannerModal
+          isOpen={isReceiptScannerOpen}
+          onClose={() => setIsReceiptScannerOpen(false)}
+          initialShopId={currentShop.id}
         />
       )}
     </div>

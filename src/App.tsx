@@ -12,6 +12,7 @@ import { HouseholdModal } from './components/HouseholdModal'
 import { FirebaseConfigModal } from './components/FirebaseConfigModal'
 import { BackupModal } from './components/BackupModal'
 import { UpgradeModal } from './components/UpgradeModal'
+import { ReceiptScannerModal } from './components/ReceiptScannerModal'
 import type { ShoppingItem } from './types'
 
 const AppContent: React.FC = () => {
@@ -35,6 +36,7 @@ const AppContent: React.FC = () => {
   const [isHouseholdModalOpen, setIsHouseholdModalOpen] = useState(false)
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false)
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false)
+  const [isReceiptScannerOpen, setIsReceiptScannerOpen] = useState(false)
 
   if (loading) {
     return (
@@ -95,6 +97,7 @@ const AppContent: React.FC = () => {
         onOpenHousehold={() => setIsHouseholdModalOpen(true)}
         onOpenConfig={() => setIsConfigModalOpen(true)}
         onOpenBackupModal={() => setIsBackupModalOpen(true)}
+        onOpenReceiptScanner={() => setIsReceiptScannerOpen(true)}
       />
 
       {/* Item Create / Edit Modal */}
@@ -141,6 +144,14 @@ const AppContent: React.FC = () => {
         trigger={upgradeTrigger}
         onSelectPlan={activateProTrial}
       />
+
+      {/* AI Receipt Scanner Modal */}
+      {isReceiptScannerOpen && (
+        <ReceiptScannerModal
+          isOpen={isReceiptScannerOpen}
+          onClose={() => setIsReceiptScannerOpen(false)}
+        />
+      )}
     </div>
   )
 }

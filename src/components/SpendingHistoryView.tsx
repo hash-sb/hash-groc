@@ -11,15 +11,18 @@ import {
   ShoppingBag,
   TrendingDown,
   CheckCircle2,
+  Camera,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { formatPrice } from '../utils/pricing'
+import { ReceiptScannerModal } from './ReceiptScannerModal'
 
 export const SpendingHistoryView: React.FC = () => {
   const { receipts, deleteReceipt, clearAllReceipts } = useShopping()
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'month' | '30days' | '90days'>('all')
   const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
   const [downloadSuccess, setDownloadSuccess] = useState(false)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
 
   // Filter receipts based on selected period
   const filteredReceipts = useMemo(() => {
@@ -227,6 +230,16 @@ export const SpendingHistoryView: React.FC = () => {
               Past 30d
             </button>
           </div>
+
+          {/* Scan Receipt */}
+          <button
+            onClick={() => setIsScannerOpen(true)}
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+            title="Scan paper receipt to log spending and update prices"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Scan Receipt</span>
+          </button>
 
           {/* Export to CSV */}
           <button
@@ -597,6 +610,14 @@ export const SpendingHistoryView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* AI Receipt Scanner Modal */}
+      {isScannerOpen && (
+        <ReceiptScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+        />
+      )}
     </div>
   )
 }

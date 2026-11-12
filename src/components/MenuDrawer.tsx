@@ -14,6 +14,7 @@ import {
   Download,
   HardDrive,
   Sparkles,
+  Receipt,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -25,6 +26,7 @@ interface MenuDrawerProps {
   onOpenHousehold: () => void
   onOpenConfig: () => void
   onOpenBackupModal: () => void
+  onOpenReceiptScanner?: () => void
 }
 
 export const MenuDrawer: React.FC<MenuDrawerProps> = ({
@@ -34,6 +36,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onOpenHousehold,
   onOpenConfig,
   onOpenBackupModal,
+  onOpenReceiptScanner,
 }) => {
   const {
     items,
@@ -283,6 +286,35 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
             </button>
+
+            {/* AI Receipt Scanner */}
+            {onOpenReceiptScanner && (
+              <button
+                onClick={() => {
+                  onOpenReceiptScanner()
+                  onClose()
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition text-left group border border-transparent hover:border-slate-200"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>AI Receipt Scanner</span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[9px] font-black uppercase tracking-wider">
+                        ✨ OCR
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Snap paper receipts to auto-update prices
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
+              </button>
+            )}
 
             {/* 2. Manage Stores */}
             <button
