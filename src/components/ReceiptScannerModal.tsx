@@ -22,6 +22,7 @@ import {
   type ParsedReceiptResult,
 } from '../utils/receiptOcr'
 import { formatPrice } from '../utils/pricing'
+import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 
 interface ReceiptScannerModalProps {
   isOpen: boolean
@@ -59,6 +60,11 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [apiKeyInput, setApiKeyInput] = useState(getGeminiApiKey())
   const [alsoLogReceipt, setAlsoLogReceipt] = useState(true)
+  const [editingItemPrice, setEditingItemPrice] = useState<{
+    id: string
+    name: string
+    price: number
+  } | null>(null)
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -600,16 +606,25 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Price Input */}
-                    <div className="shrink-0 flex items-center gap-1">
-                      <span className="text-xs font-bold text-slate-400">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={item.price}
-                        onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
-                        className="w-16 px-2 py-1 rounded-lg border border-slate-200 text-xs font-black text-right text-slate-900 focus:outline-emerald-500"
-                      />
+                    {/* Price Trigger Button (Opens custom cashier keypad) */}
+                    <div className="shrink-0 flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingItemPrice({
+                            id: item.id,
+                            name: item.cleanedName,
+                            price: item.price,
+                          })
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 text-xs font-black text-slate-900 transition flex items-center gap-0.5 cursor-pointer active:scale-95 shadow-2xs group"
+                        title="Tap to edit price with custom cashier keypad"
+                      >
+                        <span className="text-slate-400 font-semibold group-hover:text-emerald-600 transition">
+                          $
+                        </span>
+                        <span>{item.price.toFixed(2)}</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -691,6 +706,23 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Custom Cashier Keypad Calculator Modal */}
+      {editingItemPrice && (
+        <KeypadCalculatorModal
+          isOpen={Boolean(editingItemPrice)}
+          onClose={() => setEditingItemPrice(null)}
+          title="Edit Scanned Price"
+          itemName={editingItemPrice.name}
+          storeName={shops.find((s) => s.id === selectedShopId)?.name || 'Store'}
+          initialValue={editingItemPrice.price}
+          mode="price"
+          onApply={(newPrice) => {
+            handleItemPriceChange(editingItemPrice.id, String(newPrice))
+            setEditingItemPrice(null)
+          }}
+        />
+      )}
     </div>
   )
 }

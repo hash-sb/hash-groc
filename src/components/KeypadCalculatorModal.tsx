@@ -296,7 +296,7 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in duration-150"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-[70] animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
