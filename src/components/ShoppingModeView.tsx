@@ -2836,7 +2836,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           onClick={() => setIsQuickAddOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl border border-slate-100 overflow-hidden text-left flex flex-col max-h-[calc(100dvh-0.5rem)] sm:max-h-[85dvh] my-auto overscroll-contain shrink-0"
+            className="bg-white rounded-2xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl border border-slate-100 overflow-hidden text-left flex flex-col h-[calc(100dvh-1rem)] sm:h-[80dvh] max-h-[680px] my-auto overscroll-contain shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header (Compact so matching list stays at the very top) */}

@@ -357,7 +357,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
       }}
     >
       <div
-        className="bg-white rounded-3xl max-w-xl w-full max-h-[calc(100dvh-1.5rem)] sm:max-h-[90dvh] my-auto flex flex-col shadow-2xl overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+        className="bg-white rounded-3xl max-w-xl w-full h-[calc(100dvh-1.5rem)] sm:h-[85dvh] max-h-[740px] my-auto flex flex-col shadow-2xl overflow-hidden border border-slate-200 overscroll-contain shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

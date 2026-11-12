@@ -235,7 +235,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
       }}
     >
       <div
-        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] my-auto overscroll-contain shrink-0 border border-slate-200"
+        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[calc(100dvh-1.5rem)] sm:h-[82dvh] max-h-[680px] my-auto overscroll-contain shrink-0 border border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

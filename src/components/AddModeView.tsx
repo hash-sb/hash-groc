@@ -13,7 +13,7 @@ import {
   BookmarkCheck,
   RotateCcw,
   Repeat,
-  Sparkles,
+  ShoppingCart,
   X,
   Square,
   FileText,
@@ -558,7 +558,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             <div className="min-w-0 text-xs text-teal-950 font-semibold truncate">
               {weeklyCount > 0 ? (
                 <span>
-                  {weeklyCount} recurring staples • Use "Manage" to configure
+                  {weeklyCount} recurring staples • Tap "Manage Staples" to configure
                 </span>
               ) : (
                 <span>No weekly staples designated yet</span>
@@ -568,9 +568,9 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           <button
             type="button"
             onClick={() => setIsWeeklyManagerOpen(true)}
-            className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
+            className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs shrink-0 cursor-pointer"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <Repeat className="w-3.5 h-3.5" />
             <span>Manage Staples</span>
           </button>
         </div>
@@ -593,9 +593,9 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             {quickInput.trim()
               ? 'Press the Add (+) button above or hit Enter to add this as a new item.'
               : activeTab === 'needed'
-              ? 'Tap "Select Weekly" above or browse "All Items" to pick items for your trip.'
+              ? 'Open List Options (⋮) or browse "All" to pick items for your trip.'
               : activeTab === 'weekly'
-              ? 'Quickly pick staples using the Rapid Checklist, or mark items in All Items.'
+              ? 'Quickly pick recurring staples from your catalog.'
               : 'Add items using the bar above to get started.'}
           </p>
           {activeTab === 'weekly' && (
@@ -605,8 +605,8 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                 onClick={() => setIsWeeklyManagerOpen(true)}
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Open Rapid Staples Checklist</span>
+                <Repeat className="w-3.5 h-3.5" />
+                <span>Manage Weekly Staples</span>
               </button>
             </div>
           )}
@@ -678,7 +678,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                             {item.isWeekly && (activeTab === 'all' || activeTab === 'needed') && (
                               <span
                                 title="Weekly recurring staple"
-                                className="inline-flex items-center text-blue-600 shrink-0"
+                                className="inline-flex items-center text-teal-600 shrink-0"
                               >
                                 <Repeat className="w-3.5 h-3.5" />
                               </span>
@@ -961,7 +961,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                 </div>
 
                 <div className="space-y-2">
-                  {/* 1-Click: Select Weekly Staples */}
+                  {/* 1-Click: Add Weekly Staples to Buy List */}
                   <button
                     type="button"
                     onClick={async () => {
@@ -969,12 +969,12 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                       setShowOptionsPopover(false)
                     }}
                     className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200 transition flex items-center justify-between cursor-pointer"
-                    title="Select all recurring staples and go to To Buy"
+                    title="Add all recurring weekly staples to your active Buy list"
                   >
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <ShoppingCart className="w-4 h-4 text-emerald-600 shrink-0" />
                       <div className="text-left">
-                        <div className="font-bold">Select Weekly Staples</div>
+                        <div className="font-bold">Add Weekly to Buy List</div>
                         <div className="text-[10px] text-emerald-600 font-normal">Add staples to current shopping list</div>
                       </div>
                     </div>

@@ -4,7 +4,8 @@ import {
   Search,
   Check,
   Repeat,
-  Sparkles,
+  ShoppingCart,
+  BookmarkCheck,
   ShoppingBag,
   Trash2,
   CheckSquare,
@@ -128,7 +129,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
       }}
     >
       <div
-        className="relative bg-white rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90dvh] my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+        className="relative bg-white rounded-3xl w-full max-w-2xl h-[calc(100dvh-1.5rem)] sm:h-[85dvh] max-h-[760px] my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -149,11 +150,11 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
               <p className="text-xs text-slate-500 min-h-[18px]">
                 {feedbackMsg ? (
                   <span className="text-teal-700 font-bold flex items-center gap-1 animate-in fade-in">
-                    <Sparkles className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <Check className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                     <span>{feedbackMsg}</span>
                   </span>
                 ) : (
-                  <span>Tap any item to quickly toggle it as a recurring weekly staple</span>
+                  <span>Tap any item to toggle it as a recurring weekly staple</span>
                 )}
               </p>
             </div>
@@ -168,7 +169,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
           </button>
         </div>
 
-        {/* 1-Click Fast Action Bar (No layout shift!) */}
+        {/* 1-Click Fast Action Bar (Always stable height — no conditional unmounting) */}
         <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             {/* Quick Button: Copy To Buy list to weekly staples */}
@@ -176,50 +177,48 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
               type="button"
               onClick={handleUseCurrentToBuy}
               disabled={neededCount === 0}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
-              title="Save every item currently on your 'To Buy' list as a weekly staple"
+              className="px-3 py-1.5 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none text-slate-700 border border-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
+              title="Save every item currently on your 'Buy' list as a weekly staple"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Set Current "To Buy" as Weekly</span>
-              <span className="text-[10px] bg-white/25 px-1.5 py-0.2 rounded-full font-bold">
+              <BookmarkCheck className="w-3.5 h-3.5 text-teal-600" />
+              <span>Set "To Buy" as Weekly</span>
+              <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded-full font-bold">
                 {neededCount}
               </span>
             </button>
 
             {/* Toggle all currently filtered items */}
-            {filteredItems.length > 0 && (
-              <button
-                type="button"
-                onClick={handleToggleSelectAllInView}
-                className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                title={allInViewAreWeekly ? 'Unmark all in view' : 'Mark all in view as weekly'}
-              >
-                {allInViewAreWeekly ? (
-                  <>
-                    <CheckSquare className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Unmark View ({filteredItems.length})</span>
-                  </>
-                ) : (
-                  <>
-                    <Square className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Select View ({filteredItems.length})</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-
-          {weeklyCount > 0 && (
             <button
               type="button"
-              onClick={handleClearAll}
-              className="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 text-xs font-semibold rounded-xl transition flex items-center gap-1 cursor-pointer"
-              title="Remove weekly tag from all items"
+              onClick={handleToggleSelectAllInView}
+              disabled={filteredItems.length === 0}
+              className="px-2.5 py-1.5 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none text-slate-700 border border-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title={allInViewAreWeekly ? 'Unmark all in view' : 'Mark all in view as weekly'}
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear All</span>
+              {allInViewAreWeekly ? (
+                <>
+                  <CheckSquare className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Unmark View ({filteredItems.length})</span>
+                </>
+              ) : (
+                <>
+                  <Square className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Mark View ({filteredItems.length})</span>
+                </>
+              )}
             </button>
-          )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClearAll}
+            disabled={weeklyCount === 0}
+            className="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 disabled:opacity-40 disabled:pointer-events-none text-xs font-semibold rounded-xl transition flex items-center gap-1 cursor-pointer"
+            title="Remove weekly tag from all items"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear All</span>
+          </button>
         </div>
 
         {/* Search & Filter Controls */}
@@ -343,7 +342,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
                 <div
                   key={item.id}
                   onClick={() => toggleWeeklyItem(item.id)}
-                  className={`py-2.5 px-3 rounded-2xl flex items-center justify-between gap-3 transition-colors cursor-pointer select-none mb-1 ${
+                  className={`group py-2.5 px-3 rounded-2xl flex items-center justify-between gap-3 transition-colors cursor-pointer select-none mb-1 ${
                     isW
                       ? 'bg-teal-50/70 hover:bg-teal-100/70 border border-teal-200/80 shadow-2xs'
                       : 'hover:bg-slate-50 border border-transparent'
@@ -355,7 +354,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
                       className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                         isW
                           ? 'bg-teal-600 text-white shadow-xs'
-                          : 'border-2 border-slate-300 bg-white'
+                          : 'border-2 border-slate-300 bg-white group-hover:border-teal-400'
                       }`}
                     >
                       {isW && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -376,20 +375,27 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
                         <span>
                           {item.quantity} {item.unit}
                         </span>
+                        {item.isNeeded && (
+                          <>
+                            <span>•</span>
+                            <span className="text-emerald-600 font-semibold">On Buy List</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Status Tag */}
+                  {/* Consistent Repeat Toggle Pill */}
                   <div className="shrink-0">
                     {isW ? (
-                      <span className="text-[10px] font-extrabold bg-teal-600 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Repeat className="w-2.5 h-2.5" />
+                      <span className="text-[11px] font-bold bg-teal-600 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+                        <Repeat className="w-3 h-3 stroke-[2.5]" />
                         <span>Weekly</span>
                       </span>
                     ) : (
-                      <span className="text-[10px] font-semibold text-slate-400 px-2 py-0.5 rounded-full hover:bg-slate-200">
-                        + Add
+                      <span className="text-[11px] font-semibold bg-slate-100 text-slate-500 border border-slate-200/80 px-2.5 py-1 rounded-full flex items-center gap-1 group-hover:border-teal-300 group-hover:text-teal-700 group-hover:bg-teal-50/50 transition-colors">
+                        <Repeat className="w-3 h-3 opacity-60" />
+                        <span>Weekly</span>
                       </span>
                     )}
                   </div>
@@ -403,7 +409,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
         {feedbackMsg && (
           <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150 pointer-events-none max-w-[90%]">
             <div className="bg-slate-900/95 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-2xl backdrop-blur-xs flex items-center gap-2 border border-slate-700 whitespace-nowrap">
-              <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+              <Check className="w-3.5 h-3.5 text-teal-400 shrink-0" />
               <span>{feedbackMsg}</span>
             </div>
           </div>
@@ -412,24 +418,25 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
         {/* Footer */}
         <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-slate-600 font-semibold">
-            <span className="text-teal-700 font-bold">{weeklyCount}</span> weekly staples selected
+            <span className="text-teal-700 font-bold">{weeklyCount}</span> weekly staples
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleSelectWeeklyAndShop}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-              title="Select all weekly staples and view To Buy list"
+              disabled={weeklyCount === 0}
+              className="px-3.5 py-2 bg-white hover:bg-emerald-50 disabled:opacity-40 disabled:pointer-events-none text-emerald-700 border border-emerald-300 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
+              title="Add all weekly staples to your active 'Buy' shopping list"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Select For Trip</span>
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span>Add to Buy List ({weeklyCount})</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer"
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition shadow-xs cursor-pointer"
             >
               Done
             </button>
