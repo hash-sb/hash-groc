@@ -523,389 +523,6 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                 <MoreVertical className="w-4 h-4" />
               )}
             </button>
-
-            {/* Modal Window Dialog (Similar to WeeklyManagerModal) */}
-            {showOptionsPopover && (
-              <div
-                className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) setShowOptionsPopover(false)
-                }}
-              >
-                <div
-                  className="relative bg-white rounded-3xl w-full max-w-lg max-h-[calc(100dvh-1.5rem)] sm:max-h-[90dvh] my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Header */}
-                  <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-                        <SlidersHorizontal className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
-                          List Settings & Actions
-                        </h2>
-                        <p className="text-xs text-slate-500">
-                          Display options, bulk resets, and templates
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowOptionsPopover(false)}
-                      className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
-                      title="Close"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Scrollable Body */}
-                  <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain space-y-4 flex-1">
-                    {/* Section 1: Display Settings */}
-                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center gap-1.5">
-                        <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Display Preferences</span>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        {/* Option 1: Lock Items */}
-                        <label className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
-                          <div className="flex items-center gap-2.5">
-                            {isLockedItems ? (
-                              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-                            ) : (
-                              <Unlock className="w-4 h-4 text-slate-400 shrink-0" />
-                            )}
-                            <div>
-                              <div className="font-bold text-slate-800">Lock Items</div>
-                              <div className="text-[10px] text-slate-400">
-                                {isLockedItems ? 'Tapping title is disabled' : 'Tap item title to edit'}
-                              </div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={isLockedItems}
-                            onChange={(e) => {
-                              setIsLockedItems(e.target.checked)
-                            }}
-                            className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 shrink-0 ml-2 cursor-pointer"
-                          />
-                        </label>
-
-                        {/* Option 2: Put unchecked at bottom */}
-                        <label className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
-                          <div className="flex items-center gap-2.5">
-                            <ArrowDownWideNarrow className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <div>
-                              <div className="font-bold text-slate-800">Unchecked at bottom</div>
-                              <div className="text-[10px] text-slate-400">Sort needed items to top</div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={putUncheckedAtBottom}
-                            onChange={(e) => {
-                              setPutUncheckedAtBottom(e.target.checked)
-                            }}
-                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2 cursor-pointer"
-                          />
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Section 2: Reset Actions */}
-                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-                        Reset Actions
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {/* 1. Unselect Everything */}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (neededCount === 0) {
-                              alert('All items are already unselected.')
-                              return
-                            }
-                            if (
-                              window.confirm(
-                                `Unselect all ${neededCount} item${neededCount === 1 ? '' : 's'} from your shopping list?`
-                              )
-                            ) {
-                              await unselectAllItems()
-                              setShowOptionsPopover(false)
-                            }
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 transition flex items-center justify-between cursor-pointer"
-                          title="Unselect everything from the active shopping list"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Square className="w-4 h-4 text-rose-600 shrink-0" />
-                            <span>Unselect All</span>
-                          </div>
-                          <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold">
-                            {neededCount}
-                          </span>
-                        </button>
-
-                        {/* 2. Reset Counts to 1 */}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (
-                              window.confirm(
-                                `Reset quantity of all ${items.length} items to 1?`
-                              )
-                            ) {
-                              await resetAllItemCounts()
-                              setShowOptionsPopover(false)
-                            }
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
-                          title="Reset all item quantities to 1"
-                        >
-                          <div className="flex items-center gap-2">
-                            <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
-                            <span>Reset Counts to 1</span>
-                          </div>
-                          <span className="text-[10px] text-slate-500 font-bold">
-                            1 ea
-                          </span>
-                        </button>
-
-                        {/* 3. Reset All Descriptions */}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (
-                              window.confirm(
-                                `Reset and clear descriptions (notes) for all ${items.length} items?`
-                              )
-                            ) {
-                              await resetAllItemDescriptions()
-                              setShowOptionsPopover(false)
-                            }
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
-                          title="Clear descriptions/notes for all items"
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-slate-500 shrink-0" />
-                            <span>Clear Descriptions</span>
-                          </div>
-                          <span className="text-[10px] text-slate-500 font-bold">
-                            Clear
-                          </span>
-                        </button>
-
-                        {/* 4. Remove All Quantity Descriptions */}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (
-                              window.confirm(
-                                `Remove all quantity descriptions and size labels for all ${items.length} items?`
-                              )
-                            ) {
-                              await removeAllQuantityDescriptions()
-                              setShowOptionsPopover(false)
-                            }
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
-                          title="Remove all quantity descriptions and size labels"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Tag className="w-4 h-4 text-slate-500 shrink-0" />
-                            <span>Clear Qty Labels</span>
-                          </div>
-                          <span className="text-[10px] text-slate-500 font-bold">
-                            Clear
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Section 3: Weekly Routine */}
-                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-                        Weekly Routine
-                      </div>
-
-                      <div className="space-y-2">
-                        {/* 1-Click: Select Weekly Staples */}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await handleSelectWeekly(false)
-                            setShowOptionsPopover(false)
-                          }}
-                          className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200 transition flex items-center justify-between cursor-pointer"
-                          title="Select all recurring staples and go to To Buy"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <div className="text-left">
-                              <div className="font-bold">Select Weekly Staples</div>
-                              <div className="text-[10px] text-emerald-600 font-normal">Add staples to current shopping list</div>
-                            </div>
-                          </div>
-                          <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">
-                            +{weeklyCount}
-                          </span>
-                        </button>
-
-                        {/* Start Fresh with Weekly Only */}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (
-                              window.confirm(
-                                `Start fresh trip with only your ${weeklyCount} weekly staples? (Other items will be unchecked)`
-                              )
-                            ) {
-                              await handleSelectWeekly(true)
-                              setShowOptionsPopover(false)
-                            }
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
-                            <span>Start Fresh (Weekly Only)</span>
-                          </div>
-                          <span className="text-[10px] text-slate-500 font-bold">
-                            {weeklyCount}
-                          </span>
-                        </button>
-
-                        {/* Set Current 'To Buy' as Weekly */}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (neededCount === 0) {
-                              alert('Your "To Buy" list is currently empty. Mark items first.')
-                              return
-                            }
-                            const count = await saveCurrentNeededAsWeekly(false)
-                            setShowOptionsPopover(false)
-                            setWeeklyBannerMessage({
-                              text: `Saved your ${neededCount} active items as weekly staples! (Total: ${count})`,
-                              count,
-                            })
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
-                          title="Save current trip's items as your weekly staples"
-                        >
-                          <div className="flex items-center gap-2">
-                            <BookmarkCheck className="w-4 h-4 text-slate-500 shrink-0" />
-                            <span>Set "To Buy" as Weekly</span>
-                          </div>
-                          <span className="text-[10px] text-slate-500 font-bold">
-                            {neededCount} items
-                          </span>
-                        </button>
-
-                        {/* Open Checklist Modal */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsWeeklyManagerOpen(true)
-                            setShowOptionsPopover(false)
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100 transition flex items-center justify-between cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Repeat className="w-4 h-4 text-teal-600 shrink-0" />
-                            <span>Manage Staples Checklist</span>
-                          </div>
-                          <span className="text-[10px] bg-teal-600 text-white px-2 py-0.5 rounded-full font-bold">
-                            {weeklyCount} staples
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Section 4: Default Template Actions */}
-                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-                        Default Template
-                      </div>
-
-                      <div className="space-y-2">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await saveCurrentAsDefault()
-                            setTemplateSavedFeedback(true)
-                            setTimeout(() => {
-                              setTemplateSavedFeedback(false)
-                              setShowOptionsPopover(false)
-                            }, 1800)
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-800 bg-white border border-emerald-200 hover:bg-emerald-50 transition flex items-center justify-between cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            {templateSavedFeedback ? (
-                              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                            ) : (
-                              <BookmarkCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                            )}
-                            <span>
-                              {templateSavedFeedback ? 'Saved as Default!' : 'Save Current as Default'}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-emerald-600 font-bold">
-                            {items.length} items
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const confirmMsg = hasCustomDefault
-                              ? `Restore your saved default template (${items.length} items will be replaced)?`
-                              : 'Restore default list? Current list items will be replaced.'
-                            if (window.confirm(confirmMsg)) {
-                              await restoreDefaultList()
-                              setShowOptionsPopover(false)
-                            }
-                          }}
-                          className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
-                            <span>
-                              {hasCustomDefault ? 'Restore Saved Default' : 'Restore Default List'}
-                            </span>
-                          </div>
-                          {hasCustomDefault && (
-                            <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">
-                              Custom
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowOptionsPopover(false)}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1114,6 +731,389 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* List Settings & Actions Modal (Rendered at root level so it renders on top of the entire page) */}
+      {showOptionsPopover && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowOptionsPopover(false)
+          }}
+        >
+          <div
+            className="relative bg-white rounded-3xl w-full max-w-lg max-h-[calc(100dvh-1.5rem)] sm:max-h-[90dvh] my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <SlidersHorizontal className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    List Settings & Actions
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Display options, bulk resets, and templates
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOptionsPopover(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain space-y-4 flex-1">
+              {/* Section 1: Display Settings */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Display Preferences</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {/* Option 1: Lock Items */}
+                  <label className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                    <div className="flex items-center gap-2.5">
+                      {isLockedItems ? (
+                        <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                      ) : (
+                        <Unlock className="w-4 h-4 text-slate-400 shrink-0" />
+                      )}
+                      <div>
+                        <div className="font-bold text-slate-800">Lock Items</div>
+                        <div className="text-[10px] text-slate-400">
+                          {isLockedItems ? 'Tapping title is disabled' : 'Tap item title to edit'}
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isLockedItems}
+                      onChange={(e) => {
+                        setIsLockedItems(e.target.checked)
+                      }}
+                      className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 shrink-0 ml-2 cursor-pointer"
+                    />
+                  </label>
+
+                  {/* Option 2: Put unchecked at bottom */}
+                  <label className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
+                    <div className="flex items-center gap-2.5">
+                      <ArrowDownWideNarrow className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-slate-800">Unchecked at bottom</div>
+                        <div className="text-[10px] text-slate-400">Sort needed items to top</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={putUncheckedAtBottom}
+                      onChange={(e) => {
+                        setPutUncheckedAtBottom(e.target.checked)
+                      }}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0 ml-2 cursor-pointer"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Section 2: Reset Actions */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                  Reset Actions
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* 1. Unselect Everything */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (neededCount === 0) {
+                        alert('All items are already unselected.')
+                        return
+                      }
+                      if (
+                        window.confirm(
+                          `Unselect all ${neededCount} item${neededCount === 1 ? '' : 's'} from your shopping list?`
+                        )
+                      ) {
+                        await unselectAllItems()
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 transition flex items-center justify-between cursor-pointer"
+                    title="Unselect everything from the active shopping list"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Square className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>Unselect All</span>
+                    </div>
+                    <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold">
+                      {neededCount}
+                    </span>
+                  </button>
+
+                  {/* 2. Reset Counts to 1 */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Reset quantity of all ${items.length} items to 1?`
+                        )
+                      ) {
+                        await resetAllItemCounts()
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                    title="Reset all item quantities to 1"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span>Reset Counts to 1</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      1 ea
+                    </span>
+                  </button>
+
+                  {/* 3. Reset All Descriptions */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Reset and clear descriptions (notes) for all ${items.length} items?`
+                        )
+                      ) {
+                        await resetAllItemDescriptions()
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                    title="Clear descriptions/notes for all items"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span>Clear Descriptions</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      Clear
+                    </span>
+                  </button>
+
+                  {/* 4. Remove All Quantity Descriptions */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Remove all quantity descriptions and size labels for all ${items.length} items?`
+                        )
+                      ) {
+                        await removeAllQuantityDescriptions()
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                    title="Remove all quantity descriptions and size labels"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span>Clear Qty Labels</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      Clear
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 3: Weekly Routine */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                  Weekly Routine
+                </div>
+
+                <div className="space-y-2">
+                  {/* 1-Click: Select Weekly Staples */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await handleSelectWeekly(false)
+                      setShowOptionsPopover(false)
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200 transition flex items-center justify-between cursor-pointer"
+                    title="Select all recurring staples and go to To Buy"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div className="text-left">
+                        <div className="font-bold">Select Weekly Staples</div>
+                        <div className="text-[10px] text-emerald-600 font-normal">Add staples to current shopping list</div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">
+                      +{weeklyCount}
+                    </span>
+                  </button>
+
+                  {/* Start Fresh with Weekly Only */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Start fresh trip with only your ${weeklyCount} weekly staples? (Other items will be unchecked)`
+                        )
+                      ) {
+                        await handleSelectWeekly(true)
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span>Start Fresh (Weekly Only)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      {weeklyCount}
+                    </span>
+                  </button>
+
+                  {/* Set Current 'To Buy' as Weekly */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (neededCount === 0) {
+                        alert('Your "To Buy" list is currently empty. Mark items first.')
+                        return
+                      }
+                      const count = await saveCurrentNeededAsWeekly(false)
+                      setShowOptionsPopover(false)
+                      setWeeklyBannerMessage({
+                        text: `Saved your ${neededCount} active items as weekly staples! (Total: ${count})`,
+                        count,
+                      })
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                    title="Save current trip's items as your weekly staples"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookmarkCheck className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span>Set "To Buy" as Weekly</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      {neededCount} items
+                    </span>
+                  </button>
+
+                  {/* Open Checklist Modal */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWeeklyManagerOpen(true)
+                      setShowOptionsPopover(false)
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Repeat className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>Manage Staples Checklist</span>
+                    </div>
+                    <span className="text-[10px] bg-teal-600 text-white px-2 py-0.5 rounded-full font-bold">
+                      {weeklyCount} staples
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 4: Default Template Actions */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                  Default Template
+                </div>
+
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await saveCurrentAsDefault()
+                      setTemplateSavedFeedback(true)
+                      setTimeout(() => {
+                        setTemplateSavedFeedback(false)
+                        setShowOptionsPopover(false)
+                      }, 1800)
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-emerald-800 bg-white border border-emerald-200 hover:bg-emerald-50 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      {templateSavedFeedback ? (
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <BookmarkCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      )}
+                      <span>
+                        {templateSavedFeedback ? 'Saved as Default!' : 'Save Current as Default'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-emerald-600 font-bold">
+                      {items.length} items
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const confirmMsg = hasCustomDefault
+                        ? `Restore your saved default template (${items.length} items will be replaced)?`
+                        : 'Restore default list? Current list items will be replaced.'
+                      if (window.confirm(confirmMsg)) {
+                        await restoreDefaultList()
+                        setShowOptionsPopover(false)
+                      }
+                    }}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span>
+                        {hasCustomDefault ? 'Restore Saved Default' : 'Restore Default List'}
+                      </span>
+                    </div>
+                    {hasCustomDefault && (
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">
+                        Custom
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowOptionsPopover(false)}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
