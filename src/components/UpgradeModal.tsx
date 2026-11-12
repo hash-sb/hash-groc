@@ -9,6 +9,7 @@ import {
   ArrowRight,
   TrendingUp,
   Receipt,
+  AlertTriangle,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 
@@ -56,10 +57,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   const { isPro, household, cancelProSubscription } = useShopping()
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual')
   const [isLoading, setIsLoading] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   // Lock background body scrolling when modal is open
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {
+      setShowCancelConfirm(false)
+      return
+    }
     const originalOverflow = document.body.style.overflow
     const originalOverscroll = document.body.style.overscrollBehavior
     document.body.style.overflow = 'hidden'
@@ -82,16 +87,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
         })
       : null
 
-    const handleCancel = async () => {
-      if (
-        window.confirm(
-          'Are you sure you want to cancel Groc Plus? Your household will return to the Free Tier (up to 2 stores, 1 device).'
-        )
-      ) {
-        setIsLoading(true)
+    const handleConfirmCancel = async () => {
+      setIsLoading(true)
+      try {
         await cancelProSubscription()
-        setIsLoading(false)
+        setShowCancelConfirm(false)
         onClose()
+      } catch (err) {
+        console.error('Failed to cancel Groc Plus subscription:', err)
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -191,24 +196,62 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="pt-2 space-y-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md transition cursor-pointer"
-              >
-                Done
-              </button>
+            {showCancelConfirm ? (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-rose-100 text-rose-600 shrink-0 mt-0.5">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-rose-950">
+                      Cancel Groc Plus Subscription?
+                    </h3>
+                    <p className="text-xs text-rose-800/90 mt-1 leading-relaxed">
+                      Your household will return to the Free Tier (up to 2 stores, 1 device). Your items and stores will remain safe, but household sharing and AI scans will be locked.
+                    </p>
+                  </div>
+                </div>
 
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={handleCancel}
-                className="w-full py-2 px-3 text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-40"
-              >
-                {isLoading ? 'Canceling...' : 'Cancel Subscription & Return to Free'}
-              </button>
-            </div>
+                <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => setShowCancelConfirm(false)}
+                    className="flex-1 py-2.5 px-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 shadow-xs transition cursor-pointer"
+                  >
+                    Keep My Subscription
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={handleConfirmCancel}
+                    className="flex-1 py-2.5 px-3 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isLoading ? 'Canceling...' : 'Yes, Cancel'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md transition cursor-pointer"
+                >
+                  Done
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="w-full py-2 px-3 text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-40"
+                >
+                  Cancel Subscription & Return to Free
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -219,18 +262,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
   const handleStartTrial = async () => {
     setIsLoading(true)
-    if (onSelectPlan) {
-      await onSelectPlan(selectedPlan)
-    } else {
-      // Demo fallback when payment provider isn't wired yet
-      window.alert(
-        `Groc Plus trial initiated for the ${selectedPlan.toUpperCase()} plan ($${
-          selectedPlan === 'annual' ? '24.99/year' : '2.99/month'
-        })! Stripe integration can be connected here.`
-      )
+    try {
+      if (onSelectPlan) {
+        await onSelectPlan(selectedPlan)
+      }
       onClose()
+    } catch (err) {
+      console.error('Failed to start trial:', err)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   return (
