@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface BackupModalProps {
   onClose: () => void
@@ -37,6 +38,7 @@ interface ParsedBackupInfo {
 }
 
 export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
+  useBodyScrollLock(true)
   const { items, shops, categories, receipts, household, exportBackupData, exportToCSV, importBackupData } =
     useShopping()
 
@@ -210,10 +212,18 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] my-auto overscroll-contain shrink-0 border border-slate-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-slate-100/50">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-slate-100/50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-emerald-600 text-white shadow-xs">
               <HardDrive className="w-5 h-5" />
@@ -265,7 +275,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ onClose }) => {
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4">
           {activeTab === 'export' && (
             <div className="space-y-4">
               {/* Current Catalog Summary Banner */}

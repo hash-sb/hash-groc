@@ -14,12 +14,14 @@ import {
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface HouseholdModalProps {
   onClose: () => void
 }
 
 export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
+  useBodyScrollLock(true)
   const {
     household,
     joinHouseholdByCode,
@@ -82,10 +84,18 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in">
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-lg w-full max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] my-auto flex flex-col shadow-2xl overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 shrink-0">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
               <Users className="w-5 h-5" />
@@ -104,7 +114,7 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-6">
           {statusMessage && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-800 flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600" />

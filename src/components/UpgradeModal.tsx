@@ -13,6 +13,7 @@ import {
   PartyPopper,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 export type UpgradeTrigger = 'household' | 'store_limit' | 'general' | 'receipt'
 
@@ -61,20 +62,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [justActivated, setJustActivated] = useState(false)
 
-  // Lock background body scrolling when modal is open
+  useBodyScrollLock(isOpen)
+
+  // Reset internal states when closed
   useEffect(() => {
     if (!isOpen) {
       setShowCancelConfirm(false)
       setJustActivated(false)
-      return
-    }
-    const originalOverflow = document.body.style.overflow
-    const originalOverscroll = document.body.style.overscrollBehavior
-    document.body.style.overflow = 'hidden'
-    document.body.style.overscrollBehavior = 'contain'
-    return () => {
-      document.body.style.overflow = originalOverflow
-      document.body.style.overscrollBehavior = originalOverscroll
     }
   }, [isOpen])
 
@@ -106,13 +100,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
     return (
       <div
-        className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 overscroll-contain"
+        className="fixed inset-0 z-[60] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
         onClick={(e) => {
           if (e.target === e.currentTarget && !isLoading) onClose()
         }}
       >
         <div
-          className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain"
+          className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] my-auto overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -305,13 +299,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 overscroll-contain"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
       <div
-        className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain"
+        className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] my-auto overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Hero Banner */}

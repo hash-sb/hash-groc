@@ -26,6 +26,7 @@ import { WeeklyManagerModal } from './WeeklyManagerModal'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
 import { matchesWordPrefix } from '../utils/search'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface AddModeViewProps {
   onOpenCreateModal: () => void
@@ -81,6 +82,8 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     return localStorage.getItem('hash_groc_lock_items') === 'true'
   })
   const [showOptionsPopover, setShowOptionsPopover] = useState<boolean>(false)
+
+  useBodyScrollLock(showOptionsPopover)
 
   // Category options guaranteeing 'Other' is present
   const categoryOptions = useMemo(() => {
@@ -524,12 +527,15 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
             {/* Modal Window Dialog (Similar to WeeklyManagerModal) */}
             {showOptionsPopover && (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+                className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
                 onClick={(e) => {
                   if (e.target === e.currentTarget) setShowOptionsPopover(false)
                 }}
               >
-                <div className="relative bg-white rounded-3xl w-full max-w-lg max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+                <div
+                  className="relative bg-white rounded-3xl w-full max-w-lg max-h-[calc(100dvh-1.5rem)] sm:max-h-[90dvh] my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {/* Header */}
                   <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
@@ -556,7 +562,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
                   </div>
 
                   {/* Scrollable Body */}
-                  <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+                  <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain space-y-4 flex-1">
                     {/* Section 1: Display Settings */}
                     <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center gap-1.5">

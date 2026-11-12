@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { X, Delete, Sparkles, Scale, Check } from 'lucide-react'
 import { formatPrice, formatUnitPrice } from '../utils/pricing'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 export interface KeypadCalculatorModalProps {
   isOpen: boolean
@@ -31,6 +32,8 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
   unitPrice,
   onApply,
 }) => {
+  useBodyScrollLock(isOpen)
+
   const triggerHaptic = (ms: number = 10) => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
@@ -296,11 +299,11 @@ export const KeypadCalculatorModal: React.FC<KeypadCalculatorModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-[70] animate-in fade-in duration-150"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-[70] overflow-y-auto overscroll-contain animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full p-4 sm:p-5 space-y-3.5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150 select-none"
+        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full p-4 sm:p-5 space-y-3.5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150 select-none overscroll-contain my-0 sm:my-auto shrink-0 max-h-[calc(100dvh-1rem)] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

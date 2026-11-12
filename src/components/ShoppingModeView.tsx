@@ -45,6 +45,7 @@ import type { ShoppingItem, PurchasedItemRecord, Shop, ItemShopDetail } from '..
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
 import { ReceiptScannerModal } from './ReceiptScannerModal'
+import { useBodyScrollLock } from '../utils/scrollLock'
 import {
   compareShopPrices,
   formatPrice,
@@ -269,6 +270,20 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     item: ShoppingItem
     currentQty: number
   } | null>(null)
+
+  const isAnyModalOpen = Boolean(
+    isQuickAddOpen ||
+      showUnavailableDrawer ||
+      showTripSummary ||
+      showStoreSwitcherModal ||
+      itemMenuModal ||
+      showOptionsPopover ||
+      outOfStockItem ||
+      zeroQtyConfirmItem ||
+      sizePickerItem ||
+      quickQuantityItem
+  )
+  useBodyScrollLock(isAnyModalOpen)
 
   const handleSelectPackageOption = async (item: ShoppingItem, optionId: string) => {
     triggerHaptic(15)
@@ -1793,12 +1808,15 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* Switch Store Modal */}
       {showStoreSwitcherModal && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowStoreSwitcherModal(false)
           }}
         >
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200">
+          <div
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[calc(100dvh-1rem)] sm:max-h-[85dvh] my-0 sm:my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -1943,8 +1961,14 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
       {/* 8. Trip Summary Modal */}
       {showTripSummary && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+          onClick={() => setShowTripSummary(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl my-auto border border-slate-200 overscroll-contain shrink-0 max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="text-center mb-5">
               <div className="w-14 h-14 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
                 <PartyPopper className="w-7 h-7" />
@@ -2061,8 +2085,14 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
       {/* 10. Out of Stock & Move Store Modal */}
       {outOfStockItem && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+          onClick={() => setOutOfStockItem(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl my-auto border border-slate-200 overscroll-contain shrink-0 max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
@@ -2165,11 +2195,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* Interactive Size Picker Modal Sheet */}
       {sizePickerItem && (
         <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in duration-150"
           onClick={() => setSizePickerItem(null)}
         >
           <div
-            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-5 space-y-4 max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
+            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-5 space-y-4 max-h-[calc(100dvh-1rem)] sm:max-h-[85dvh] overflow-y-auto overscroll-contain my-0 sm:my-auto shrink-0 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -2312,11 +2342,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 9. Item Actions Mini Modal / Action Sheet */}
       {itemMenuModal && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in"
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
           onClick={() => setItemMenuModal(null)}
         >
           <div
-            className="bg-white w-full sm:max-w-xs rounded-t-2xl sm:rounded-2xl p-4 shadow-2xl border border-slate-200"
+            className="bg-white w-full sm:max-w-xs rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-200 overscroll-contain my-0 sm:my-auto shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-2">
@@ -2498,11 +2528,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 11. Zero-Quantity Removal Confirmation Modal */}
       {zeroQtyConfirmItem && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in duration-150"
           onClick={() => setZeroQtyConfirmItem(null)}
         >
           <div
-            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
+            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 space-y-4 overscroll-contain my-0 sm:my-auto shrink-0 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -2557,13 +2587,13 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 12. Shopping View Options Modal */}
       {showOptionsPopover && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowOptionsPopover(false)
           }}
         >
           <div
-            className="relative bg-white rounded-3xl w-full max-w-md max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+            className="relative bg-white rounded-3xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] sm:max-h-[90dvh] my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2592,7 +2622,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
             </div>
 
             {/* Scrollable Body */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5 flex-1">
+            <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain space-y-2.5 flex-1">
               {/* Shelf Walk-through Sequence Reorder */}
               <button
                 type="button"
@@ -2801,11 +2831,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
       {/* 13. In-Store Quick Add Modal (Solution 1) */}
       {isQuickAddOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-4 pt-1 sm:pt-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-hidden"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-150"
           onClick={() => setIsQuickAddOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl border border-slate-100 overflow-hidden text-left flex flex-col max-h-[calc(100dvh-0.5rem)] sm:max-h-[85vh]"
+            className="bg-white rounded-2xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl border border-slate-100 overflow-hidden text-left flex flex-col max-h-[calc(100dvh-0.5rem)] sm:max-h-[85dvh] my-auto overscroll-contain shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header (Compact so matching list stays at the very top) */}

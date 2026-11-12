@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { Shop } from '../types'
 import { useShopping } from '../context/ShoppingContext'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface ShopManagerModalProps {
   onClose: () => void
@@ -58,6 +59,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
   } = useShopping()
 
   // Creation State
+  useBodyScrollLock(true)
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAisles, setNewAisles] = useState<string[]>([
@@ -336,8 +338,16 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-xl w-full max-h-[calc(100dvh-1.5rem)] sm:max-h-[90dvh] my-auto flex flex-col shadow-2xl overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -360,7 +370,7 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-3">
           {/* Store List */}
           <div className="space-y-2">
             {shops.map((shop, index) => {

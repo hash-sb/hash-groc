@@ -15,12 +15,14 @@ import {
   isConfigured,
   type FirebaseConfigObject,
 } from '../firebase/config'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface FirebaseConfigModalProps {
   onClose: () => void
 }
 
 export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({ onClose }) => {
+  useBodyScrollLock(true)
   const current = getStoredFirebaseConfig()
   const [apiKey, setApiKey] = useState(current?.apiKey || '')
   const [authDomain, setAuthDomain] = useState(current?.authDomain || '')
@@ -74,10 +76,18 @@ export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({ onClos
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in">
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-lg w-full max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] my-auto flex flex-col shadow-2xl overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 shrink-0">
           <div className="flex items-center gap-2">
             <div
               className={`p-2 rounded-xl ${
@@ -104,7 +114,7 @@ export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({ onClos
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-5">
           {/* Status Badge */}
           <div
             className={`p-4 rounded-xl border flex items-start gap-3 ${

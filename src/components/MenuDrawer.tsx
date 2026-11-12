@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface MenuDrawerProps {
   isOpen: boolean
@@ -60,6 +61,8 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
       Boolean((window.navigator as unknown as { standalone?: boolean }).standalone)
     )
   })
+
+  useBodyScrollLock(isOpen)
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -124,17 +127,17 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end overflow-hidden overscroll-contain animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity overscroll-contain"
         onClick={onClose}
       />
 
       {/* Drawer Panel */}
-      <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col z-10 overflow-hidden">
+      <div className="relative w-full max-w-sm bg-white h-full max-h-[100dvh] shadow-2xl flex flex-col z-10 overflow-hidden overscroll-contain">
         {/* Drawer Header */}
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
           <div>
             <h2 className="text-base font-bold text-slate-900">App Menu</h2>
             <p className="text-xs text-slate-500">Settings, stores & analysis</p>
@@ -148,7 +151,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
         </div>
 
         {/* Drawer Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
           {/* User & Household Card */}
           <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200">
             <div className="flex items-center justify-between mb-2">

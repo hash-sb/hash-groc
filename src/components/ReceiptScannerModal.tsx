@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   X,
   Camera,
@@ -23,6 +23,7 @@ import {
 } from '../utils/receiptOcr'
 import { formatPrice } from '../utils/pricing'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface ReceiptScannerModalProps {
   isOpen: boolean
@@ -70,17 +71,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Lock background body scrolling when modal is open to prevent underlying list from scrolling
-  useEffect(() => {
-    if (!isOpen) return
-    const originalOverflow = document.body.style.overflow
-    const originalOverscroll = document.body.style.overscrollBehavior
-    document.body.style.overflow = 'hidden'
-    document.body.style.overscrollBehavior = 'contain'
-    return () => {
-      document.body.style.overflow = originalOverflow
-      document.body.style.overscrollBehavior = originalOverscroll
-    }
-  }, [isOpen])
+  useBodyScrollLock(isOpen)
 
   if (!isOpen) return null
 
@@ -285,13 +276,13 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 overscroll-contain"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSaving) onClose()
       }}
     >
       <div
-        className="relative bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain"
+        className="relative bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[92dvh] my-auto overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

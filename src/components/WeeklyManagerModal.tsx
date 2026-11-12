@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { matchesWordPrefix } from '../utils/search'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface WeeklyManagerModalProps {
   isOpen: boolean
@@ -36,6 +37,8 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [filterMode, setFilterMode] = useState<'all' | 'weekly_only' | 'non_weekly'>('all')
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null)
+
+  useBodyScrollLock(isOpen)
 
   const neededCount = items.filter((i) => i.isNeeded).length
   const weeklyCount = items.filter((i) => i.isWeekly).length
@@ -114,8 +117,16 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="relative bg-white rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90dvh] my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-teal-50 via-emerald-50 to-teal-50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -315,7 +326,7 @@ export const WeeklyManagerModal: React.FC<WeeklyManagerModalProps> = ({
         </div>
 
         {/* Items Checklist (Fast 1-Tap Toggle) */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 divide-y divide-slate-100">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 divide-y divide-slate-100">
           {filteredItems.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <ShoppingBag className="w-8 h-8 mx-auto mb-2 opacity-40" />

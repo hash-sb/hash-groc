@@ -27,6 +27,7 @@ import { compareShopPrices, formatPrice } from '../utils/pricing'
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { doesItemMatchBarcode, appendBarcodeToItem, getItemBarcodes } from '../utils/barcode'
 import { matchesWordPrefix } from '../utils/search'
+import { useBodyScrollLock } from '../utils/scrollLock'
 
 interface ScannedProductOFF {
   barcode: string
@@ -129,6 +130,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 }) => {
   const { items, shops, categories, addItem, updateItem, changeItemQuantity, updateItemShopDetail } =
     useShopping()
+
+  useBodyScrollLock(isOpen)
 
   const [scannerError, setScannerError] = useState<string | null>(null)
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false)
@@ -838,8 +841,16 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const priceComparison = matchedItem ? compareShopPrices(matchedItem, currentShopId || shops[0]?.id, shops) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 max-h-[92vh]">
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] my-auto overscroll-contain shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
@@ -863,7 +874,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto flex flex-col items-center">
+        <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col items-center">
           {/* 1. Camera Viewport */}
           <div className="w-full relative bg-black aspect-square max-h-[320px] flex items-center justify-center overflow-hidden">
             <div id={scannerContainerId} className="w-full h-full flex items-center justify-center" />

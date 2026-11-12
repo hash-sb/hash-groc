@@ -26,7 +26,7 @@ import {
 import { KeypadCalculatorModal } from './KeypadCalculatorModal'
 import { BarcodeScannerModal } from './BarcodeScannerModal'
 import { getItemBarcodes } from '../utils/barcode'
-
+import { useBodyScrollLock } from '../utils/scrollLock'
 interface ItemEditorModalProps {
   item?: ShoppingItem | null
   initialShopId?: string
@@ -53,6 +53,8 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
     selectedShopId,
     items,
   } = useShopping()
+
+  useBodyScrollLock(true)
 
   // Always reference the live item from context to ensure the modal shows the exact quantity from the List
   const liveItem = useMemo(() => {
@@ -846,8 +848,16 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
       : null
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-start justify-center pt-3 sm:pt-10 p-2 sm:p-4 z-50 animate-in fade-in">
-      <div className="bg-white rounded-2xl max-w-xl w-full max-h-[96vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 z-50 overflow-y-auto overscroll-contain animate-in fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[92dvh] my-auto flex flex-col shadow-2xl overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Compact Header with Integrated Micro-Toggles */}
         <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/90 gap-2 shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -897,7 +907,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
         </div>
 
         {/* Ultra-Compact Form Content */}
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-2.5">
+        <form onSubmit={handleSave} className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2 sm:space-y-2.5">
           {/* Row 1: Item Name + Integrated Barcode Scanner */}
           <div className="space-y-1">
             <div className="relative flex items-center">
@@ -1610,8 +1620,16 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
 
       {/* Aisle Selection Modal Dialog Window (#4) */}
       {isAisleModalOpen && activeShop && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="relative bg-white rounded-3xl w-full max-w-sm sm:max-w-md max-h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+        <div
+          className="fixed inset-0 z-60 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAisleModalOpen(false)
+          }}
+        >
+          <div
+            className="relative bg-white rounded-3xl w-full max-w-sm sm:max-w-md max-h-[calc(100dvh-1.5rem)] sm:max-h-[85dvh] my-auto shadow-2xl flex flex-col overflow-hidden border border-slate-200 overscroll-contain shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -1638,7 +1656,7 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
             </div>
 
             {/* Body: Scrollable list of aisles */}
-            <div className="p-3 sm:p-4 overflow-y-auto space-y-2 flex-1">
+            <div className="p-3 sm:p-4 overflow-y-auto overscroll-contain space-y-2 flex-1">
               {/* Unassigned / Clear button */}
               <button
                 type="button"
