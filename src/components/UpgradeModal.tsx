@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Receipt,
 } from 'lucide-react'
+import { useShopping } from '../context/ShoppingContext'
 
 export type UpgradeTrigger = 'household' | 'store_limit' | 'general' | 'receipt'
 
@@ -52,6 +53,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   trigger = 'general',
   onSelectPlan,
 }) => {
+  const { isPro, household, cancelProSubscription } = useShopping()
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -69,6 +71,149 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   }, [isOpen])
 
   if (!isOpen) return null
+
+  // If user is already on Groc Plus, show the Manage Subscription view
+  if (isPro) {
+    const trialDateStr = household?.trialEndsAt
+      ? new Date(household.trialEndsAt).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : null
+
+    const handleCancel = async () => {
+      if (
+        window.confirm(
+          'Are you sure you want to cancel Groc Plus? Your household will return to the Free Tier (up to 2 stores, 1 device).'
+        )
+      ) {
+        setIsLoading(true)
+        await cancelProSubscription()
+        setIsLoading(false)
+        onClose()
+      }
+    }
+
+    return (
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 overscroll-contain"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isLoading) onClose()
+        }}
+      >
+        <div
+          className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="relative p-5 sm:p-6 bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 text-white">
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-4 right-4 p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Pill Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/30 border border-emerald-300/40 text-emerald-100 text-xs font-black uppercase tracking-wider mb-2.5 shadow-inner">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Groc Plus Active</span>
+            </div>
+
+            <div className="flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-white/10 border border-white/20 shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5 text-emerald-200" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-black tracking-tight leading-snug">
+                  Manage Subscription
+                </h2>
+                <p className="text-xs sm:text-sm text-emerald-100/90 mt-1 font-medium leading-relaxed">
+                  Your household has full access to all Groc Plus features across all devices.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+            {/* Status Card */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-900">Current Status</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                  Active
+                </span>
+              </div>
+              <div className="text-sm font-extrabold text-slate-900">
+                14-Day Free Trial
+              </div>
+              {trialDateStr && (
+                <div className="text-xs text-slate-500">
+                  Active through <span className="font-semibold text-slate-700">{trialDateStr}</span>
+                </div>
+              )}
+              <div className="pt-1.5 text-[11px] text-slate-500 border-t border-emerald-200/60">
+                Household: <span className="font-bold text-slate-800">{household?.name}</span> (#{household?.inviteCode})
+              </div>
+            </div>
+
+            {/* Unlocked Benefits */}
+            <div className="space-y-2 text-xs text-slate-700">
+              <div className="font-bold text-slate-900">Unlocked on this plan:</div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold text-[10px]">
+                  ✓
+                </div>
+                <span>Unlimited stores & multi-store price comparisons</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold text-[10px]">
+                  ✓
+                </div>
+                <span>Real-time household sync across all family phones</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold text-[10px]">
+                  ✓
+                </div>
+                <span>Unlimited AI receipt scans with Gemini Vision</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold text-[10px]">
+                  ✓
+                </div>
+                <span>In-store shelf walk-through order synchronization</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-2 space-y-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md transition cursor-pointer"
+              >
+                Done
+              </button>
+
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={handleCancel}
+                className="w-full py-2 px-3 text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-40"
+              >
+                {isLoading ? 'Canceling...' : 'Cancel Subscription & Return to Free'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const details = TRIGGER_DETAILS[trigger] || TRIGGER_DETAILS.general
 
