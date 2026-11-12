@@ -5,6 +5,7 @@ import { db, isConfigured } from '../firebase/config'
 import { useAuth } from '../firebase/AuthContext'
 import { getOptimalStorePackage } from '../utils/pricing'
 import { getItemBarcodes } from '../utils/barcode'
+import type { UpgradeTrigger } from '../components/UpgradeModal'
 import {
   collection,
   doc,
@@ -28,6 +29,17 @@ interface ShoppingContextType {
   categories: string[]
   household: Household
   loading: boolean
+  // Subscription / Monetization (Groc Plus)
+  isPro: boolean
+  FREE_STORE_LIMIT: number
+  canAddStore: boolean
+  canShareHousehold: boolean
+  isUpgradeModalOpen: boolean
+  upgradeTrigger: UpgradeTrigger
+  openUpgradeModal: (trigger?: UpgradeTrigger) => void
+  closeUpgradeModal: () => void
+  activateProTrial: (plan: 'annual' | 'monthly') => Promise<void>
+  cancelProSubscription: () => Promise<void>
   // Shop operations
   addShop: (shop: Omit<Shop, 'id'>) => Promise<string>
   updateShop: (id: string, updates: Partial<Shop>) => Promise<void>
@@ -375,6 +387,97 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       inviteCode: defaultCode,
     }
   })
+
+  // Subscription / Monetization (Groc Plus)
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
+  const [upgradeTrigger, setUpgradeTrigger] = useState<UpgradeTrigger>('general')
+
+  const FREE_STORE_LIMIT = 2
+
+  const isPro = useMemo(() => {
+    if (!household) return false
+    if (household.subscriptionTier === 'pro') return true
+    if (household.subscriptionStatus === 'active') return true
+    if (household.subscriptionStatus === 'trialing') {
+      if (!household.trialEndsAt || household.trialEndsAt > Date.now()) {
+        return true
+      }
+    }
+    return false
+  }, [household])
+
+  const canAddStore = isPro || shops.length < FREE_STORE_LIMIT
+  const canShareHousehold = isPro
+
+  const openUpgradeModal = (trigger: UpgradeTrigger = 'general') => {
+    setUpgradeTrigger(trigger)
+    setIsUpgradeModalOpen(true)
+  }
+
+  const closeUpgradeModal = () => {
+    setIsUpgradeModalOpen(false)
+  }
+
+  const activateProTrial = async (plan: 'annual' | 'monthly') => {
+    const trialDuration = 14 * 24 * 60 * 60 * 1000 // 14 days
+    const trialEndsAt = Date.now() + trialDuration
+    const updatedHH: Household = {
+      ...household,
+      subscriptionTier: 'pro',
+      subscriptionStatus: 'trialing',
+      trialEndsAt,
+    }
+
+    setHousehold(updatedHH)
+    localStorage.setItem(STORAGE_KEY_HH, JSON.stringify(updatedHH))
+
+    if (isConfigured && db) {
+      try {
+        const hhDocRef = doc(db, 'households', household.id)
+        await setDoc(
+          hhDocRef,
+          {
+            subscriptionTier: 'pro',
+            subscriptionStatus: 'trialing',
+            trialEndsAt,
+            subscribedPlan: plan,
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        )
+      } catch (err) {
+        console.error('Error updating household pro trial in Firestore:', err)
+      }
+    }
+  }
+
+  const cancelProSubscription = async () => {
+    const updatedHH: Household = {
+      ...household,
+      subscriptionTier: 'free',
+      subscriptionStatus: 'canceled',
+    }
+
+    setHousehold(updatedHH)
+    localStorage.setItem(STORAGE_KEY_HH, JSON.stringify(updatedHH))
+
+    if (isConfigured && db) {
+      try {
+        const hhDocRef = doc(db, 'households', household.id)
+        await setDoc(
+          hhDocRef,
+          {
+            subscriptionTier: 'free',
+            subscriptionStatus: 'canceled',
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        )
+      } catch (err) {
+        console.error('Error updating subscription in Firestore:', err)
+      }
+    }
+  }
 
   // Keep selectedShopId valid if shops list changes
   useEffect(() => {
@@ -1747,6 +1850,16 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       clearCart,
       resetTripSkips,
       reorderStoreItems,
+      isPro,
+      FREE_STORE_LIMIT,
+      canAddStore,
+      canShareHousehold,
+      isUpgradeModalOpen,
+      upgradeTrigger,
+      openUpgradeModal,
+      closeUpgradeModal,
+      activateProTrial,
+      cancelProSubscription,
       receipts,
       recordTripReceipt,
       deleteReceipt,
@@ -1777,6 +1890,11 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       receipts,
       hasCustomDefault,
       customDefaultSavedAt,
+      isPro,
+      canAddStore,
+      canShareHousehold,
+      isUpgradeModalOpen,
+      upgradeTrigger,
     ]
   )
 

@@ -13,6 +13,7 @@ import {
   Check,
   Download,
   HardDrive,
+  Sparkles,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -43,6 +44,8 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
     saveCurrentAsDefault,
     restoreDefaultList,
     resetToSampleData,
+    isPro,
+    openUpgradeModal,
   } = useShopping()
   const { user, signInWithGoogle, signOut, isConfigured } = useAuth()
   const [savedFeedback, setSavedFeedback] = useState(false)
@@ -177,6 +180,51 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 <span>Google Sign In</span>
               </button>
             )}
+          </div>
+
+          {/* Groc Plus Subscription Status Card */}
+          <div
+            onClick={() => {
+              openUpgradeModal('general')
+              onClose()
+            }}
+            className={`p-3.5 rounded-2xl border transition cursor-pointer select-none ${
+              isPro
+                ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-emerald-300 hover:border-emerald-400'
+                : 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-emerald-500/10 border-amber-300 hover:border-amber-400 hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center text-white shrink-0 shadow-2xs ${
+                    isPro ? 'bg-emerald-600' : 'bg-amber-500'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-black text-slate-900 flex items-center gap-1.5 flex-wrap">
+                    <span>Groc Plus</span>
+                    {isPro ? (
+                      <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider">
+                        14-Day Free Trial
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 truncate">
+                    {isPro
+                      ? 'Unlimited stores & household sync active'
+                      : 'Unlock unlimited stores & multi-device sync'}
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+            </div>
           </div>
 
           {/* Menu Sections */}

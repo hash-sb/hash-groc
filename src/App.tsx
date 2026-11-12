@@ -11,10 +11,19 @@ import { ShopManagerModal } from './components/ShopManagerModal'
 import { HouseholdModal } from './components/HouseholdModal'
 import { FirebaseConfigModal } from './components/FirebaseConfigModal'
 import { BackupModal } from './components/BackupModal'
+import { UpgradeModal } from './components/UpgradeModal'
 import type { ShoppingItem } from './types'
 
 const AppContent: React.FC = () => {
-  const { mode, setMode, loading } = useShopping()
+  const {
+    mode,
+    setMode,
+    loading,
+    isUpgradeModalOpen,
+    closeUpgradeModal,
+    upgradeTrigger,
+    activateProTrial,
+  } = useShopping()
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null)
@@ -124,6 +133,14 @@ const AppContent: React.FC = () => {
       {isBackupModalOpen && (
         <BackupModal onClose={() => setIsBackupModalOpen(false)} />
       )}
+
+      {/* Groc Plus Upgrade Modal */}
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={closeUpgradeModal}
+        trigger={upgradeTrigger}
+        onSelectPlan={activateProTrial}
+      />
     </div>
   )
 }

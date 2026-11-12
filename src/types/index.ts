@@ -63,6 +63,9 @@ export interface Household {
   customDefaultItems?: ShoppingItem[]
   customDefaultShops?: Shop[]
   customDefaultSavedAt?: number
+  subscriptionTier?: 'free' | 'pro'
+  subscriptionStatus?: 'active' | 'trialing' | 'past_due' | 'canceled'
+  trialEndsAt?: number
 }
 
 export interface PurchasedItemRecord {

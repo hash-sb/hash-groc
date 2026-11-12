@@ -9,6 +9,8 @@ import {
   RotateCcw,
   ShieldCheck,
   BookmarkCheck,
+  Sparkles,
+  Lock,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -26,6 +28,8 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
     saveCurrentAsDefault,
     restoreDefaultList,
     resetToSampleData,
+    isPro,
+    openUpgradeModal,
   } = useShopping()
   const { user, signInWithGoogle, isConfigured } = useAuth()
 
@@ -38,12 +42,20 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
   const inviteUrl = `${window.location.origin}${window.location.pathname}?join=${household.inviteCode}`
 
   const handleCopyLink = () => {
+    if (!isPro) {
+      openUpgradeModal('household')
+      return
+    }
     navigator.clipboard.writeText(inviteUrl)
     setCopiedLink(true)
     setTimeout(() => setCopiedLink(false), 2000)
   }
 
   const handleCopyCode = () => {
+    if (!isPro) {
+      openUpgradeModal('household')
+      return
+    }
     navigator.clipboard.writeText(household.inviteCode)
     setCopiedCode(true)
     setTimeout(() => setCopiedCode(false), 2000)
@@ -104,9 +116,21 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
           <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                  Current Household
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    Current Household
+                  </span>
+                  {isPro ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-200/80 text-emerald-900 text-[10px] font-black uppercase tracking-wider">
+                      <Sparkles className="w-2.5 h-2.5 text-emerald-700" />
+                      Groc Plus
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                      Free Tier
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-base font-extrabold text-slate-900">{household.name}</h3>
               </div>
               <div className="text-right">
@@ -119,13 +143,36 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
               </div>
             </div>
 
+            {/* If not Pro, show conversion prompt */}
+            {!isPro && (
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="text-xs text-amber-900 min-w-0">
+                    <div className="font-bold truncate">Household Sync is a Groc Plus feature</div>
+                    <div className="text-[10px] text-amber-700">Sync cart & aisle checks in real-time</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openUpgradeModal('household')}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-lg text-xs font-black shrink-0 transition shadow-2xs cursor-pointer"
+                >
+                  Upgrade
+                </button>
+              </div>
+            )}
+
             {/* Quick Actions: Share Link or Code */}
-            <div className="pt-2 flex flex-col sm:flex-row gap-2">
+            <div className="pt-1 flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition"
+                className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
               >
+                {!isPro && <Lock className="w-3.5 h-3.5 opacity-80" />}
                 {copiedLink ? (
                   <>
                     <Check className="w-4 h-4" />
@@ -142,15 +189,18 @@ export const HouseholdModal: React.FC<HouseholdModalProps> = ({ onClose }) => {
               <button
                 type="button"
                 onClick={handleCopyCode}
-                className="py-2 px-3 rounded-xl bg-white border border-emerald-300 text-emerald-900 text-xs font-semibold hover:bg-emerald-50 flex items-center justify-center gap-1.5 transition"
+                className="py-2 px-3 rounded-xl bg-white border border-emerald-300 text-emerald-900 text-xs font-semibold hover:bg-emerald-50 flex items-center justify-center gap-1.5 transition cursor-pointer"
               >
+                {!isPro && <Lock className="w-3.5 h-3.5 opacity-60 text-slate-500" />}
                 {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>Copy Code</span>
               </button>
             </div>
 
             <p className="text-[11px] text-emerald-800/80">
-              Anyone with this link or code joins this shared grocery list instantly.
+              {isPro
+                ? 'Anyone with this link or code joins your shared grocery list instantly.'
+                : 'Free tier is limited to 1 device. Upgrade to Groc Plus to sync with family.'}
             </p>
           </div>
 

@@ -7,6 +7,7 @@ import {
   Edit2,
   GripVertical,
   Check,
+  Sparkles,
 } from 'lucide-react'
 import type { Shop } from '../types'
 import { useShopping } from '../context/ShoppingContext'
@@ -44,7 +45,17 @@ function reorderArray<T>(list: T[], startIndex: number, endIndex: number): T[] {
 }
 
 export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) => {
-  const { shops, items, addShop, updateShopWithAisles, deleteShop, moveShopOrder } = useShopping()
+  const {
+    shops,
+    items,
+    addShop,
+    updateShopWithAisles,
+    deleteShop,
+    moveShopOrder,
+    canAddStore,
+    FREE_STORE_LIMIT,
+    openUpgradeModal,
+  } = useShopping()
 
   // Creation State
   const [isCreatingNew, setIsCreatingNew] = useState(false)
@@ -1001,15 +1012,35 @@ export const ShopManagerModal: React.FC<ShopManagerModalProps> = ({ onClose }) =
             <button
               type="button"
               onClick={() => {
+                if (!canAddStore) {
+                  openUpgradeModal('store_limit')
+                  return
+                }
                 setIsCreatingNew(true)
                 setNewName('')
                 setNewAisles(['Produce', 'Dairy', 'Pantry', 'Frozen', 'Checkout'])
                 if (editingShopId) setEditingShopId(null)
               }}
-              className="w-full py-2.5 px-3 rounded-2xl border border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+              className={`w-full py-2.5 px-3 rounded-2xl border border-dashed text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+                !canAddStore
+                  ? 'border-amber-300 bg-amber-50/70 hover:bg-amber-100/70 text-amber-900'
+                  : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
+              }`}
             >
-              <Plus className="w-4 h-4 text-slate-600" />
-              <span>Add Store</span>
+              {!canAddStore ? (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <span>Add Store</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 text-[10px] font-black uppercase tracking-wider">
+                    {shops.length}/{FREE_STORE_LIMIT} Free • Groc Plus
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 text-slate-600" />
+                  <span>Add Store</span>
+                </>
+              )}
             </button>
           )}
         </div>
