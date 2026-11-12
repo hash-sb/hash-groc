@@ -19,7 +19,6 @@ import type { ShoppingItem } from './types'
 const AppContent: React.FC = () => {
   const {
     mode,
-    setMode,
     loading,
     isUpgradeModalOpen,
     closeUpgradeModal,
@@ -76,17 +75,13 @@ const AppContent: React.FC = () => {
         )}
 
         {mode === 'analysis' && (
-          <div>
-            <div className="max-w-7xl mx-auto px-4 pt-3 pb-1">
-              <button
-                onClick={() => setMode('add')}
-                className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
-              >
-                <span>← Back to List</span>
-              </button>
-            </div>
-            <AnalysisModeView onEditItem={(item) => setEditingItem(item)} />
-          </div>
+          <AnalysisModeView
+            onEditItem={(item, shopId, focusField) => {
+              setEditingItem(item)
+              setEditingShopId(shopId)
+              setEditingFocusField(focusField || (shopId ? 'price' : undefined))
+            }}
+          />
         )}
       </main>
 

@@ -282,25 +282,28 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
       }}
     >
       <div
-        className="relative bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[92dvh] my-auto overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain shrink-0"
+        role="dialog"
+        aria-modal="true"
+        aria-label="AI Receipt Scanner"
+        className="relative bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col h-[calc(100dvh-1.5rem)] sm:h-[85dvh] max-h-[740px] my-auto overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shadow-xs">
+        <div className="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h2 className="text-base sm:text-lg font-black tracking-tight leading-snug">
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-snug">
                   AI Receipt Scanner
                 </h2>
-                <span className="px-2 py-0.2 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                <span className="px-2 py-0.2 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-black uppercase tracking-wider shadow-2xs">
                   ✨ Vision OCR
                 </span>
               </div>
-              <p className="text-xs text-emerald-100/90 font-medium">
+              <p className="text-xs text-slate-500">
                 Snap any receipt to auto-update store prices
               </p>
             </div>
@@ -308,7 +311,8 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-white/80 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer"
+            aria-label="Close"
+            className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />

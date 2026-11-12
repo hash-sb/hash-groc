@@ -97,6 +97,39 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const [calcItem, setCalcItem] = useState<ShoppingItem | null>(null)
   const [isQuickAddCalcOpen, setIsQuickAddCalcOpen] = useState<boolean>(false)
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState<boolean>(false)
+  const [undoRemovedItem, setUndoRemovedItem] = useState<{
+    id: string
+    name: string
+    quantity: number
+    inCart: boolean
+  } | null>(null)
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const triggerUndoToast = (item: ShoppingItem) => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    setUndoRemovedItem({
+      id: item.id,
+      name: item.name,
+      quantity: Math.max(1, item.quantity || 1),
+      inCart: Boolean(item.inCart),
+    })
+    undoTimerRef.current = setTimeout(() => {
+      setUndoRemovedItem(null)
+    }, 4500)
+  }
+
+  const handleUndoRemove = async () => {
+    if (!undoRemovedItem) return
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    const target = undoRemovedItem
+    setUndoRemovedItem(null)
+    triggerHaptic(25)
+    await updateItem(target.id, {
+      isNeeded: true,
+      quantity: target.quantity,
+      inCart: target.inCart,
+    })
+  }
 
   // Persist lock items setting
   useEffect(() => {
@@ -156,7 +189,8 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
     if (currentQty > 1) {
       await changeItemQuantity(item.id, -1)
     } else {
-      // Reached 1 -> pressing minus removes item from the list
+      // Reached 1 -> pressing minus removes item from the list with Undo support
+      triggerUndoToast(item)
       await updateItem(item.id, {
         isNeeded: false,
         inCart: false,
@@ -167,6 +201,7 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
   const handleDirectQuantityChange = async (item: ShoppingItem, newQty: number) => {
     triggerHaptic(20)
     if (newQty <= 0) {
+      triggerUndoToast(item)
       await updateItem(item.id, {
         isNeeded: false,
         inCart: false,
@@ -1190,6 +1225,25 @@ export const AddModeView: React.FC<AddModeViewProps> = ({
           isOpen={isBarcodeScannerOpen}
           onClose={() => setIsBarcodeScannerOpen(false)}
         />
+      )}
+
+      {/* Floating Undo Toast when an item is removed from Buy list */}
+      {undoRemovedItem && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-3 duration-150 max-w-[92vw]">
+          <div className="bg-slate-900/95 text-white text-xs font-semibold px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xs flex items-center gap-3 border border-slate-700">
+            <span className="truncate max-w-[200px] sm:max-w-[280px]">
+              Removed <span className="font-bold text-emerald-300">"{undoRemovedItem.name}"</span> from Buy list
+            </span>
+            <button
+              type="button"
+              onClick={handleUndoRemove}
+              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg transition cursor-pointer shrink-0 flex items-center gap-1"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Undo</span>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

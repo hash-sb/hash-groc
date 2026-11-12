@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import {
   X,
   AlertTriangle,
@@ -85,14 +85,26 @@ export const ConfirmDialogProvider: React.FC<{ children: React.ReactNode }> = ({
     })
   }, [])
 
-  const handleClose = (result: boolean) => {
+  const handleClose = useCallback((result: boolean) => {
     const resolve = resolverRef.current
     resolverRef.current = null
     setDialog(null)
     if (resolve) {
       resolve(result)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!dialog) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        handleClose(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [dialog, handleClose])
 
   const getVariantConfig = (variant: DialogVariant) => {
     switch (variant) {
@@ -144,6 +156,9 @@ export const ConfirmDialogProvider: React.FC<{ children: React.ReactNode }> = ({
             }}
           >
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={dialog.title}
               className="relative bg-white rounded-3xl max-w-sm w-full my-auto shadow-2xl border border-slate-200 overflow-hidden overscroll-contain shrink-0 animate-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
