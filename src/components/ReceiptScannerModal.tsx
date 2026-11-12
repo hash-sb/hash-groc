@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   X,
   Camera,
@@ -62,6 +62,19 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Lock background body scrolling when modal is open to prevent underlying list from scrolling
+  useEffect(() => {
+    if (!isOpen) return
+    const originalOverflow = document.body.style.overflow
+    const originalOverscroll = document.body.style.overscrollBehavior
+    document.body.style.overflow = 'hidden'
+    document.body.style.overscrollBehavior = 'contain'
+    return () => {
+      document.body.style.overflow = originalOverflow
+      document.body.style.overscrollBehavior = originalOverscroll
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -266,13 +279,13 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 overscroll-contain"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSaving) onClose()
       }}
     >
       <div
-        className="relative bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150"
+        className="relative bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -329,7 +342,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
         />
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain">
           {/* STEP 1: Upload / Capture */}
           {step === 'upload' && (
             <div className="space-y-4">
@@ -547,7 +560,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
               </div>
 
               {/* Items List */}
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl max-h-[36vh] overflow-y-auto bg-white shadow-2xs">
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl max-h-[36vh] overflow-y-auto bg-white shadow-2xs overscroll-contain">
                 {result.items.map((item) => (
                   <div
                     key={item.id}
