@@ -29,6 +29,7 @@ export interface ItemShopDetail {
   packageOptions?: StorePackageOption[] // Multiple package sizes/variants available at this store
   selectedOptionId?: string // User-selected package size option for this store (defaults to best value)
   notes?: string
+  orderIndex?: number // Store-specific shelf walk-through order
 }
 
 export interface ShoppingItem {

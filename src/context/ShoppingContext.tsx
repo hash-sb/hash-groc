@@ -71,6 +71,10 @@ interface ShoppingContextType {
   ) => Promise<void>
   clearCart: (markCompletedAsPurchased?: boolean) => Promise<void>
   resetTripSkips: () => Promise<void>
+  reorderStoreItems: (
+    shopId: string,
+    orderedItems: Array<{ itemId: string; orderIndex: number; location?: string }>
+  ) => Promise<void>
   // Receipt / Spending History operations
   receipts: TripReceipt[]
   recordTripReceipt: (
@@ -952,6 +956,57 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }
 
+  const reorderStoreItems = async (
+    shopId: string,
+    orderedItems: Array<{ itemId: string; orderIndex: number; location?: string }>
+  ) => {
+    if (!shopId || orderedItems.length === 0) return
+
+    if (isConfigured && db) {
+      const batch = writeBatch(db)
+      orderedItems.forEach(({ itemId, orderIndex, location }) => {
+        const item = items.find((i) => i.id === itemId)
+        if (item) {
+          const itemRef = doc(db!, 'households', household.id, 'items', itemId)
+          const currentDetail = item.shops[shopId] || { available: true, price: null, location: '' }
+          const updatedDetail: ItemShopDetail = {
+            ...currentDetail,
+            orderIndex,
+            ...(location !== undefined ? { location } : {}),
+          }
+          batch.update(itemRef, {
+            [`shops.${shopId}`]: updatedDetail,
+            updatedAt: Date.now(),
+          })
+        }
+      })
+      await batch.commit()
+    } else {
+      const orderMap = new Map(orderedItems.map((o) => [o.itemId, o]))
+      const updated = items.map((item) => {
+        const update = orderMap.get(item.id)
+        if (update) {
+          const currentDetail = item.shops[shopId] || { available: true, price: null, location: '' }
+          return {
+            ...item,
+            shops: {
+              ...item.shops,
+              [shopId]: {
+                ...currentDetail,
+                orderIndex: update.orderIndex,
+                ...(update.location !== undefined ? { location: update.location } : {}),
+              },
+            },
+            updatedAt: Date.now(),
+          }
+        }
+        return item
+      })
+      setItems(updated)
+      persistLocally(undefined, updated)
+    }
+  }
+
   // HOUSEHOLD ACTIONS
   const joinHouseholdByCode = async (code: string): Promise<boolean> => {
     const formatted = code.trim().toUpperCase()
@@ -1691,6 +1746,7 @@ export const ShoppingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updateItemShopDetail,
       clearCart,
       resetTripSkips,
+      reorderStoreItems,
       receipts,
       recordTripReceipt,
       deleteReceipt,

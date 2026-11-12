@@ -35,6 +35,8 @@ import {
   Trash2,
   RotateCcw,
   Barcode,
+  GripVertical,
+  ArrowUpDown,
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useShopping } from '../context/ShoppingContext'
@@ -76,6 +78,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     updateItemShopDetail,
     clearCart,
     recordTripReceipt,
+    reorderStoreItems,
   } = useShopping()
 
   // In-Store Quick Add Sheet (Solution 1)
@@ -89,6 +92,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
   const [showStoreSwitcherModal, setShowStoreSwitcherModal] = useState<boolean>(false)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const [itemMenuModal, setItemMenuModal] = useState<ShoppingItem | null>(null)
+
+  // Reorder mode state for store walk-through shelf ordering
+  const [isReorderMode, setIsReorderMode] = useState<boolean>(false)
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null)
+  const [dragLocation, setDragLocation] = useState<string | null>(null)
 
   // View Options Modal (Menu)
   const [showOptionsPopover, setShowOptionsPopover] = useState<boolean>(false)
@@ -443,22 +452,33 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     return groupItemsByShopLocation(availableItems, currentShop)
   }, [availableItems, currentShop])
 
-  // Filter and sort items within each location group according to user preferences
+  // Filter and sort items within each location group according to user preferences & custom store shelf order
   const locationGroups = useMemo(() => {
     return allLocationGroups
       .map(({ location, items: groupItems }) => {
         let itemsToShow = groupItems
-        if (hideCheckedItems) {
+        if (hideCheckedItems && !isReorderMode) {
           itemsToShow = itemsToShow.filter((i) => !i.inCart)
         }
-        if (moveCheckedToBottom) {
+
+        const sortByShelfOrder = (a: ShoppingItem, b: ShoppingItem) => {
+          const orderA = a.shops[currentShop.id]?.orderIndex ?? 9999
+          const orderB = b.shops[currentShop.id]?.orderIndex ?? 9999
+          if (orderA !== orderB) return orderA - orderB
+          return a.name.localeCompare(b.name)
+        }
+
+        if (moveCheckedToBottom && !isReorderMode) {
           itemsToShow = [...itemsToShow].sort((a, b) => {
             if (a.inCart !== b.inCart) {
               return a.inCart ? 1 : -1 // unchecked first, checked at bottom
             }
-            return a.name.localeCompare(b.name)
+            return sortByShelfOrder(a, b)
           })
+        } else {
+          itemsToShow = [...itemsToShow].sort(sortByShelfOrder)
         }
+
         return {
           location,
           items: itemsToShow,
@@ -466,8 +486,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           totalCount: groupItems.length,
         }
       })
-      .filter((g) => (hideCheckedItems ? g.items.length > 0 : true))
-  }, [allLocationGroups, hideCheckedItems, moveCheckedToBottom])
+      .filter((g) => (hideCheckedItems && !isReorderMode ? g.items.length > 0 : true))
+  }, [allLocationGroups, hideCheckedItems, moveCheckedToBottom, currentShop.id, isReorderMode])
 
   const toggleSectionCollapse = (location: string) => {
     setCollapsedSections((prev) => {
@@ -803,6 +823,121 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
     setUndoRemoveState(null)
   }
 
+  const handleMoveItemInAisle = async (
+    location: string,
+    fromIndex: number,
+    toIndex: number
+  ) => {
+    const group = locationGroups.find((g) => g.location === location)
+    if (!group) return
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= group.items.length ||
+      toIndex >= group.items.length
+    ) {
+      return
+    }
+
+    triggerHaptic(25)
+    const reordered = [...group.items]
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, moved)
+
+    const updates = reordered.map((item, idx) => ({
+      itemId: item.id,
+      orderIndex: idx,
+      location,
+    }))
+
+    await reorderStoreItems(currentShop.id, updates)
+  }
+
+  const handleTouchStartItem = (itemId: string, location: string) => {
+    setDraggedItemId(itemId)
+    setDragLocation(location)
+  }
+
+  const handleTouchMoveItem = (e: React.TouchEvent, location: string) => {
+    if (!draggedItemId || dragLocation !== location) return
+    const touch = e.touches[0]
+    if (!touch) return
+    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY)
+    const itemEl = targetEl?.closest('[data-reorder-item-id]')
+    if (itemEl) {
+      const targetId = itemEl.getAttribute('data-reorder-item-id')
+      if (targetId && targetId !== dragOverItemId) {
+        setDragOverItemId(targetId)
+      }
+    }
+  }
+
+  const handleTouchEndItem = (location: string) => {
+    if (
+      draggedItemId &&
+      dragOverItemId &&
+      draggedItemId !== dragOverItemId &&
+      dragLocation === location
+    ) {
+      const group = locationGroups.find((g) => g.location === location)
+      if (group) {
+        const fromIdx = group.items.findIndex((i) => i.id === draggedItemId)
+        const toIdx = group.items.findIndex((i) => i.id === dragOverItemId)
+        if (fromIdx !== -1 && toIdx !== -1) {
+          handleMoveItemInAisle(location, fromIdx, toIdx)
+        }
+      }
+    }
+    setDraggedItemId(null)
+    setDragOverItemId(null)
+    setDragLocation(null)
+  }
+
+  const handleDragStartItem = (e: React.DragEvent, itemId: string, location: string) => {
+    setDraggedItemId(itemId)
+    setDragLocation(location)
+    e.dataTransfer.setData('text/plain', itemId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOverItem = (e: React.DragEvent, itemId: string, location: string) => {
+    e.preventDefault()
+    if (dragLocation === location && dragOverItemId !== itemId) {
+      setDragOverItemId(itemId)
+    }
+  }
+
+  const handleDropItem = (location: string, targetItemId: string) => {
+    if (draggedItemId && draggedItemId !== targetItemId && dragLocation === location) {
+      const group = locationGroups.find((g) => g.location === location)
+      if (group) {
+        const fromIdx = group.items.findIndex((i) => i.id === draggedItemId)
+        const toIdx = group.items.findIndex((i) => i.id === targetItemId)
+        if (fromIdx !== -1 && toIdx !== -1) {
+          handleMoveItemInAisle(location, fromIdx, toIdx)
+        }
+      }
+    }
+    setDraggedItemId(null)
+    setDragOverItemId(null)
+    setDragLocation(null)
+  }
+
+  const handleResetAisleAlphabetical = async (location: string) => {
+    const group = allLocationGroups.find((g) => g.location === location)
+    if (!group || group.items.length <= 1) return
+    triggerHaptic(20)
+    const sorted = [...group.items].sort((a, b) => a.name.localeCompare(b.name))
+    const updates = sorted.map((item, idx) => ({
+      itemId: item.id,
+      orderIndex: idx,
+      location,
+    }))
+    await reorderStoreItems(currentShop.id, updates)
+    setToastMessage(`Sorted "${location}" alphabetically`)
+  }
+
   const handleSaveReceiptAndCheckout = async () => {
     if (cartItems.length > 0) {
       const purchasedItems: PurchasedItemRecord[] = cartItems.map((item) => {
@@ -923,8 +1058,28 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           </button>
         </div>
 
-        {/* Right: View Options '···' Button */}
+        {/* Right: Reorder Mode & View Options Buttons */}
         <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(20)
+              setIsReorderMode(!isReorderMode)
+              if (isReorderMode) {
+                setToastMessage(`Shelf walk-through order saved for ${currentShop.name}`)
+              }
+            }}
+            className={`px-2.5 py-1.5 rounded-xl border transition shadow-2xs flex items-center gap-1.5 cursor-pointer text-xs font-bold ${
+              isReorderMode
+                ? 'bg-amber-500 border-amber-600 text-white shadow-xs'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+            }`}
+            title={isReorderMode ? 'Done reordering shelf order' : 'Reorder items to match store shelf order'}
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isReorderMode ? 'Done' : 'Reorder'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowOptionsPopover(!showOptionsPopover)}
@@ -1150,8 +1305,9 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           {locationGroups.map(({ location, items: groupItems, pickedCount, totalCount }) => {
             const isAllPickedInAisle = totalCount > 0 && pickedCount === totalCount
             const isAutoCollapsed = autoCollapseCompleted && isAllPickedInAisle
-            const isCollapsed =
-              collapsedSections[location] !== undefined
+            const isCollapsed = isReorderMode
+              ? false
+              : collapsedSections[location] !== undefined
                 ? collapsedSections[location]
                 : isAutoCollapsed
 
@@ -1160,7 +1316,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 key={location}
                 id={`aisle-section-${encodeURIComponent(location)}`}
                 className={`rounded-2xl border transition-all scroll-mt-28 overflow-hidden ${
-                  isAllPickedInAisle
+                  isAllPickedInAisle && !isReorderMode
                     ? 'bg-slate-50/50 border-slate-200/60 opacity-80'
                     : 'bg-white border-slate-200 shadow-xs'
                 }`}
@@ -1169,7 +1325,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 <button
                   onClick={() => toggleSectionCollapse(location)}
                   className={`w-full flex items-center justify-between px-4 py-3 transition text-left cursor-pointer ${
-                    isAllPickedInAisle
+                    isAllPickedInAisle && !isReorderMode
                       ? 'bg-emerald-800/75 hover:bg-emerald-800 text-emerald-100 border-b border-emerald-900/30'
                       : 'bg-emerald-700 hover:bg-emerald-600 border-b border-emerald-800/40 text-white'
                   }`}
@@ -1177,12 +1333,12 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
                       className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border ${
-                        isAllPickedInAisle
+                        isAllPickedInAisle && !isReorderMode
                           ? 'bg-emerald-900/50 text-emerald-200 border-emerald-700/50'
                           : 'bg-white/20 text-white border-white/25'
                       }`}
                     >
-                      {isAllPickedInAisle ? (
+                      {isAllPickedInAisle && !isReorderMode ? (
                         <Check className="w-4 h-4 stroke-[2.5]" />
                       ) : (
                         <MapPin className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -1191,12 +1347,31 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span
                         className={`text-sm sm:text-base font-extrabold tracking-tight truncate ${
-                          isAllPickedInAisle ? 'text-emerald-100' : 'text-white'
+                          isAllPickedInAisle && !isReorderMode ? 'text-emerald-100' : 'text-white'
                         }`}
                       >
                         {location}
                       </span>
-                      {isAllPickedInAisle ? (
+                      {isReorderMode ? (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-white text-xs font-bold shadow-2xs">
+                            {totalCount} {totalCount === 1 ? 'item' : 'items'}
+                          </span>
+                          {groupItems.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleResetAisleAlphabetical(location)
+                              }}
+                              className="px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition border border-white/30 cursor-pointer active:scale-95"
+                              title="Reset this aisle to alphabetical order"
+                            >
+                              Sort A-Z
+                            </button>
+                          )}
+                        </div>
+                      ) : isAllPickedInAisle ? (
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-900/50 text-emerald-200 border border-emerald-700/50 text-xs font-bold shadow-2xs">
                           ✓ All {totalCount} picked
                         </span>
@@ -1222,7 +1397,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 {/* Items in this Aisle */}
                 {!isCollapsed && (
                   <div className="divide-y divide-slate-100">
-                    {groupItems.map((item) => {
+                    {groupItems.map((item, itemIdx) => {
                       const isPicked = item.inCart
                       const comp = compareShopPrices(item, currentShop.id, shops)
                       const shopDetail = item.shops[currentShop.id]
@@ -1248,6 +1423,87 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                       const itemSizeText = hasCustomLabel
                         ? (formattedSize ? `${formattedSize} (${rawLabel})` : rawLabel)
                         : formattedSize
+
+                      const isDragging = draggedItemId === item.id
+                      const isDragOver = dragOverItemId === item.id && draggedItemId !== item.id
+
+                      // Render Reorder Row when isReorderMode is active
+                      if (isReorderMode) {
+                        return (
+                          <div
+                            key={item.id}
+                            data-reorder-item-id={item.id}
+                            data-reorder-location={location}
+                            draggable
+                            onDragStart={(e) => handleDragStartItem(e, item.id, location)}
+                            onDragOver={(e) => handleDragOverItem(e, item.id, location)}
+                            onDrop={() => handleDropItem(location, item.id)}
+                            onTouchStart={() => handleTouchStartItem(item.id, location)}
+                            onTouchMove={(e) => handleTouchMoveItem(e, location)}
+                            onTouchEnd={() => handleTouchEndItem(location)}
+                            className={`p-3 sm:p-3.5 transition flex items-center justify-between gap-3 select-none ${
+                              isDragging
+                                ? 'opacity-40 bg-amber-100/60 border-2 border-dashed border-amber-400'
+                                : isDragOver
+                                  ? 'bg-amber-50/70 border-t-2 border-amber-500'
+                                  : 'hover:bg-slate-50/80 bg-white'
+                            }`}
+                          >
+                            {/* Left: Drag Handle + Sequence Badge + Item Name & Size */}
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              {/* Grip Handle */}
+                              <div
+                                className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-amber-600 transition shrink-0 touch-none"
+                                title="Drag to reorder shelf position"
+                              >
+                                <GripVertical className="w-5 h-5" />
+                              </div>
+
+                              {/* Sequence Badge */}
+                              <div className="w-7 h-7 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center justify-center shrink-0 text-xs font-black shadow-2xs">
+                                {itemIdx + 1}
+                              </div>
+
+                              {/* Name & Size */}
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-bold text-slate-900 truncate">
+                                  {item.name}
+                                </div>
+                                <div className="text-xs text-slate-500 truncate mt-0.5">
+                                  {packsNeeded > 1
+                                    ? `${Number(packsNeeded.toFixed(2))} × ${itemSizeText}`
+                                    : itemSizeText}
+                                  {item.notes ? ` • ${item.notes}` : ''}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right: Precision Up/Down Step Buttons */}
+                            <div className="shrink-0 flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={itemIdx === 0}
+                                onClick={() => handleMoveItemInAisle(location, itemIdx, itemIdx - 1)}
+                                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-800 disabled:opacity-25 disabled:pointer-events-none flex items-center justify-center transition active:scale-90 cursor-pointer shadow-2xs"
+                                title="Move up shelf"
+                                aria-label="Move up"
+                              >
+                                <ChevronUp className="w-4 h-4 stroke-[2.5]" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={itemIdx === groupItems.length - 1}
+                                onClick={() => handleMoveItemInAisle(location, itemIdx, itemIdx + 1)}
+                                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-800 disabled:opacity-25 disabled:pointer-events-none flex items-center justify-center transition active:scale-90 cursor-pointer shadow-2xs"
+                                title="Move down shelf"
+                                aria-label="Move down"
+                              >
+                                <ChevronDown className="w-4 h-4 stroke-[2.5]" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      }
 
                       return (
                         <div
@@ -1475,6 +1731,38 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Floating Reorder Mode Banner */}
+      {isReorderMode && (
+        <div className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-md animate-in slide-in-from-bottom-4 duration-200 pointer-events-auto">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <ArrowUpDown className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-black truncate">
+                  Reordering {currentShop.name}
+                </div>
+                <div className="text-[10px] text-slate-300">
+                  Drag items or tap ▲/▼ to arrange shelf walk
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(20)
+                setIsReorderMode(false)
+                setToastMessage(`Shelf walk-through order saved for ${currentShop.name}`)
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-xs transition shadow-sm shrink-0 cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Switch Store Modal */}
       {showStoreSwitcherModal && (
@@ -2279,6 +2567,30 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
             {/* Scrollable Body */}
             <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5 flex-1">
+              {/* Shelf Walk-through Sequence Reorder */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(20)
+                  setShowOptionsPopover(false)
+                  setIsReorderMode(true)
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-2xl bg-amber-50/80 border border-amber-200/90 hover:bg-amber-100/80 text-amber-950 cursor-pointer text-xs transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border bg-amber-500 text-white border-amber-600 shadow-2xs">
+                    <ArrowUpDown className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900">Reorder Shelf Sequence</div>
+                    <div className="text-[10px] text-slate-500">
+                      Arrange items to match physical aisles in {currentShop.name}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-black text-amber-700 shrink-0">Start →</span>
+              </button>
+
               {/* Option 1: Best Prices Only (Save Mode) */}
               <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 cursor-pointer text-xs transition">
                 <div className="flex items-center gap-3">
