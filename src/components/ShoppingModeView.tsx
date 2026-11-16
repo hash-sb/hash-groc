@@ -1594,8 +1594,8 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 )}
                               </div>
 
-                              {/* Row 2: Clean unified subtitle for Quantity, Package Size & Notes */}
-                              <div className="flex items-center gap-2 flex-wrap mt-0.5 text-xs">
+                              {/* Row 2: Clean unified subtitle for Quantity, Package Size, Alternative Picker & Notes */}
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5 text-xs">
                                 <span
                                   className={`font-semibold ${
                                     isPicked ? 'text-slate-400 line-through' : 'text-slate-600'
@@ -1605,6 +1605,36 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                     ? `${Number(packsNeeded.toFixed(2))} × ${itemSizeText}`
                                     : itemSizeText}
                                 </span>
+
+                                {/* 1-Tap Inline Alternative Price / Size Switcher Pill */}
+                                {optResult.hasMultipleOptions && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      triggerHaptic(15)
+                                      setSizePickerItem({
+                                        item,
+                                        options: optResult.allOptions,
+                                        bestOptId: optResult.bestOption.id,
+                                        activeOptId: activeOpt.id,
+                                      })
+                                    }}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer active:scale-95 ${
+                                      activeOpt.id !== optResult.bestOption.id
+                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                                        : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                                    }`}
+                                    title="Multiple alternative prices available at this store — tap to switch"
+                                  >
+                                    <Layers className="w-2.5 h-2.5 shrink-0" />
+                                    <span>
+                                      {activeOpt.id !== optResult.bestOption.id
+                                        ? `Alt Picked (${optResult.allOptions.length}) ▾`
+                                        : `${optResult.allOptions.length} options ▾`}
+                                    </span>
+                                  </button>
+                                )}
 
                                 {item.notes && (
                                   <span
@@ -1626,10 +1656,23 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                               type="button"
                               onClick={() => {
                                 triggerHaptic(15)
-                                onEditItem(item, currentShop.id, 'price', activeOpt.id)
+                                if (optResult.hasMultipleOptions) {
+                                  setSizePickerItem({
+                                    item,
+                                    options: optResult.allOptions,
+                                    bestOptId: optResult.bestOption.id,
+                                    activeOptId: activeOpt.id,
+                                  })
+                                } else {
+                                  onEditItem(item, currentShop.id, 'price', activeOpt.id)
+                                }
                               }}
                               className="group flex flex-col items-end px-2 py-1 rounded-xl border border-transparent hover:border-emerald-300 hover:bg-emerald-50/40 active:scale-95 transition text-right cursor-pointer"
-                              title="Tap to edit item price & details"
+                              title={
+                                optResult.hasMultipleOptions
+                                  ? 'Tap to switch between alternative store prices or edit price'
+                                  : 'Tap to edit item price & details'
+                              }
                             >
                               <span
                                 className={`text-sm font-extrabold tracking-tight ${
@@ -2193,7 +2236,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
         </div>
       )}
 
-      {/* Interactive Size Picker Modal Sheet */}
+      {/* Interactive Alternative Price / Size Picker Modal Sheet */}
       {sizePickerItem && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-[60] overflow-y-auto overscroll-contain animate-in fade-in duration-150"
@@ -2208,7 +2251,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 <div className="flex items-center gap-1.5">
                   <Layers className="w-4 h-4 text-indigo-600" />
                   <h3 className="text-base font-extrabold text-slate-900">
-                    Pick Package Size
+                    Choose Alternative Price / Size
                   </h3>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -2219,14 +2262,33 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                 type="button"
                 onClick={() => setSizePickerItem(null)}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="text-[11px] font-semibold text-slate-600 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-100 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>The best unit price is selected by default for maximum grocery savings.</span>
+            <div className="text-[11px] font-semibold text-slate-600 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-100 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  {sizePickerItem.activeOptId === sizePickerItem.bestOptId
+                    ? 'Lowest price/unit is auto-selected. Tap any alternative below if out of stock or you prefer another option.'
+                    : 'Using your manually chosen alternative price for this store.'}
+                </span>
+              </div>
+              {sizePickerItem.activeOptId !== sizePickerItem.bestOptId && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleSelectPackageOption(sizePickerItem.item, sizePickerItem.bestOptId)
+                    setSizePickerItem(null)
+                  }}
+                  className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shrink-0 cursor-pointer"
+                >
+                  Reset to Best
+                </button>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -2243,7 +2305,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                     }}
                     className={`w-full p-3.5 rounded-xl text-left transition flex items-center justify-between gap-3 cursor-pointer border ${
                       isSelected
-                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-950 shadow-xs'
+                        ? 'bg-indigo-50/90 border-indigo-400 text-indigo-950 shadow-xs ring-1 ring-indigo-400/30'
                         : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
                     }`}
                   >
@@ -2254,10 +2316,11 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                         </span>
                         {isBestValue && (
                           <span
-                            className="inline-flex items-center p-0.5 text-emerald-600 shrink-0"
-                            title="Lowest price (best value)"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold shrink-0"
+                            title="Lowest price per unit (best value)"
                           >
-                            <Sparkles className="w-3.5 h-3.5" />
+                            <Sparkles className="w-3 h-3 text-emerald-600" />
+                            <span>Lowest /Unit</span>
                           </span>
                         )}
                         {opt.isLowestCashOutlay && !isBestValue && (
@@ -2265,7 +2328,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0"
                             title="Lowest upfront cash"
                           >
-                            $
+                            $ Lowest Total
                           </span>
                         )}
                       </div>
@@ -2289,11 +2352,14 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
 
                     <div className="shrink-0">
                       {isSelected ? (
-                        <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <div className="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                          <span>Active</span>
                         </div>
                       ) : (
-                        <div className="w-6 h-6 rounded-full border-2 border-slate-200 hover:border-slate-300" />
+                        <div className="px-2.5 py-1 rounded-full border border-slate-200 text-slate-500 text-[10px] font-semibold hover:border-indigo-300 hover:text-indigo-700">
+                          Select
+                        </div>
                       )}
                     </div>
                   </button>
@@ -2301,11 +2367,24 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
               })}
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const it = sizePickerItem.item
+                  const activeId = sizePickerItem.activeOptId
+                  setSizePickerItem(null)
+                  onEditItem(it, currentShop.id, 'price', activeId)
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Edit / Add Prices...</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setSizePickerItem(null)}
-                className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer transition shadow-xs"
               >
                 Done
               </button>

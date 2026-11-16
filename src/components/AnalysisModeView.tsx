@@ -31,7 +31,7 @@ interface AnalysisModeViewProps {
 }
 
 export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }) => {
-  const { items, shops, categories, receipts, exportToCSV } = useShopping()
+  const { items, shops, categories, receipts, exportToCSV, updateItemShopDetail } = useShopping()
   const { showAlert } = useConfirmDialog()
 
   const [analysisTab, setAnalysisTab] = useState<'matrix' | 'spending'>('spending')
@@ -107,14 +107,14 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
         optimalCount++
       }
 
-      // Add to each individual store basket based on optimal package fulfillment
+      // Add to each individual store basket based on selected/optimal package fulfillment
       shops.forEach((shop) => {
         const detail = item.shops[shop.id]
         if (detail && detail.available) {
           const optResult = getOptimalStorePackage(item, shop.id)
-          const bestOpt = optResult.bestOption
-          if (bestOpt.price > 0) {
-            storeTotals[shop.id].total += bestOpt.fulfillmentCost
+          const activeOpt = optResult.selectedOption || optResult.bestOption
+          if (activeOpt.price > 0) {
+            storeTotals[shop.id].total += activeOpt.fulfillmentCost
             storeTotals[shop.id].itemCount++
           }
         }
@@ -136,9 +136,9 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
         text += `*${s.name} (${cheapestAtThisStore.length} best deals):*\n`
         cheapestAtThisStore.forEach((i) => {
           const optResult = getOptimalStorePackage(i, s.id)
-          const bestOpt = optResult.bestOption
-          const p = bestOpt.price > 0 ? bestOpt.price : (i.shops[s.id]?.price || 0)
-          const sizeLabel = bestOpt.label || `${bestOpt.packageSize} ${bestOpt.packageUnit || i.unit}`
+          const activeOpt = optResult.selectedOption || optResult.bestOption
+          const p = activeOpt.price > 0 ? activeOpt.price : (i.shops[s.id]?.price || 0)
+          const sizeLabel = activeOpt.label || `${activeOpt.packageSize} ${activeOpt.packageUnit || i.unit}`
           text += ` • ${i.name} (${sizeLabel}) - ${formatPrice(p)}\n`
         })
         text += `\n`
@@ -457,13 +457,14 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                         const isCarried = detail?.available ?? true
                         const optResult = getOptimalStorePackage(item, shop.id)
                         const bestOpt = optResult.bestOption
+                        const activeOpt = optResult.selectedOption || bestOpt
                         const allOpts = optResult.allOptions
                         const hasMultiple = optResult.hasMultipleOptions
-                        const price = bestOpt.price > 0 ? bestOpt.price : (detail?.price ?? null)
-                        const unitPrice = bestOpt.unitPrice ?? detail?.unitPrice ?? null
-                        const packageSize = bestOpt.packageSize || detail?.packageSize
-                        const packageUnit = bestOpt.packageUnit || detail?.packageUnit
-                        const packs = bestOpt.packsNeeded
+                        const price = activeOpt.price > 0 ? activeOpt.price : (detail?.price ?? null)
+                        const unitPrice = activeOpt.unitPrice ?? detail?.unitPrice ?? null
+                        const packageSize = activeOpt.packageSize || detail?.packageSize
+                        const packageUnit = activeOpt.packageUnit || detail?.packageUnit
+                        const packs = activeOpt.packsNeeded
                         const fulfillmentCost = price !== null ? price * packs : null
                         const isCheapest =
                           isCarried &&
@@ -521,7 +522,7 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                                     {hasMultiple && (
                                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800">
                                         <Layers className="w-2.5 h-2.5" />
-                                        <span>{allOpts.length} sizes</span>
+                                        <span>{allOpts.length} options</span>
                                       </span>
                                     )}
                                   </div>
@@ -529,7 +530,7 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                                   {/* Pack breakdown if packs > 1 or package size differs */}
                                   {packageSize ? (
                                     <div className="text-[10px] text-slate-600 font-medium">
-                                      {packs > 1 ? `${packs} × ${formatPrice(price)} ` : ''}({packageSize} {packageUnit || item.unit}){bestOpt.label ? ` • ${bestOpt.label}` : ''}
+                                      {packs > 1 ? `${packs} × ${formatPrice(price)} ` : ''}({packageSize} {packageUnit || item.unit}){activeOpt.label ? ` • ${activeOpt.label}` : ''}
                                     </div>
                                   ) : packs > 1 ? (
                                     <div className="text-[10px] text-slate-500 font-medium">
@@ -545,32 +546,44 @@ export const AnalysisModeView: React.FC<AnalysisModeViewProps> = ({ onEditItem }
                                     </div>
                                   )}
 
-                                  {/* All tracked sizes breakdown if multiple sizes exist */}
+                                  {/* All tracked sizes breakdown if multiple sizes exist (Clickable to switch active option!) */}
                                   {hasMultiple && (
                                     <div className="mt-1.5 pt-1.5 border-t border-slate-100 space-y-0.5">
                                       <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                                        All sizes tracked:
+                                        Tap option to select:
                                       </div>
                                       <div className="flex flex-col gap-0.5">
-                                        {allOpts.map((opt, i) => (
-                                          <div
-                                            key={opt.id || i}
-                                            className={`text-[9px] px-1.5 py-0.5 rounded flex items-center justify-between gap-1 ${
-                                              opt.id === bestOpt.id
-                                                ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-200'
-                                                : 'bg-slate-50 text-slate-600'
-                                            }`}
-                                            title={`${opt.label ? `${opt.label}: ` : ''}${opt.packageSize} ${opt.packageUnit} @ ${formatPrice(opt.price)} (${formatUnitPrice(opt.unitPrice, opt.packageUnit)})`}
-                                          >
-                                            <span className="truncate">
-                                              {opt.label || `${opt.packageSize} ${opt.packageUnit}`}
-                                            </span>
-                                            <span className="font-mono shrink-0">
-                                              {formatPrice(opt.price)}
-                                              {opt.unitPrice ? ` (${formatUnitPrice(opt.unitPrice, opt.packageUnit)})` : ''}
-                                            </span>
-                                          </div>
-                                        ))}
+                                        {allOpts.map((opt, i) => {
+                                          const isOptSelected = opt.id === activeOpt.id
+                                          return (
+                                            <button
+                                              key={opt.id || i}
+                                              type="button"
+                                              onClick={() =>
+                                                updateItemShopDetail(item.id, shop.id, {
+                                                  selectedOptionId: opt.id,
+                                                })
+                                              }
+                                              className={`w-full text-left text-[9px] px-1.5 py-1 rounded flex items-center justify-between gap-1 transition cursor-pointer ${
+                                                isOptSelected
+                                                  ? 'bg-indigo-50 text-indigo-950 font-bold border border-indigo-300 shadow-2xs'
+                                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-transparent'
+                                              }`}
+                                              title={`Tap to use ${opt.label ? `${opt.label}: ` : ''}${opt.packageSize} ${opt.packageUnit} @ ${formatPrice(opt.price)}`}
+                                            >
+                                              <span className="truncate flex items-center gap-1">
+                                                {isOptSelected && <Check className="w-2.5 h-2.5 text-indigo-600 shrink-0 stroke-[3]" />}
+                                                <span className="truncate">
+                                                  {opt.label || `${opt.packageSize} ${opt.packageUnit}`}
+                                                </span>
+                                              </span>
+                                              <span className="font-mono shrink-0">
+                                                {formatPrice(opt.price)}
+                                                {opt.unitPrice ? ` (${formatUnitPrice(opt.unitPrice, opt.packageUnit)})` : ''}
+                                              </span>
+                                            </button>
+                                          )
+                                        })}
                                       </div>
                                     </div>
                                   )}

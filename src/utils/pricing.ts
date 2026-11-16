@@ -808,17 +808,17 @@ export function compareShopPrices(
   for (const shop of shops) {
     const detail = item.shops[shop.id]
     const optResult = getOptimalStorePackage(item, shop.id)
-    const bestOpt = optResult.bestOption
-    const packsNeeded = bestOpt.packsNeeded
-    const effectivePrice = bestOpt.price > 0 ? bestOpt.price : (detail?.price || 0)
+    const activeOpt = optResult.selectedOption || optResult.bestOption
+    const packsNeeded = activeOpt.packsNeeded
+    const effectivePrice = activeOpt.price > 0 ? activeOpt.price : (detail?.price || 0)
     const isCarried = detail ? detail.available !== false : true
     const isSkippedThisTrip = isShopSkippedForTrip(item, shop.id)
     const isAvailableThisTrip = isCarried && !isSkippedThisTrip
 
     if (isAvailableThisTrip && effectivePrice > 0) {
       const fulfillmentCost = effectivePrice * packsNeeded
-      const normUnitPrice = bestOpt.normalizedUnitPrice ?? null
-      const effectiveUnit = bestOpt.packageUnit || detail?.packageUnit || item.unit || null
+      const normUnitPrice = activeOpt.normalizedUnitPrice ?? null
+      const effectiveUnit = activeOpt.packageUnit || detail?.packageUnit || item.unit || null
       const unitFamily = getUnitFamily(effectiveUnit)
 
       allStorePrices.push({
@@ -826,13 +826,13 @@ export function compareShopPrices(
         price: effectivePrice,
         packsNeeded,
         fulfillmentCost,
-        packageSize: bestOpt.packageSize,
-        packageUnit: bestOpt.packageUnit,
-        unitPrice: bestOpt.unitPrice,
+        packageSize: activeOpt.packageSize,
+        packageUnit: activeOpt.packageUnit,
+        unitPrice: activeOpt.unitPrice,
         available: true,
         location: detail?.location || '',
         hasMultipleSizes: optResult.hasMultipleOptions,
-        bestOptionLabel: bestOpt.label,
+        bestOptionLabel: activeOpt.label,
         allOptions: optResult.allOptions,
       })
 
@@ -881,8 +881,8 @@ export function compareShopPrices(
         cheapestPrice = effectivePrice
         cheapestPacksNeeded = packsNeeded
         cheapestFulfillmentCost = fulfillmentCost
-        cheapestUnitPrice = bestOpt.unitPrice || null
-        cheapestPackageUnit = bestOpt.packageUnit || null
+        cheapestUnitPrice = activeOpt.unitPrice || null
+        cheapestPackageUnit = activeOpt.packageUnit || null
         cheapestNormUnitPrice = normUnitPrice
         cheapestUnitFamily = unitFamily
       }
@@ -898,7 +898,7 @@ export function compareShopPrices(
         available: isAvailableThisTrip,
         location: detail.location || '',
         hasMultipleSizes: optResult.hasMultipleOptions,
-        bestOptionLabel: bestOpt.label,
+        bestOptionLabel: activeOpt.label,
         allOptions: optResult.allOptions,
       })
     }
@@ -1137,7 +1137,8 @@ export function isCheapestAtStore(
   const pricedCarryingShops = carryingShops.filter((s) => {
     const d = item.shops[s.id]
     const opt = getOptimalStorePackage(item, s.id)
-    const p = opt.bestOption.price > 0 ? opt.bestOption.price : (d?.price || 0)
+    const activeOpt = opt.selectedOption || opt.bestOption
+    const p = activeOpt.price > 0 ? activeOpt.price : (d?.price || 0)
     return p > 0
   })
 
@@ -1148,7 +1149,8 @@ export function isCheapestAtStore(
 
   // If other stores have prices, but target store has no price, target store is not the cheapest
   const targetOpt = getOptimalStorePackage(item, targetShopId)
-  const targetPrice = targetOpt.bestOption.price > 0 ? targetOpt.bestOption.price : (targetDetail?.price || 0)
+  const targetActiveOpt = targetOpt.selectedOption || targetOpt.bestOption
+  const targetPrice = targetActiveOpt.price > 0 ? targetActiveOpt.price : (targetDetail?.price || 0)
   if (targetPrice <= 0) {
     return false
   }

@@ -1326,6 +1326,10 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                     currentShopDetail.available &&
                     hasMultipleSizes &&
                     optimalStorePackageResult?.bestOption.id === opt.id
+                  const isSelectedOption =
+                    currentShopDetail.available &&
+                    hasMultipleSizes &&
+                    optimalStorePackageResult?.selectedOption.id === opt.id
                   const optPriceNum =
                     typeof opt.price === 'number'
                       ? opt.price
@@ -1357,11 +1361,58 @@ export const ItemEditorModal: React.FC<ItemEditorModalProps> = ({
                       className={`p-1.5 sm:p-2 rounded-xl border transition-all space-y-1 ${
                         !currentShopDetail.available
                           ? 'bg-slate-100/60 border-slate-200/80 opacity-60'
+                          : isSelectedOption && !isOptimal
+                          ? 'bg-indigo-50/70 border-indigo-300 shadow-2xs ring-1 ring-indigo-400/30'
                           : isOptimal
                           ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/30'
                           : 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
                       }`}
                     >
+                      {hasMultipleSizes && currentShopDetail.available && (
+                        <div className="flex items-center justify-between gap-2 pb-0.5">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                            <span className="text-slate-500">Option {idx + 1}</span>
+                            {isOptimal && (
+                              <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded-full">
+                                <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>Lowest /Unit</span>
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleShopDetailChange(activeShop.id, {
+                                selectedOptionId:
+                                  opt.id === optimalStorePackageResult?.bestOption.id
+                                    ? undefined
+                                    : opt.id,
+                              })
+                            }
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition cursor-pointer ${
+                              isSelectedOption
+                                ? isOptimal
+                                  ? 'bg-emerald-600 text-white shadow-2xs'
+                                  : 'bg-indigo-600 text-white shadow-2xs'
+                                : 'bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200'
+                            }`}
+                            title={
+                              isSelectedOption
+                                ? 'Currently used price for this store'
+                                : 'Tap to pick this alternative price instead of the lowest unit price'
+                            }
+                          >
+                            {isSelectedOption ? (
+                              <>
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                <span>{isOptimal ? 'Active (Best)' : 'Active (Picked)'}</span>
+                              </>
+                            ) : (
+                              <span>Use This Price</span>
+                            )}
+                          </button>
+                        </div>
+                      )}
                       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_76px_54px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px_60px] gap-1 sm:gap-1.5 items-center">
                         {/* Column 1: Shelf Price ($) */}
                         <div className="relative min-w-0">
