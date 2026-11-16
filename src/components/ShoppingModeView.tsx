@@ -1433,7 +1433,7 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                         ? `${activeOpt.packageSize} ${activeOpt.packageUnit || ''}`.trim()
                         : shopDetail?.packageSize
                           ? `${shopDetail.packageSize} ${shopDetail.packageUnit || item.unit || ''}`.trim()
-                          : `${item.quantity || 1} ${item.unit || ''}`.trim()
+                          : `1 ${item.unit || 'item'}`.trim()
 
                       const rawLabel = activeOpt.label?.trim()
                       const hasCustomLabel = Boolean(
@@ -1594,47 +1594,68 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                                 )}
                               </div>
 
-                              {/* Row 2: Clean unified subtitle for Quantity, Package Size, Alternative Picker & Notes */}
-                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5 text-xs">
-                                <span
-                                  className={`font-semibold ${
-                                    isPicked ? 'text-slate-400 line-through' : 'text-slate-600'
+                              {/* Row 2: Clickable Quantity Number × Clickable Alternative Size + Notes */}
+                              <div className="flex items-center gap-1.5 flex-wrap mt-1 text-xs">
+                                {/* Clickable Quantity Number for fast adjustment */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    triggerHaptic(15)
+                                    setQuickQuantityItem({
+                                      item,
+                                      currentQty: packsNeeded,
+                                    })
+                                  }}
+                                  className={`inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded-md font-bold border transition cursor-pointer active:scale-95 ${
+                                    isPicked
+                                      ? 'bg-slate-100 text-slate-400 border-slate-200 line-through'
+                                      : 'bg-slate-100 hover:bg-emerald-50 text-slate-800 hover:text-emerald-800 border-slate-200/90 hover:border-emerald-300 shadow-2xs'
                                   }`}
+                                  title="Tap to adjust quantity"
                                 >
-                                  {packsNeeded > 1
-                                    ? `${Number(packsNeeded.toFixed(2))} × ${itemSizeText}`
-                                    : itemSizeText}
-                                </span>
+                                  {Number(packsNeeded.toFixed(2))}
+                                </button>
 
-                                {/* 1-Tap Inline Alternative Price / Size Switcher Pill */}
-                                {optResult.hasMultipleOptions && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      triggerHaptic(15)
+                                <span className="text-slate-400 font-semibold select-none">×</span>
+
+                                {/* Clickable Package Size (switches alternative size/price when multiple exist, or opens editor) */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    triggerHaptic(15)
+                                    if (optResult.hasMultipleOptions) {
                                       setSizePickerItem({
                                         item,
                                         options: optResult.allOptions,
                                         bestOptId: optResult.bestOption.id,
                                         activeOptId: activeOpt.id,
                                       })
-                                    }}
-                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer active:scale-95 ${
-                                      activeOpt.id !== optResult.bestOption.id
-                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                                        : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
-                                    }`}
-                                    title="Multiple alternative prices available at this store — tap to switch"
-                                  >
-                                    <Layers className="w-2.5 h-2.5 shrink-0" />
-                                    <span>
-                                      {activeOpt.id !== optResult.bestOption.id
-                                        ? `Alt Picked (${optResult.allOptions.length}) ▾`
-                                        : `${optResult.allOptions.length} options ▾`}
-                                    </span>
-                                  </button>
-                                )}
+                                    } else {
+                                      onEditItem(item, currentShop.id, undefined, activeOpt.id)
+                                    }
+                                  }}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold border transition cursor-pointer active:scale-95 ${
+                                    isPicked
+                                      ? 'bg-slate-100 text-slate-400 border-slate-200 line-through'
+                                      : optResult.hasMultipleOptions
+                                        ? activeOpt.id !== optResult.bestOption.id
+                                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 font-bold shadow-2xs'
+                                          : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 font-bold'
+                                        : 'bg-slate-100/80 hover:bg-slate-200/70 text-slate-700 border-slate-200/80'
+                                  }`}
+                                  title={
+                                    optResult.hasMultipleOptions
+                                      ? `Tap to switch between ${optResult.allOptions.length} alternative sizes/prices at ${currentShop.name}`
+                                      : 'Tap to edit size or add an alternative size'
+                                  }
+                                >
+                                  <span>{itemSizeText}</span>
+                                  {optResult.hasMultipleOptions && (
+                                    <span className="text-[10px] leading-none opacity-80">▾</span>
+                                  )}
+                                </button>
 
                                 {item.notes && (
                                   <span
@@ -1650,29 +1671,16 @@ export const ShoppingModeView: React.FC<ShoppingModeViewProps> = ({
                             </div>
                           </div>
 
-                          {/* Right: Clean Price & Vertical 3-dot item menu */}
+                          {/* Right: Clean Price (goes directly to currently selected alternative price) & Vertical 3-dot item menu */}
                           <div className={`shrink-0 flex items-center gap-1 sm:gap-2 ${isPicked ? 'opacity-60' : ''}`}>
                             <button
                               type="button"
                               onClick={() => {
                                 triggerHaptic(15)
-                                if (optResult.hasMultipleOptions) {
-                                  setSizePickerItem({
-                                    item,
-                                    options: optResult.allOptions,
-                                    bestOptId: optResult.bestOption.id,
-                                    activeOptId: activeOpt.id,
-                                  })
-                                } else {
-                                  onEditItem(item, currentShop.id, 'price', activeOpt.id)
-                                }
+                                onEditItem(item, currentShop.id, 'price', activeOpt.id)
                               }}
                               className="group flex flex-col items-end px-2 py-1 rounded-xl border border-transparent hover:border-emerald-300 hover:bg-emerald-50/40 active:scale-95 transition text-right cursor-pointer"
-                              title={
-                                optResult.hasMultipleOptions
-                                  ? 'Tap to switch between alternative store prices or edit price'
-                                  : 'Tap to edit item price & details'
-                              }
+                              title="Tap to edit the currently selected price"
                             >
                               <span
                                 className={`text-sm font-extrabold tracking-tight ${
