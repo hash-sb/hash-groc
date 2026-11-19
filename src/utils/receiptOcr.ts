@@ -88,7 +88,8 @@ export async function compressImageForOcr(
 }
 
 /**
- * Calls Gemini Vision API to analyze receipt image and extract structured items & prices.
+ * Calls Gemini Vision API (via secure /api/scan-receipt serverless proxy when available,
+ * or client-side BYOK fallback) to analyze receipt image and extract structured items & prices.
  */
 export async function parseReceiptWithGemini(
   fileOrBlob: File | Blob,
@@ -96,15 +97,46 @@ export async function parseReceiptWithGemini(
   availableShops: Shop[],
   customApiKey?: string
 ): Promise<ParsedReceiptResult> {
+  const { base64Data, mimeType } = await compressImageForOcr(fileOrBlob)
   const apiKey = customApiKey?.trim() || getGeminiApiKey()
 
+  let parsed: any = null
+
+  // 1. If no custom client API key is overriding, try the secure Vercel Serverless Function first
   if (!apiKey) {
-    throw new Error('MISSING_API_KEY')
+    try {
+      const serverRes = await fetch('/api/scan-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64Data, mimeType }),
+      })
+
+      if (serverRes.ok) {
+        parsed = await serverRes.json()
+      } else if (serverRes.status === 501 || serverRes.status === 404) {
+        throw new Error('MISSING_API_KEY')
+      } else {
+        const errData = await serverRes.json().catch(() => ({}))
+        throw new Error(errData.error || `Server OCR error (${serverRes.status})`)
+      }
+    } catch (err: any) {
+      if (err.message === 'MISSING_API_KEY') {
+        throw err
+      }
+      // If local dev server doesn't mount /api/scan-receipt, prompt for key
+      if (!apiKey) {
+        throw new Error('MISSING_API_KEY')
+      }
+    }
   }
 
-  const { base64Data, mimeType } = await compressImageForOcr(fileOrBlob)
+  // 2. Client-side BYOK fallback when user provided their own Gemini API key
+  if (!parsed) {
+    if (!apiKey) {
+      throw new Error('MISSING_API_KEY')
+    }
 
-  const prompt = `You are a high-accuracy grocery receipt parser. Analyze this receipt photo and extract all purchased items, prices, store details, and total.
+    const prompt = `You are a high-accuracy grocery receipt parser. Analyze this receipt photo and extract all purchased items, prices, store details, and total.
 
 Format your response as a valid JSON object matching this schema:
 {
@@ -129,54 +161,54 @@ Guidelines:
 - Clean names should be friendly and match common grocery list entries (e.g. "Avocados", "Eggs", "Sourdough Bread").
 - Return strictly raw JSON with no markdown wrapping or code blocks.`
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: base64Data,
-              },
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        response_mime_type: 'application/json',
-        temperature: 0.1,
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-    }),
-  })
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          response_mime_type: 'application/json',
+          temperature: 0.1,
+        },
+      }),
+    })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Gemini API error (${response.status}): ${errorText}`)
-  }
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Gemini API error (${response.status}): ${errorText}`)
+    }
 
-  const jsonResponse = await response.json()
-  const textOutput = jsonResponse?.candidates?.[0]?.content?.parts?.[0]?.text
+    const jsonResponse = await response.json()
+    const textOutput = jsonResponse?.candidates?.[0]?.content?.parts?.[0]?.text
 
-  if (!textOutput) {
-    throw new Error('Gemini did not return any text for this receipt image.')
-  }
+    if (!textOutput) {
+      throw new Error('Gemini did not return any text for this receipt image.')
+    }
 
-  let parsed: any
-  try {
-    // Strip any accidental markdown formatting
-    const sanitized = textOutput.replace(/```json/gi, '').replace(/```/g, '').trim()
-    parsed = JSON.parse(sanitized)
-  } catch (err) {
-    console.error('Failed to parse Gemini JSON output:', textOutput)
-    throw new Error('Failed to parse receipt data structure. Please try a clearer photo.')
+    try {
+      // Strip any accidental markdown formatting
+      const sanitized = textOutput.replace(/```json/gi, '').replace(/```/g, '').trim()
+      parsed = JSON.parse(sanitized)
+    } catch {
+      console.error('Failed to parse Gemini JSON output:', textOutput)
+      throw new Error('Failed to parse receipt data structure. Please try a clearer photo.')
+    }
   }
 
   // Match store with available shops

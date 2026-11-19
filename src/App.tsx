@@ -14,6 +14,7 @@ import { BackupModal } from './components/BackupModal'
 import { UpgradeModal } from './components/UpgradeModal'
 import { ReceiptScannerModal } from './components/ReceiptScannerModal'
 import { ConfirmDialogProvider } from './components/ConfirmDialogModal'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import type { ShoppingItem } from './types'
 
 const AppContent: React.FC = () => {
@@ -154,12 +155,14 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ShoppingProvider>
-        <ConfirmDialogProvider>
-          <AppContent />
-        </ConfirmDialogProvider>
-      </ShoppingProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ShoppingProvider>
+          <ConfirmDialogProvider>
+            <AppContent />
+          </ConfirmDialogProvider>
+        </ShoppingProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

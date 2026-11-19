@@ -15,6 +15,8 @@ import {
   HardDrive,
   Sparkles,
   Receipt,
+  MessageSquarePlus,
+  ShieldCheck,
 } from 'lucide-react'
 import { useShopping } from '../context/ShoppingContext'
 import { useAuth } from '../firebase/AuthContext'
@@ -526,6 +528,72 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Support, Feedback & Privacy Section */}
+          <div className="pt-3 border-t border-slate-200 space-y-1">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
+              Support & Trust
+            </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                const subject = encodeURIComponent('HashGroc App Feedback / Issue Report')
+                const body = encodeURIComponent(
+                  `Hi HashGroc Team,\n\nHere is my feedback or issue report:\n\n- What I was doing:\n- What happened / suggestion:\n\n(App Context: ${items.length} items, ${isConfigured ? 'Cloud Sync' : 'Local Mode'})`
+                )
+                window.location.href = `mailto:feedback@hashgroc.app?subject=${subject}&body=${body}`
+                await showAlert({
+                  title: 'Thank You for Your Feedback!',
+                  message:
+                    'Your email client has been opened with a pre-filled feedback template.\n\nYour suggestions directly shape the next updates to HashGroc!',
+                  buttonLabel: 'Done',
+                  variant: 'emerald',
+                })
+              }}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition text-left group border border-transparent hover:border-slate-200 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-teal-50 text-teal-700">
+                  <MessageSquarePlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-900">Send Feedback / Report Issue</div>
+                  <div className="text-[11px] text-slate-500">
+                    Share ideas or report a bug directly
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await showAlert({
+                  title: 'Privacy & Data Security Promise',
+                  message:
+                    '• Offline-First Ownership: Your grocery catalog, store prices, and receipts are stored locally on your device first so the app works even with zero cell signal inside stores.\n\n• Private Household Sync: When signed in, your list syncs strictly within your private household invite code.\n\n• Full Portability: You own your data 100% and can export or restore it anytime as JSON or CSV.',
+                  buttonLabel: 'Got It',
+                  variant: 'emerald',
+                })
+              }}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition text-left group border border-transparent hover:border-slate-200 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-900">Privacy & Data Security</div>
+                  <div className="text-[11px] text-slate-500">
+                    How your grocery data is protected
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
+            </button>
           </div>
         </div>
 
